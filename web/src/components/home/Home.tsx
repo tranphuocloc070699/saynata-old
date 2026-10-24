@@ -134,52 +134,66 @@ export function Home() {
         : "asleep";
 
   return (
-    <div ref={root} className="flex w-full flex-col gap-5">
-      <Composer
-        value={text}
-        onChange={setText}
-        onSubmit={() => submit(text)}
-        targetLang={targetLang}
-        onLanguage={setTargetLang}
-        mood={mood}
-      />
+    // On a wide screen (lg) a result makes the page two columns: the composer stays in view on the left, the
+    // result grows on the right, so a PC user sees both without scrolling. Before a result the composer sits
+    // alone in the middle, and a phone always keeps one column.
+    <div
+      ref={root}
+      className={
+        result.kind === "idle"
+          ? "mx-auto flex w-full max-w-[680px] flex-col gap-5"
+          : "flex w-full flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-8"
+      }
+    >
+      <div className="flex flex-col gap-5 lg:sticky lg:top-8">
+        <Composer
+          value={text}
+          onChange={setText}
+          onSubmit={() => submit(text)}
+          targetLang={targetLang}
+          onLanguage={setTargetLang}
+          mood={mood}
+        />
 
-      {chips.length > 0 && (
-        <ul aria-label={suggestions.length > 0 ? "Suggestions" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
-          {chips.map((chip) => (
-            <li key={chip} className="chip-item">
-              <button
-                type="button"
-                onClick={() => submit(chip)}
-                className="min-h-9 cursor-pointer rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 transition-colors hover:border-accent/50 hover:text-accent"
-              >
-                {chip}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div aria-live="polite">
-        {result.kind === "loading" && <WordSkeleton />}
-        {result.kind === "error" && (
-          <p data-reveal key={result.message} role="alert" className="flex items-start gap-2 px-2 text-error">
-            <Alert className="mt-0.5 size-4 shrink-0" />
-            <span>{result.message}</span>
-          </p>
+        {chips.length > 0 && (
+          <ul aria-label={suggestions.length > 0 ? "Suggestions" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
+            {chips.map((chip) => (
+              <li key={chip} className="chip-item">
+                <button
+                  type="button"
+                  onClick={() => submit(chip)}
+                  className="min-h-9 cursor-pointer rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 transition-colors hover:border-accent/50 hover:text-accent"
+                >
+                  {chip}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
-      {result.kind === "word" && <WordCard key={result.query} word={result.word} targetLang={targetLang} />}
-      {result.kind === "sentence" && (
-        <SentenceCard
-          key={result.query}
-          text={result.query}
-          meaning={result.meaning}
-          explanation={result.explanation}
-          targetLang={targetLang}
-          onWord={setSheetWord}
-        />
-      )}
+
+      <div className="flex flex-col gap-5">
+        <div aria-live="polite">
+          {result.kind === "loading" && <WordSkeleton />}
+          {result.kind === "error" && (
+            <p data-reveal key={result.message} role="alert" className="flex items-start gap-2 px-2 text-error">
+              <Alert className="mt-0.5 size-4 shrink-0" />
+              <span>{result.message}</span>
+            </p>
+          )}
+        </div>
+        {result.kind === "word" && <WordCard key={result.query} word={result.word} targetLang={targetLang} />}
+        {result.kind === "sentence" && (
+          <SentenceCard
+            key={result.query}
+            text={result.query}
+            meaning={result.meaning}
+            explanation={result.explanation}
+            targetLang={targetLang}
+            onWord={setSheetWord}
+          />
+        )}
+      </div>
       <WordSheet word={sheetWord} targetLang={targetLang} onClose={() => setSheetWord(null)} />
     </div>
   );
