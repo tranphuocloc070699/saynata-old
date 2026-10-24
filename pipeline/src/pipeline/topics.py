@@ -30,6 +30,14 @@ OEWN_LEXICON = "oewn:2025"
 WN_DIR = RAW_DIR / "wn"
 
 JUDGE_MODEL = "claude-haiku-5-5"
+
+
+def judge_model() -> str:
+    """CLAUDE_JUDGE_MODEL, else the gateway model, else Claude Haiku (llm.model)."""
+    from pipeline import llm
+
+    return llm.model(JUDGE_MODEL, "CLAUDE_JUDGE_MODEL")
+
 JUDGE_BATCH = 50
 
 
@@ -301,23 +309,14 @@ def build_judge_prompt(batch: list[dict]) -> str:
 
 
 def fetch_from_claude(batch: list[dict]) -> JudgeResult:
-    """One real Claude Haiku call for up to 50 words. Raises RuntimeError on a refusal or an empty reply."""
-    from pipeline.generate import _client, _wait_for_rate_limit
+    """One real call (Claude Haiku, or the gateway model) for up to 50 words. Raises RuntimeError on a refusal or
+    an empty reply."""
+    from pipeline import llm
+    from pipeline.generate import _wait_for_rate_limit
 
     _wait_for_rate_limit()
-    response = _client().messages.parse(
-        model=JUDGE_MODEL,
-        max_tokens=8000,
-        system=JUDGE_SYSTEM,
-        messages=[{"role": "user", "content": build_judge_prompt(batch)}],
-        output_format=JudgeResult,
-        output_config={"effort": "low"},
-    )
-    if response.stop_reason == "refusal":
-        raise RuntimeError(f"Claude refused: {response.stop_details}")
-    if response.parsed_output is None:
-        raise RuntimeError(f"No verdicts returned (stop_reason={response.stop_reason})")
-    return response.parsed_output
+    return llm.parse(model=judge_model(), max_tokens=8000, system=JUDGE_SYSTEM,
+                     content=build_judge_prompt(batch), output_format=JudgeResult).output
 
 
 def rows_to_judge(connection: sqlite3.Connection, limit: int) -> list[dict]:
