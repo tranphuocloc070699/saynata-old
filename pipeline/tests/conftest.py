@@ -44,3 +44,20 @@ def database_url() -> str:
 def pg(database_url):
     with psycopg.connect(database_url) as connection:
         yield connection
+
+
+GATEWAY_ENVS = ("CLAUDE_BASE_URL", "CLAUDE_AUTH_TOKEN", "CLAUDE_MODEL", "CLAUDE_JUDGE_MODEL", "CLAUDE_SCENE_MODEL",
+                "CLAUDE_GUESS_MODEL", "CLAUDE_CHECK_MODEL")
+
+
+@pytest.fixture(autouse=True)
+def no_gateway(monkeypatch):
+    """Every test starts in Anthropic mode with a fresh client, whatever the shell has set."""
+    from pipeline import llm
+
+    for name in GATEWAY_ENVS:
+        monkeypatch.delenv(name, raising=False)
+    real_client = llm.client  # a test may swap it for a fake before this teardown runs
+    real_client.cache_clear()
+    yield
+    real_client.cache_clear()

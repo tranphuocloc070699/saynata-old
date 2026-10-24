@@ -54,7 +54,8 @@ def build_examples_prompt(lemma: str, entry: dict) -> str:
 
 def fetch_from_claude(lemma: str, entry: dict) -> ExamplesResult:
     """One real Claude call. Raises RuntimeError when Claude refuses or the reply is cut off."""
-    from pipeline.generate import EXAMPLE_RULES, _client, _wait_for_rate_limit, model_name
+    from pipeline import llm
+    from pipeline.generate import EXAMPLE_RULES, _wait_for_rate_limit, model_name
 
     system = (
         "You write example sentences for a learner's dictionary entry for Vietnamese students of English.\n"
@@ -64,19 +65,8 @@ def fetch_from_claude(lemma: str, entry: dict) -> ExamplesResult:
         + EXAMPLE_RULES
     )
     _wait_for_rate_limit()
-    response = _client().messages.parse(
-        model=model_name(),
-        max_tokens=8000,
-        system=system,
-        messages=[{"role": "user", "content": build_examples_prompt(lemma, entry)}],
-        output_format=ExamplesResult,
-        output_config={"effort": "low"},
-    )
-    if response.stop_reason == "refusal":
-        raise RuntimeError(f"Claude refused: {response.stop_details}")
-    if response.parsed_output is None:
-        raise RuntimeError(f"No examples returned (stop_reason={response.stop_reason})")
-    return response.parsed_output
+    return llm.parse(model=model_name(), max_tokens=8000, system=system,
+                     content=build_examples_prompt(lemma, entry), output_format=ExamplesResult).output
 
 
 # Words that do not make two sentences "the same": grammar words and very common helpers.

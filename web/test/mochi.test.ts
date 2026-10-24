@@ -69,10 +69,10 @@ describe("sheetAvailable (fallback)", () => {
 });
 
 describe("sheetStyle", () => {
-  it("sizes one 32 px frame at 3x and the whole strip, and times the loop from frames and fps", () => {
+  it("sizes one 32 px frame at 2x and the whole strip, and times the loop from frames and fps", () => {
     expect(sheetStyle(CAT_SHEETS.excited)).toEqual({
-      "--mochi-size": "96px",
-      "--mochi-strip": "1152px",
+      "--mochi-size": "64px",
+      "--mochi-strip": "768px",
       "--mochi-frames": "12",
       "--mochi-duration": "1.500s",
       backgroundImage: 'url("/cats/Excited.png")',

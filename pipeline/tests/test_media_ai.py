@@ -192,14 +192,37 @@ def test_real_claude_call_reads_the_first_text_block_and_sends_no_temperature(mo
             blocks = [SimpleNamespace(type="thinking", thinking="hmm"), SimpleNamespace(type="text", text='{"ok": 1}')]
             return SimpleNamespace(content=blocks, stop_reason="end_turn", usage=SimpleNamespace(input_tokens=7, output_tokens=9))
 
-    monkeypatch.setattr("pipeline.generate._client", lambda: SimpleNamespace(messages=Messages()))
+    monkeypatch.setattr("pipeline.llm.client", lambda: SimpleNamespace(messages=Messages()))
     reply = media_ai.fetch_from_claude(media_ai.SCENE_MODEL, "system", "hello", effort="low")
     assert (reply.text, reply.input_tokens, reply.output_tokens) == ('{"ok": 1}', 7, 9)
+    assert reply.model == media_ai.SCENE_MODEL
     assert sent["max_tokens"] == 4000 and sent["system"] == "system" and sent["output_config"] == {"effort": "low"}
     assert "temperature" not in sent
     sent.clear()
     media_ai.fetch_from_claude(media_ai.GUESS_MODEL, None, "hello")
     assert "system" not in sent and "output_config" not in sent
+
+
+def test_through_a_gateway_each_step_gets_its_model_and_no_effort(monkeypatch):
+    sent = []
+
+    class Messages:
+        def create(self, **kwargs):
+            sent.append(kwargs)
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="{}")], stop_reason="end_turn",
+                                   usage=SimpleNamespace(input_tokens=1_000_000, output_tokens=0))
+
+    monkeypatch.setenv("CLAUDE_BASE_URL", "https://gateway.test")
+    monkeypatch.setenv("CLAUDE_GUESS_MODEL", "vision-model")
+    monkeypatch.setattr("pipeline.llm.client", lambda: SimpleNamespace(messages=Messages()))
+    scene = media_ai.fetch_from_claude(media_ai.SCENE_MODEL, "system", "hello", effort="high")
+    guess = media_ai.fetch_from_claude(media_ai.GUESS_MODEL, None, "hello")
+    assert [call["model"] for call in sent] == ["deepseek-v4.1-flash", "vision-model"]
+    assert "output_config" not in sent[0]
+    usage = media_ai.Usage()
+    usage.add(media_ai.SCENE_MODEL, scene)  # priced as the gateway model, not as Sonnet
+    assert usage.cost == pytest.approx(0.30)
+    assert guess.model == "vision-model"
 
 
 def test_cost_uses_the_price_table():
