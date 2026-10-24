@@ -3,9 +3,11 @@ id: TASK-83.15
 title: >-
   Pipeline: books collect and books review (tick the book words to write and
   push)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-24 18:42'
+updated_date: '2026-10-24 19:04'
 labels: []
 dependencies:
   - TASK-83.14
@@ -35,3 +37,13 @@ After books convert (TASK-83.14), the developer wants the new words and phrases 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR: https://github.com/tranphuocloc070699/saynata/pull/193 (into prefill/books-convert).
+Test it. Goal: find new words and phrases in the books, tick them on a local page, write only the ticked ones with Codex and push them (free).
+Steps (in pipeline/): 1) uv run pipeline books collect ~/Applications/Workspace/Books  2) uv run pipeline books review (tick, Save, restart: ticks stay)  3) uv run pipeline books report  4) uv run pipeline collection write --limit 20  5) uv run pipeline collection push (dry run)  6) uv run pipeline collection push --yes.
+Expected: groups common/phrase ticked at first; only ticked book rows are written and pushed. Failure case: no DATABASE_URL gives a warning and skips the server check.
+Automated: cd pipeline && uv run pytest (tests/test_book_words.py). 325 passed, 51 skipped.
+<!-- SECTION:NOTES:END -->
