@@ -241,11 +241,18 @@ export function SourcesPage() {
               ))}
             </div>
 
+            {filter === "names" && !queued && (
+              <p className="px-4 pb-3 text-sm text-muted-foreground">
+                A picked name is queued as a word. If it is not on the word list, the night job skips it as "not a
+                word".
+              </p>
+            )}
+
             <table aria-label="Candidates" className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-muted">
                 <tr>
                   <th scope="col" className="w-12 border-y border-border px-4 py-3 text-left">
-                    {filter !== "names" && !queued && (
+                    {!queued && (
                       <input
                         type="checkbox"
                         aria-label="Pick all shown"
@@ -276,15 +283,13 @@ export function SourcesPage() {
                 {visible.map((c) => (
                   <tr key={keyOf(c)} className={cn("border-b border-border/60", picked.has(keyOf(c)) && "bg-accent/50")}>
                     <td className="px-4 py-2.5">
-                      {c.kind !== "name" && (
-                        <input
-                          type="checkbox"
-                          aria-label={`Pick ${c.text}`}
-                          checked={picked.has(keyOf(c))}
-                          disabled={queued}
-                          onChange={() => toggle(c)}
-                        />
-                      )}
+                      <input
+                        type="checkbox"
+                        aria-label={`Pick ${c.text}`}
+                        checked={picked.has(keyOf(c))}
+                        disabled={queued}
+                        onChange={() => toggle(c)}
+                      />
                     </td>
                     <td className="px-4 py-2.5 font-semibold">
                       {c.text}{" "}

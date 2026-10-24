@@ -96,7 +96,9 @@ public class SourceService {
     }
 
     /**
-     * Queues the picked words (kind word) and phrases (kind sentence, language vi) with source "book:title". Only
+     * Queues the picked words and names (kind word) and phrases (kind sentence, language vi) with source "book:title".
+     * A name is queued as a word because some names are real words too ("Rose", "Bill"); one that is not on the
+     * backend word list fails in the night job as "not a word". Only
      * items that are in the upload can be picked. Items already in the queue are skipped. Afterwards the snippets are
      * deleted and the upload can not be queued again (409 already_queued).
      */
@@ -111,7 +113,6 @@ public class SourceService {
         }
         List<SourceCandidate> candidates = parse(upload.getCandidates());
         Map<String, SourceCandidate> byKey = candidates.stream()
-                .filter(c -> !"name".equals(c.kind()))
                 .collect(Collectors.toMap(c -> c.kind() + ":" + c.text(), c -> c, (a, b) -> a));
 
         String source = SOURCE_PREFIX + upload.getTitle();
