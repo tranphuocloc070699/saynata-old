@@ -54,6 +54,7 @@
     uv run pipeline lines push           # dry run: what would go into the server table line_translation
     uv run pipeline lines push --yes     # write it (only after the developer's go-ahead)
     uv run pipeline lines report         # counts per language and status, and the time to write the rest
+    uv run pipeline books convert ~/Applications/Workspace/Books   # TASK-83.14: every PDF and EPUB to .md (no LLM)
 """
 
 import argparse
@@ -795,6 +796,24 @@ def report() -> None:
         print(f"- {row['lemma']}: {'; '.join(json.loads(row['problems']))}")
 
 
+def books_command(args) -> None:
+    """Books to Markdown (TASK-83.14). See books.py."""
+    from pipeline import books
+
+    folder = args.folder.expanduser().resolve()
+    out = args.out.expanduser().resolve() if args.out else None
+
+    def progress(index, total, result):
+        note = "" if result.converted else " (already there)"
+        print(f"[{index}/{total}] {result.status:<11} {result.words:>8} words  {result.book}{note} {result.error}")
+
+    results = books.convert_books(folder, out, on_result=progress)
+    report = (out or folder) / books.REPORT_NAME
+    books.write_report(results, report)
+    print(books.summary_line(results))
+    print(f"Report: {report}")
+
+
 def main() -> None:
     load_dotenv()
     parser = argparse.ArgumentParser(prog="pipeline")
@@ -997,6 +1016,11 @@ def main() -> None:
     l_push.add_argument("--limit", type=int)
     l_push.add_argument("--yes", action="store_true", help="write; without it this is a dry run")
     l_push.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    books_parser = commands.add_parser("books", help="books to Markdown for the collection (TASK-83.14, no LLM)")
+    books_commands = books_parser.add_subparsers(dest="books_command", required=True)
+    b_convert = books_commands.add_parser("convert", help="every .pdf and .epub in a folder to .md, with a report")
+    b_convert.add_argument("folder", type=Path)
+    b_convert.add_argument("--out", type=Path, help="default: each .md next to its book")
     args = parser.parse_args()
     if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \
             and args.source != "words":
@@ -1049,6 +1073,8 @@ def main() -> None:
         collection_command(args)
     elif args.command == "lines":
         lines_command(args)
+    elif args.command == "books":
+        books_command(args)
     elif args.command == "export-local":
         path, count, without_usage, without_levels = export.export_from_pipeline_db(store.connect())
         print(f"Exported {count} words to {path}")
