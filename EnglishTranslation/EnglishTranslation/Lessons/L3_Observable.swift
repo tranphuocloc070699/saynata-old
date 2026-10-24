@@ -1,3 +1,5 @@
+#if DEBUG
+// Practice code: Debug builds only, so it never ships in the App Store build.
 //
 //  L3_Observable.swift
 //  Lesson 3: @Observable (a store object instead of one value)
@@ -50,3 +52,4 @@ struct L3View: View {
 #Preview {
     L3View()
 }
+#endif
