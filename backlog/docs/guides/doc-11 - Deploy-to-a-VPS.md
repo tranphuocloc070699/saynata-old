@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-24 11:27'
+updated_date: '2026-10-24 16:27'
 ---
 # Deploy to a VPS
 
@@ -186,7 +186,7 @@ become healthy, and it prints the last backend logs.
 Each build try is stopped after 6 minutes (`DEPLOY_BUILD_TIMEOUT`, in seconds, set it on the server to change it) and
 tried once more; if both tries fail, the old backend keeps running. The GitHub jobs stop after 20 minutes (backend),
 10 minutes (admin) and 15 minutes (web). A normal deploy takes about 3 minutes.
-A third job, `deploy-web`, does the same for the learner web app (section 14). A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
+A third job, `deploy-web`, does the same for the learner web app (section 14). It waits for the backend job but runs even when that job failed (a broken backend build does not hold back a web change); it then moves the server's repo to the commit itself. A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
 `ADMIN_API_URL` repository variable, default `https://api.saynata.com`) and copies `admin/dist` to the server with
 `rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
 You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.

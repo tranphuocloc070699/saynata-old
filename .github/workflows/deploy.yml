@@ -108,9 +108,12 @@ jobs:
   # The learner web app (web/, Next.js). Same idea as the admin job: `next build` runs here, not on the VPS (a small VPS
   # can run out of memory during it). The standalone server is copied to web/dist on the server; web/scripts/deploy-web.sh
   # puts it into a node:22-alpine image and restarts only the web container. Caddy sends saynata.com to it (doc-11, section 14).
+  # It waits for the backend job (two jobs must not move the server's repo at the same time), but still runs when that
+  # job failed, so a broken backend build does not hold back a web change. It then moves the repo to this commit itself.
   deploy-web:
     name: Deploy web app to VPS
     needs: deploy
+    if: "!cancelled() && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))"
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -149,6 +152,7 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
@@ -156,6 +160,9 @@ jobs:
           ssh_cmd="ssh -i $HOME/.ssh/deploy_key -p ${VPS_PORT:-22} -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6"
           target="${VPS_USER:-root}@$VPS_HOST"
           app="${VPS_APP_DIR:-saynata}"
+          # The backend job usually did this already (then it changes nothing). When that job failed before it, this
+          # brings web/scripts/deploy-web.sh and web/Dockerfile up to this commit.
+          $ssh_cmd "$target" "set -e; cd $app; git fetch -q origin main; git merge -q --ff-only $SHA"
           $ssh_cmd "$target" "mkdir -p $app/web/dist"
           # --delete removes files of the old build, so the folder holds only this build.
           rsync -az --delete -e "$ssh_cmd" web/dist/ "$target:$app/web/dist/"
