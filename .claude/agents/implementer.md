@@ -45,15 +45,19 @@ normally. Never rebase a branch you already pushed: that needs a force-push, whi
 ## While you work
 
 - Stay inside the task's acceptance criteria. Anything else goes in your report as a follow-up idea.
-- Write tests with the code. Run the tests for every part you changed:
-  - Backend: `cd backend && ./mvnw -B test`
-  - Pipeline: `cd pipeline && uv run pytest`
-  - iOS: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO`
-    Always iPhone 16 Pro (iOS 18.5), for tests, app runs and screenshots (CLAUDE.md). Read the final "Test run with N tests" line.
+- Write tests with the code. Run **only the tests for the code you changed**, not the full suites (CI runs the
+  full suites on the way to `main`). Pipe the output through `| tail -40`:
+  - Backend: `cd backend && ./mvnw -B test -Dtest='<ClassName>*'`
+  - Pipeline: `cd pipeline && uv run pytest tests/test_<module>.py`
+  - Admin, extension, web: `npx vitest run <test file>`
+  - iOS: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests/<SuiteName> -parallel-testing-enabled NO`
+    Always iPhone 16 Pro (iOS 18.5) (CLAUDE.md). Read the final "Test run with N tests" line.
+- Do not drive the simulator, the browser or a phone to check UI. Put those checks as steps in the "Test it"
+  card; the developer or another agent runs them.
 - Do not run paid API jobs (pipeline passes, live Claude calls). Write the code and tests; say in the PR
   which command the developer should run and its rough cost.
 - When a flow changes, update its page in `backlog/docs/features/` (line numbers, "Last traced" date) with
-  `backlog doc update`. Keep the CLAUDE.md overview true.
+  `backlog doc update`. Keep doc-24 (System map) true.
 - Run `python3 scripts/check_docs.py` before every commit and fix what it reports.
 - Append short progress notes: `backlog task edit <TASK-ID> --append-notes "..."`.
 

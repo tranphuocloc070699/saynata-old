@@ -3,7 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { PrefillQueueItem, WordItem } from "@/api/types";
+import type { PrefillQueueItem, PrefillSchedule, WordItem } from "@/api/types";
+import { nextRunText } from "@/components/PendingQueue";
 import { WordsPage } from "@/pages/WordsPage";
 import { httpClient } from "@/providers/dataProvider";
 
@@ -36,7 +37,7 @@ const lantern: PrefillQueueItem = {
 
 afterEach(() => vi.restoreAllMocks());
 
-function renderWords() {
+function renderWords(schedule: PrefillSchedule = { on: true, cron: "0 0 20 * * *", nextRunAt: "2999-01-01T20:00:00Z", sources: ["sentence-words"] }) {
   let queue = [lantern];
   const getList = vi.fn().mockImplementation(async ({ resource, filters }) => {
     if (resource === "prefill/items") return { data: queue, total: queue.length };
@@ -48,7 +49,8 @@ function renderWords() {
     queue = [];
     return { data: { ...lantern, status: "skipped" } };
   });
-  const dataProvider = { getList, getApiUrl: () => API } as unknown as DataProvider;
+  const custom = vi.fn().mockImplementation(async () => ({ data: { running: false, maxUsdPerRun: 0.5, spentTodayUsd: 0, schedule } }));
+  const dataProvider = { getList, custom, getApiUrl: () => API } as unknown as DataProvider;
   render(
     <MemoryRouter>
       <Refine dataProvider={dataProvider} options={{ disableTelemetry: true }}>
@@ -123,5 +125,34 @@ describe("Pending (TASK-101)", () => {
     // The menu closed when the row was clicked; open it again to read the count.
     await userEvent.click(screen.getByRole("button", { name: /^Filter/ }));
     await vi.waitFor(() => expect(screen.getByRole("button", { name: "Pending" })).toHaveTextContent(/0$/));
+  });
+
+  it("says when the night job runs next, its cap, and that it answers only one source", async () => {
+    renderWords();
+    await screen.findByText("house");
+    await choose("Pending");
+    const note = await screen.findByLabelText("Night job");
+    await within(note).findByText(/Next night run: 2999-01-01 20:00 UTC \(03:00 Vietnam\)/);
+    expect(note).toHaveTextContent("cap $0.50");
+    expect(note).toHaveTextContent('The night run answers only "In a sentence" items. Other sources wait until you run them by hand.');
+  });
+
+  it("says the night job is off when the cron is empty", async () => {
+    renderWords({ on: false, cron: "", sources: ["sentence-words"] });
+    await screen.findByText("house");
+    await choose("Pending");
+    const note = await screen.findByLabelText("Night job");
+    await within(note).findByText(/The night job is off \(PREFILL_CRON is empty\)/);
+  });
+});
+
+describe("nextRunText", () => {
+  const now = new Date("2026-10-25T17:00:00Z");
+  it("says today with the hours left", () => {
+    expect(nextRunText("2026-10-25T20:00:00Z", now)).toBe("today 20:00 UTC (03:00 Vietnam), in 3 h");
+  });
+  it("says tomorrow, and minutes when under an hour", () => {
+    expect(nextRunText("2026-10-26T20:00:00Z", now)).toMatch(/^tomorrow 20:00 UTC \(03:00 Vietnam\), in 27 h$/);
+    expect(nextRunText("2026-10-25T17:40:00Z", now)).toBe("today 17:40 UTC (00:40 Vietnam), in 40 min");
   });
 });

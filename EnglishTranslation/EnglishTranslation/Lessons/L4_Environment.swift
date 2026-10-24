@@ -1,3 +1,5 @@
+#if DEBUG
+// Practice code: Debug builds only, so it never ships in the App Store build.
 //
 //  L4_Environment.swift
 //  Lesson 4: .environment and @Environment (share one store with many views)
@@ -73,3 +75,4 @@ struct L4EditorView: View {
 #Preview {
     L4RootView()
 }
+#endif
