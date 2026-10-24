@@ -167,7 +167,10 @@ class AdminPrefillTest {
                 .andExpect(jsonPath("$.bySource[?(@.source=='frequent-words')].byStatus.pending").value(2))
                 .andExpect(jsonPath("$.bySource[?(@.source=='oewn-phrases')].byStatus.done").value(1))
                 .andExpect(jsonPath("$.maxUsdPerRun").value(0.5))
-                .andExpect(jsonPath("$.spentTodayUsd").value(0.1));
+                .andExpect(jsonPath("$.spentTodayUsd").value(0.1))
+                .andExpect(jsonPath("$.schedule.on").value(false)) // no PREFILL_CRON in tests
+                .andExpect(jsonPath("$.schedule.nextRunAt").doesNotExist())
+                .andExpect(jsonPath("$.schedule.sources[0]").value("sentence-words"));
 
         // The admin usage page keeps working and splits the prefill spend out.
         mockMvc.perform(get("/api/admin/usage").param("days", "1").cookie(adminCookie()))

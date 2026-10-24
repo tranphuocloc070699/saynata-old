@@ -34,7 +34,7 @@ describe("sentences page (TASK-99.3)", () => {
   it("shows the sentences as a table with Language, Status and Model columns", async () => {
     renderSentences();
     const table = await screen.findByRole("table", { name: "Rows" });
-    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["Sentence", "Language", "Status", "Model"]);
+    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["", "Sentence", "Language", "Status", "Model"]);
     const first = (await within(table).findByText("Looks good.")).closest("tr")!;
     expect(within(first).getByText("It seems fine.")).toBeInTheDocument();
     expect(within(first).getByText("Needs review")).toBeInTheDocument();
