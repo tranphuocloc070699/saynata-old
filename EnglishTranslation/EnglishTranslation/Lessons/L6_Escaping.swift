@@ -1,3 +1,5 @@
+#if DEBUG
+// Practice code: Debug builds only, so it never ships in the App Store build.
 //
 //  L6_Escaping.swift
 //  Lesson 6: closures and `@escaping` (this is the `makeTranslator` in TranslationStore)
@@ -102,3 +104,4 @@ struct L6View: View {
 #Preview {
     L6View()
 }
+#endif

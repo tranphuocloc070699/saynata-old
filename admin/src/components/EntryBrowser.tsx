@@ -1,5 +1,5 @@
 import { useApiUrl, useCustomMutation, useDelete, useInfiniteList, useInvalidate, useUpdate, type CrudFilter } from "@refinedev/core";
-import { LayoutGrid, List, Loader2, Search } from "lucide-react";
+import { CheckCheck, LayoutGrid, List, Loader2, Search, X } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { Badge } from "@/components/ui/badge";
@@ -105,6 +105,8 @@ export function EntryBrowser<T extends Item, E>({
   const [actionError, setActionError] = useState<string>();
   // Only one row is hovered at a time (the words list plays that row's clip).
   const [hoveredId, setHoveredId] = useState<T["id"]>();
+  // The ticked rows of the table view, to mark many as reviewed at once.
+  const [checked, setChecked] = useState<T["id"][]>([]);
 
   useEffect(() => setSearch(urlQuery), [urlQuery]);
 
@@ -115,6 +117,9 @@ export function EntryBrowser<T extends Item, E>({
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
+
+  // A new search or filter shows other rows: the old ticks would be hidden, so they are dropped.
+  useEffect(() => setChecked([]), [query, activeChips]);
 
   const chosen = chips.filter((chip) => activeChips.includes(chip.id) && !chip.pending);
   const pendingOn = chips.some((chip) => chip.pending && activeChips.includes(chip.id));
@@ -174,6 +179,7 @@ export function EntryBrowser<T extends Item, E>({
   // The grid and the table use the whole width: the entry opens in a drawer on the right.
   const drawer = grid || table;
   const selected = items.find((item) => item.id === selectedId);
+  const allChecked = items.length > 0 && items.every((item) => checked.includes(item.id));
 
   const apiUrl = useApiUrl();
   const invalidate = useInvalidate();
@@ -198,6 +204,16 @@ export function EntryBrowser<T extends Item, E>({
     }
   }
 
+  // One POST per row: the endpoint for one entry already exists, and a page is at most a few hundred rows.
+  const markCheckedReviewed = () =>
+    run(
+      async () => {
+        for (const id of checked) {
+          await post({ url: `${apiUrl}/${resource}/${id}/reviewed`, method: "post", values: {} });
+        }
+      },
+      () => setChecked([]),
+    );
   const markReviewed = () =>
     run(() => post({ url: `${apiUrl}/${resource}/${selectedId}/reviewed`, method: "post", values: {} }));
   const regenerate = () => run(() => remove({ resource, id: selectedId! }), () => setSelectedId(undefined));
@@ -225,6 +241,10 @@ export function EntryBrowser<T extends Item, E>({
     setSelectedId(item.id);
     setEditing(false);
     setActionError(undefined);
+  }
+
+  function toggleChecked(id: T["id"]) {
+    setChecked((current) => (current.includes(id) ? current.filter((other) => other !== id) : [...current, id]));
   }
 
   function toggleChip(chip: Chip) {
@@ -329,10 +349,52 @@ export function EntryBrowser<T extends Item, E>({
         {pendingOn ? (
           <PendingQueue kind={resource === "words" ? "word" : "sentence"} query={query} />
         ) : table ? (
+          <>
+          {checked.length > 0 && (
+            <div role="toolbar" aria-label="Selected rows" className="flex items-center justify-between gap-2 border-b border-border bg-accent px-4 py-2 text-sm text-accent-foreground">
+              <span>
+                {checked.length} selected
+                {actionError && <span className="ml-3 text-destructive">{actionError}</span>}
+              </span>
+              <span className="flex gap-1">
+                <button
+                  type="button"
+                  aria-label={`Mark ${checked.length} reviewed`}
+                  title={`Mark ${checked.length} reviewed`}
+                  disabled={busy}
+                  onClick={markCheckedReviewed}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-background/60 disabled:opacity-50"
+                >
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCheck className="h-4 w-4" />}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Clear selection"
+                  title="Clear selection"
+                  onClick={() => setChecked([])}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-background/60"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </span>
+            </div>
+          )}
           <div ref={(node) => void (listRef.current = node)} className="min-h-0 flex-1 overflow-y-auto">
             <table aria-label="Rows" className="w-full border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-muted">
                 <tr>
+                  <th scope="col" className="w-10 border-b border-border py-3 pl-4">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      className="h-4 w-4 accent-primary"
+                      checked={allChecked}
+                      ref={(node) => {
+                        if (node) node.indeterminate = checked.length > 0 && !allChecked;
+                      }}
+                      onChange={() => setChecked(allChecked ? [] : items.map((item) => item.id))}
+                    />
+                  </th>
                   {["", ...columns!.map((column) => column.header)].map((header, i) => (
                     <th
                       key={i}
@@ -347,17 +409,17 @@ export function EntryBrowser<T extends Item, E>({
               <tbody>
                 {listQuery.isLoading && (
                   <tr>
-                    <td colSpan={columns!.length + 1} className="p-4 text-muted-foreground">Loading...</td>
+                    <td colSpan={columns!.length + 2} className="p-4 text-muted-foreground">Loading...</td>
                   </tr>
                 )}
                 {listQuery.isError && (
                   <tr>
-                    <td colSpan={columns!.length + 1} className="p-4 text-destructive">Could not load the list.</td>
+                    <td colSpan={columns!.length + 2} className="p-4 text-destructive">Could not load the list.</td>
                   </tr>
                 )}
                 {!listQuery.isLoading && !listQuery.isError && items.length === 0 && (
                   <tr>
-                    <td colSpan={columns!.length + 1} className="p-4 text-muted-foreground">Nothing found.</td>
+                    <td colSpan={columns!.length + 2} className="p-4 text-muted-foreground">Nothing found.</td>
                   </tr>
                 )}
                 {items.map((item) => (
@@ -369,6 +431,15 @@ export function EntryBrowser<T extends Item, E>({
                     onPointerLeave={() => setHoveredId((current) => (current === item.id ? undefined : current))}
                     className={cn("cursor-pointer border-b border-border/60 hover:bg-muted/60", item.id === selectedId && "bg-accent/60")}
                   >
+                    <td className="py-2.5 pl-4" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${itemTitle(item)}`}
+                        className="h-4 w-4 accent-primary"
+                        checked={checked.includes(item.id)}
+                        onChange={() => toggleChecked(item.id)}
+                      />
+                    </td>
                     <td className="px-4 py-2.5">
                       <button
                         type="button"
@@ -395,7 +466,7 @@ export function EntryBrowser<T extends Item, E>({
                 ))}
                 {hasNextPage && (
                   <tr ref={(node) => void (sentinelRef.current = node)} aria-hidden={!isFetchingNextPage}>
-                    <td colSpan={columns!.length + 1} className="p-3 text-center">
+                    <td colSpan={columns!.length + 2} className="p-3 text-center">
                       {isFetchingNextPage && (
                         <Loader2 role="status" aria-label="Loading more" className="mx-auto h-4 w-4 animate-spin text-muted-foreground" />
                       )}
@@ -405,6 +476,7 @@ export function EntryBrowser<T extends Item, E>({
               </tbody>
             </table>
           </div>
+          </>
         ) : (
           <ul
             ref={(node) => void (listRef.current = node)}

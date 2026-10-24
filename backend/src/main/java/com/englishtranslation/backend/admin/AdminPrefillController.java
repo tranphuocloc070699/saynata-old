@@ -8,6 +8,8 @@ import com.englishtranslation.backend.prefill.PrefillRunner;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +17,7 @@ import java.util.TreeMap;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.support.CronExpression;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,7 +48,16 @@ public class AdminPrefillController {
     }
 
     public record Overview(boolean running, Map<String, Long> byStatus, List<SourceCounts> bySource,
-            BigDecimal maxUsdPerRun, BigDecimal spentTodayUsd, List<PrefillRunner.RunSummary> lastRuns) {
+            BigDecimal maxUsdPerRun, BigDecimal spentTodayUsd, List<PrefillRunner.RunSummary> lastRuns,
+            Schedule schedule) {
+    }
+
+    /**
+     * When the night job runs next, so the admin can tell when pending items get answered. {@code on} is false when
+     * app.prefill.cron is empty (or not a valid cron); then {@code nextRunAt} is null and items run only by hand.
+     * {@code sources} are the only sources the night run answers.
+     */
+    public record Schedule(boolean on, String cron, Instant nextRunAt, List<String> sources) {
     }
 
     /** One queue row as the admin web app sees it (TASK-100). */
@@ -115,7 +127,16 @@ public class AdminPrefillController {
                 .map(entry -> new SourceCounts(entry.getKey(), entry.getValue())).toList();
         BigDecimal spentToday = usage.report(1).prefillTodayUsd();
         return new Overview(runner.isRunning(), byStatus, sources, properties.maxUsdPerRun(), spentToday,
-                runner.lastRuns());
+                runner.lastRuns(), schedule(properties, clock.instant()));
+    }
+
+    static Schedule schedule(PrefillProperties properties, Instant now) {
+        String cron = properties.cron();
+        if (cron.isEmpty() || !CronExpression.isValidExpression(cron)) {
+            return new Schedule(false, cron, null, properties.cronSources());
+        }
+        ZonedDateTime next = CronExpression.parse(cron).next(now.atZone(ZoneOffset.UTC));
+        return new Schedule(next != null, cron, next == null ? null : next.toInstant(), properties.cronSources());
     }
 
     /**

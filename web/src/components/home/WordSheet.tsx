@@ -7,6 +7,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { SaynataApi } from "@/lib/api";
+import { browserTokens } from "@/lib/auth";
 import { fetchResult, startState, type Result } from "@/lib/explain";
 import type { LanguageCode } from "@/lib/languages";
 import { gsap, useGSAP, withMotion } from "@/lib/motion";
@@ -14,7 +15,7 @@ import { IconButton } from "../IconButton";
 import { Alert, Close } from "../icons";
 import { WordCard, WordSkeleton } from "./WordCard";
 
-const api = new SaynataApi("");
+const api = new SaynataApi("", browserTokens);
 
 type Props = {
   /** The word to show; null when the sheet is closed. */

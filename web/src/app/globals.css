@@ -22,6 +22,10 @@
   --cat: #e9a86a;
   --cat-line: #3a2e26;
   --cat-blush: #f2b8a8;
+  /* The sign-in cat room's wall colours; the room art is light, so they stay the same in dark mode. */
+  --room-cozy: #e8eadf;
+  --room-playful: #e2e9e6;
+  --room-caption: #58675e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -153,5 +157,149 @@ body {
   }
   .stream-caret::after {
     animation: none;
+  }
+}
+
+/*
+ * The cat room on the sign-in page (components/CatRoom.tsx), the developer's CatRoom.css. Positions are percent of
+ * the 512px room. Pixel art, so no smoothing. The room is only on a wide screen: under 760px the form is alone.
+ */
+.cat-room {
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 24px;
+  pointer-events: none;
+}
+.cat-room--cozy {
+  background: var(--room-cozy);
+}
+.cat-room--playful {
+  background: var(--room-playful);
+}
+.cat-room--fallback {
+  background: var(--meaning);
+}
+.cat-room__scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+}
+.cat-room__art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.cat-room__art,
+.cat-room__art image,
+.cat-room__sprite-strip {
+  image-rendering: pixelated;
+}
+.cat-room__cat-position {
+  position: absolute;
+  width: 12.5%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -100%);
+}
+.cat-room--cozy .cat-room__cat-position {
+  left: 63.28125%;
+  top: 65.4296875%;
+}
+.cat-room--playful .cat-room__cat-position {
+  left: 41.015625%;
+  top: 71.2890625%;
+  animation: cat-patrol 5.2s linear infinite;
+}
+.cat-room__cat-facing,
+.cat-room__sprite-window {
+  width: 100%;
+  height: 100%;
+}
+.cat-room--playful .cat-room__cat-facing {
+  animation: cat-direction 5.2s steps(1, end) infinite;
+}
+.cat-room__sprite-window {
+  overflow: hidden;
+}
+.cat-room__sprite-strip {
+  display: block;
+  max-width: none;
+  height: 100%;
+  user-select: none;
+  animation: cat-frames var(--sprite-duration) steps(var(--frames), end) infinite;
+}
+.cat-room__description {
+  margin: 0;
+  padding: 0 20px 24px;
+  color: var(--room-caption);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  text-align: center;
+}
+.cat-room--fallback .cat-room__description {
+  color: var(--muted);
+}
+@keyframes cat-frames {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+@keyframes cat-patrol {
+  0%,
+  100% {
+    left: 41.015625%;
+  }
+  50% {
+    left: 69.3359375%;
+  }
+}
+@keyframes cat-direction {
+  0% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(-1);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+.cat-room--paused .cat-room__cat-position,
+.cat-room--paused .cat-room__cat-facing,
+.cat-room--paused .cat-room__sprite-strip {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cat-room__cat-position,
+  .cat-room__cat-facing,
+  .cat-room__sprite-strip {
+    animation: none !important;
+  }
+}
+
+.cat-login-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 64px);
+  width: min(100%, 1040px);
+  margin-inline: auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+.cat-login-layout__form {
+  min-width: 0;
+}
+@media (max-width: 760px) {
+  .cat-login-layout {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 16px;
+  }
+  /* The developer's choice: no room on a phone, the form only. */
+  .cat-login-layout > .cat-room {
+    display: none;
   }
 }

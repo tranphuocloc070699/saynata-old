@@ -161,6 +161,22 @@ export interface PrefillQueueItem {
   updatedAt: string;
 }
 
+// When the night job runs next (GET /prefill, field schedule). on = false: PREFILL_CRON is empty, items run only by hand.
+export interface PrefillSchedule {
+  on: boolean;
+  cron: string;
+  nextRunAt?: string | null;
+  sources: string[]; // the only queue sources the night run answers
+}
+
+// GET /prefill: the queue counts, the run cap and the schedule (only the fields the admin reads).
+export interface PrefillOverview {
+  running: boolean;
+  maxUsdPerRun: number;
+  spentTodayUsd: number;
+  schedule?: PrefillSchedule;
+}
+
 // App accounts on the admin Users page (TASK-105). GET /users and GET /users/{id}.
 export type SignInProvider = "google" | "apple";
 
