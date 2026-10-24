@@ -45,7 +45,8 @@ def build_usage_prompt(lemma: str, entry: dict) -> str:
 
 def fetch_from_claude(lemma: str, entry: dict) -> UsageResult:
     """One real Claude call. Raises RuntimeError when Claude refuses or the reply is cut off."""
-    from pipeline.generate import USAGE_RULES, _client, _wait_for_rate_limit, model_name
+    from pipeline import llm
+    from pipeline.generate import USAGE_RULES, _wait_for_rate_limit, model_name
 
     system = (
         "You add 'how to use it' items to a learner's dictionary entry for Vietnamese students of English.\n"
@@ -53,19 +54,8 @@ def fetch_from_claude(lemma: str, entry: dict) -> UsageResult:
         + USAGE_RULES
     )
     _wait_for_rate_limit()
-    response = _client().messages.parse(
-        model=model_name(),
-        max_tokens=8000,
-        system=system,
-        messages=[{"role": "user", "content": build_usage_prompt(lemma, entry)}],
-        output_format=UsageResult,
-        output_config={"effort": "low"},
-    )
-    if response.stop_reason == "refusal":
-        raise RuntimeError(f"Claude refused: {response.stop_details}")
-    if response.parsed_output is None:
-        raise RuntimeError(f"No usage returned (stop_reason={response.stop_reason})")
-    return response.parsed_output
+    return llm.parse(model=model_name(), max_tokens=8000, system=system,
+                     content=build_usage_prompt(lemma, entry), output_format=UsageResult).output
 
 
 # Placeholders become tokens, so "depend on + someone" and "depend on + something" stay different.

@@ -22,6 +22,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from pipeline import collection as c
+from pipeline import llm
 
 MODEL = c.CLAUDE_MODEL
 MAX_TOKENS = 8000  # ClaudeService.describeWordWithMessage
@@ -112,8 +113,8 @@ def usage_cost(usage) -> float:
     write = getattr(usage, "cache_creation_input_tokens", 0) or 0
     read = getattr(usage, "cache_read_input_tokens", 0) or 0
     out = getattr(usage, "output_tokens", 0) or 0
-    dollars = ((inp + write * CACHE_WRITE_FACTOR + read * CACHE_READ_FACTOR) * c.CLAUDE_INPUT_USD_PER_MTOK
-               + out * c.CLAUDE_OUTPUT_USD_PER_MTOK) / 1e6
+    price_in, price_out = llm.PRICES[MODEL]
+    dollars = ((inp + write * CACHE_WRITE_FACTOR + read * CACHE_READ_FACTOR) * price_in + out * price_out) / 1e6
     return dollars * BATCH_DISCOUNT
 
 

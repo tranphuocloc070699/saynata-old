@@ -33,7 +33,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
-from pipeline import prefill
+from pipeline import llm, prefill
 
 BACKEND = Path(__file__).resolve().parents[3] / "backend"
 CLAUDE_SERVICE = BACKEND / "src/main/java/com/englishtranslation/backend/claude/ClaudeService.java"
@@ -814,28 +814,32 @@ def claude_from_server(connection: sqlite3.Connection, pg, prompt_version: str) 
 
 
 CLAUDE_MODEL = "claude-haiku-5-5"  # app.claude.model
-# Claude Haiku 5.5: $0.10 per million input tokens, $0.50 per million output tokens (prompts under 100K tokens).
-CLAUDE_INPUT_USD_PER_MTOK = 0.10
-CLAUDE_OUTPUT_USD_PER_MTOK = 0.50
-# Measured 2026-10-18: 52 answers, about $0.0005 each (the production average, prefill.COST_PER_WORD, is $0.0007).
+# Measured 2026-10-18 on Claude Haiku 5.5: 52 answers, about $0.0005 each (the production average,
+# prefill.COST_PER_WORD, is $0.0007).
 CLAUDE_COST_PER_ITEM = 0.0005
+
+
+def claude_model() -> str:
+    """Claude Haiku 5.5, or through a gateway (CLAUDE_BASE_URL) CLAUDE_MODEL, else deepseek-v4.1-flash."""
+    return llm.model(CLAUDE_MODEL)
+
+
+def cost_per_item() -> float:
+    """The estimate for one answer, for the cap: the Haiku measure scaled by the output price of the model in use."""
+    model = claude_model()
+    if model == CLAUDE_MODEL:
+        return CLAUDE_COST_PER_ITEM
+    return CLAUDE_COST_PER_ITEM * llm.cost_usd(model, 0, 1) / llm.cost_usd(CLAUDE_MODEL, 0, 1)
 
 
 def claude_entry(text: str, kind: str, word_prompt: str) -> tuple[Entry, float]:
     """Asks Claude exactly like ClaudeService.describeWord (same system prompt, same user message, effort low).
     A phrase gets the phrase note too. Returns the entry and its real cost."""
-    import anthropic
-
     system = word_prompt + ("\n" + PHRASE_NOTE if kind != "word" else "")
-    response = anthropic.Anthropic().messages.parse(
-        model=CLAUDE_MODEL, max_tokens=16000, system=system,
-        messages=[{"role": "user", "content": f"<word>{escape_tags(text)}</word>"}],
-        output_format=Entry, output_config={"effort": "low"})
-    if response.parsed_output is None:
-        raise RuntimeError(f"Claude gave no entry (stop_reason={response.stop_reason})")
-    cost = (response.usage.input_tokens * CLAUDE_INPUT_USD_PER_MTOK
-            + response.usage.output_tokens * CLAUDE_OUTPUT_USD_PER_MTOK) / 1e6
-    return response.parsed_output, cost
+    model = claude_model()
+    answer = llm.parse(model=model, max_tokens=16000, system=system, content=f"<word>{escape_tags(text)}</word>",
+                       output_format=Entry)
+    return answer.output, llm.cost_usd(model, answer.input_tokens, answer.output_tokens)
 
 
 def claude_from_api(connection: sqlite3.Connection, rows: list[sqlite3.Row], max_cost: float,
@@ -843,16 +847,17 @@ def claude_from_api(connection: sqlite3.Connection, rows: list[sqlite3.Row], max
                     word_prompt: str | None = None) -> tuple[int, float]:
     """Paid: one Claude call per row that has no Claude entry yet, until max_cost. Returns (answers, dollars)."""
     word_prompt = word_prompt or backend_word_prompt()
+    model, per_item = claude_model(), cost_per_item()
     spent, answered = 0.0, 0
     for row in rows:
         if row["claude_entry"]:
             continue
-        if spent + CLAUDE_COST_PER_ITEM > max_cost:
+        if spent + per_item > max_cost:
             break
         entry, cost = ask(row["text"], row["kind"], word_prompt)
         spent += cost
         connection.execute("UPDATE collection SET claude_entry = ?, claude_model = ? WHERE id = ?",
-                           (entry.model_dump_json(), CLAUDE_MODEL, row["id"]))
+                           (entry.model_dump_json(), model, row["id"]))
         connection.commit()
         answered += 1
     return answered, spent

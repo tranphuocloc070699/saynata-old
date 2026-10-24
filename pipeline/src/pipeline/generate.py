@@ -2,15 +2,14 @@
 
 Structured outputs make Claude return exactly the WordEntry shape, so the prompt
 no longer needs the JSON schema pasted in. Pick the model with CLAUDE_MODEL in .env.
+Through a gateway (CLAUDE_BASE_URL) the schema goes in the prompt instead, see llm.py.
 """
 
 import json
 import os
 import time
-from functools import cache
 
-import anthropic
-
+from pipeline import llm
 from pipeline.models import WordEntry
 from pipeline.senses import WordSource
 
@@ -108,14 +107,12 @@ Rules:
 - source_index: the index of the Wiktionary sense you based it on."""
 
 
-@cache
-def _client() -> anthropic.Anthropic:
-    # Created once and reused. max_retries: the SDK waits and retries on 429, 5xx and connection errors.
-    return anthropic.Anthropic(max_retries=5)
+# The shared client (Anthropic API or a gateway), kept under the old name for the steps that import it.
+_client = llm.client
 
 
 def model_name() -> str:
-    return os.environ.get("CLAUDE_MODEL", DEFAULT_MODEL)
+    return llm.model(os.environ.get("CLAUDE_MODEL", DEFAULT_MODEL))
 
 
 _last_call_at = 0.0
@@ -150,16 +147,5 @@ def build_prompt(word: str, source: WordSource, feedback: list[str]) -> str:
 def generate_entry(word: str, source: WordSource, feedback: list[str]) -> WordEntry:
     """Raises RuntimeError when Claude refuses or the reply is cut off."""
     _wait_for_rate_limit()
-    response = _client().messages.parse(
-        model=model_name(),
-        max_tokens=16000,
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": build_prompt(word, source, feedback)}],
-        output_format=WordEntry,
-        output_config={"effort": "low"},
-    )
-    if response.stop_reason == "refusal":
-        raise RuntimeError(f"Claude refused: {response.stop_details}")
-    if response.parsed_output is None:
-        raise RuntimeError(f"No entry returned (stop_reason={response.stop_reason})")
-    return response.parsed_output
+    return llm.parse(model=model_name(), max_tokens=16000, system=SYSTEM_PROMPT,
+                     content=build_prompt(word, source, feedback), output_format=WordEntry).output
