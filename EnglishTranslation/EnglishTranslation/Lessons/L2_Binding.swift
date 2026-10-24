@@ -1,3 +1,5 @@
+#if DEBUG
+// Practice code: Debug builds only, so it never ships in the App Store build.
 //
 //  L2_Binding.swift
 //  Lesson 2: @Binding (a child edits its parent's @State)
@@ -48,3 +50,4 @@ struct L2NameField: View {
 #Preview {
     L2ParentView()
 }
+#endif

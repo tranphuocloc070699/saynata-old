@@ -1,3 +1,5 @@
+#if DEBUG
+// Practice code: Debug builds only, so it never ships in the App Store build.
 //
 //  L1_State.swift
 //  Lesson 1: @State
@@ -43,3 +45,4 @@ struct L1StateView: View {
 #Preview {
     L1StateView()
 }
+#endif
