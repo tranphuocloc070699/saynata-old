@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copies the 7 Mochi sprite sheets the website uses from the paid CatMegaBundle on this Mac to the VPS, where Caddy
+# Copies the 7 Mochi sprite sheets and the 5 sign-in cat room pictures the website uses from the paid CatMegaBundle on this Mac to the VPS, where Caddy
 # serves them at https://saynata.com/cats/ (doc-11 section 14, doc-23). They are never in git or in the web build:
 # the pack has no license to redistribute, and this repo is public. Without them the site shows its own pixel cat.
 #
@@ -13,6 +13,14 @@ remote_dir="${REMOTE_DIR:-/var/lib/saynata/web-cats}"
 sprites="$bundle/Mochi/Sprites/Classical/Individual"
 # Same names as CAT_SHEETS in web/src/lib/mochi.ts.
 files=(Dance.png Sleep.png Excited.png catsick1.png Box1.png Box2.png Box3.png)
+# The sign-in cat room (web/src/components/CatRoom.tsx): bundle path, then the flat name it gets on the server.
+room_files=(
+  "Catroom/Rooms/Room1.png:cozy.png"
+  "Catroom/Rooms/Room2.png:playful.png"
+  "CatItems/Decorations/CatRoomDecorations.png:furniture.png"
+  "Pochi/Sprites/Running.png:running.png"
+  "Pochi/Sprites/Sleeping.png:sleeping.png"
+)
 
 if [ ! -d "$sprites" ]; then
   echo "Mochi sprites not found at: $sprites" >&2
@@ -25,10 +33,19 @@ for file in "${files[@]}"; do
     exit 1
   fi
 done
+for pair in "${room_files[@]}"; do
+  if [ ! -f "$bundle/${pair%%:*}" ]; then
+    echo "Missing in the bundle: ${pair%%:*}" >&2
+    exit 1
+  fi
+done
 
 # The folder belongs to the SSH user, so rsync needs no sudo; Caddy only reads it.
 ssh "$host" "sudo mkdir -p '$remote_dir' && sudo chown \"\$(id -un)\" '$remote_dir' && chmod 755 '$remote_dir'"
 # macOS rsync (openrsync) has no --chmod, so the mode is set on the server afterwards.
 (cd "$sprites" && rsync -av "${files[@]}" "$host:$remote_dir/")
+for pair in "${room_files[@]}"; do
+  rsync -av "$bundle/${pair%%:*}" "$host:$remote_dir/${pair##*:}"
+done
 ssh "$host" "chmod 644 '$remote_dir'/*.png"
 echo "Done. Check: curl -I https://saynata.com/cats/Dance.png"
