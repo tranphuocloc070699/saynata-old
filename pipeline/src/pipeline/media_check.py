@@ -26,14 +26,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
 
-DEFAULT_MODEL = "claude-haiku-5-5"
+from pipeline import llm
+
+DEFAULT_MODEL = "claude-haiku-5-5"  # through a gateway: CLAUDE_CHECK_MODEL, else CLAUDE_MODEL (a model that reads pictures)
 DEFAULT_MAX_COST = 2.0
 DEFAULT_REPORT = Path("data/out/media-check.html")
 VERDICTS = ("good", "wrong", "unsure")
 
-# US dollars per million tokens (input, output), for prompts up to 100K tokens. Same numbers as
-# backend/src/main/resources/application.properties (app.claude.pricing.*). Haiku 5.5 checked 2026-10-15.
-PRICES = {"claude-haiku-5-5": (0.10, 0.50)}
+PRICES = llm.PRICES  # US dollars per million tokens (input, output), one table for the whole pipeline
 
 SYSTEM_PROMPT = """You check pictures for a learner's English dictionary. Each picture is shown next to ONE
 meaning of a word. Decide if the picture helps a learner understand THIS meaning.
@@ -126,8 +126,11 @@ def parse_answer(text: str) -> tuple[str, str]:
 
 def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
     """Dollars for one call. A model without a price here is counted at the highest price listed."""
-    price_in, price_out = PRICES.get(model) or (max(p[0] for p in PRICES.values()), max(p[1] for p in PRICES.values()))
-    return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
+    return llm.cost_usd(model, input_tokens, output_tokens)
+
+
+def default_model() -> str:
+    return llm.model(DEFAULT_MODEL, "CLAUDE_CHECK_MODEL")
 
 
 # --- The picture ---------------------------------------------------------------------------------------
@@ -180,15 +183,8 @@ def build_content(image: bytes, media_type: str, prompt: str) -> list[dict]:
 
 def fetch_from_claude(model: str, content: list[dict]) -> Reply:
     """One real Claude call. The SDK client retries 429, 5xx and connection errors by itself (max_retries=5)."""
-    from pipeline.generate import _client
-
-    response = _client().messages.create(
-        model=model,
-        max_tokens=1000,  # room for the short thinking that is on by default; the answer is about 40 tokens
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": content}],
-        output_config={"effort": "low"},
-    )
+    # max_tokens: room for the short thinking that is on by default; the answer is about 40 tokens
+    response = llm.create(model=model, max_tokens=1000, system=SYSTEM_PROMPT, content=content, effort="low")
     if response.stop_reason == "refusal":
         raise RuntimeError(f"Claude refused: {response.stop_details}")
     text = "".join(block.text for block in response.content if block.type == "text")

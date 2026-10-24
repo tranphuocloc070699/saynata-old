@@ -14,7 +14,7 @@
     uv run pipeline import-to-postgres   # one time: copy the bundled dictionary.sqlite into Postgres (DATABASE_URL)
     uv run pipeline export               # build data/out/dictionary.sqlite (+ media/) from Postgres
     uv run pipeline link-media           # after the media pass: add its media to senses in Postgres (no text changes)
-    uv run pipeline media-check --limit 50   # Claude Haiku looks at 50 pictures/clips; saves verdicts, writes data/out/media-check.html
+    uv run pipeline media-check --limit 50   # Claude Haiku (or the gateway model) looks at 50 pictures/clips; saves verdicts, writes data/out/media-check.html
     uv run pipeline media-check --apply  # also mark the "wrong" senses needs_ai (needs the SSH tunnel, DATABASE_URL)
     uv run pipeline media-generate --dry-run   # needs_ai senses: prompts and the cost estimate, calls nothing
     uv run pipeline media-generate --limit 20  # OpenAI makes 20 AI pictures (about $0.08); data/out/media-generate.html
@@ -25,7 +25,7 @@
     uv run pipeline media-ai --link              # after rsync: the passed AI pictures replace the sense pictures
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
-    uv run pipeline topics judge --dry-run --limit 50   # one Haiku call, prints the verdicts, saves nothing
+    uv run pipeline topics judge --dry-run --limit 50   # one Haiku (or gateway) call, prints the verdicts, saves nothing
     uv run pipeline topics judge         # Haiku keeps or drops every candidate (about 27 calls, under $0.10)
     uv run pipeline topics review        # apply the reviewed drop / move / keep lists on top of the judge (no LLM)
     uv run pipeline topics promote       # kept topic words join the words table as pending (no LLM), then generate
@@ -246,7 +246,7 @@ def check_media(args) -> None:
     pg = postgres.connect(postgres.database_url(args.database_url))
     store_ = media_check.PostgresStore(pg)
     summary = media_check.run(
-        store_, media_dir, args.model, lambda model, content: media_check.fetch_from_claude(model, content),
+        store_, media_dir, args.model or media_check.default_model(), lambda model, content: media_check.fetch_from_claude(model, content),
         words=args.words, limit=args.limit, recheck=args.recheck, apply=args.apply, max_cost=args.max_cost,
         workers=args.workers,
     )
@@ -341,7 +341,7 @@ def topic_words(args) -> None:
         added = topics.save_candidates(db, candidates)
         print(f"{len(candidates)} candidates, {added} new in topic_words. Next: uv run pipeline topics judge")
     elif args.topics_command == "judge":
-        print(f"Model: {topics.JUDGE_MODEL}, {topics.JUDGE_BATCH} words per call"
+        print(f"Model: {topics.judge_model()}, {topics.JUDGE_BATCH} words per call"
               f"{', dry run: nothing is saved' if args.dry_run else ''}")
         counts = topics.run_judge(db, topics.fetch_from_claude, limit=args.limit, dry_run=args.dry_run)
         print(f"Done: {counts['keep']} keep, {counts['drop']} drop, {counts['no_verdict']} without a verdict, "
@@ -691,8 +691,8 @@ def _compare(db, args) -> None:
     else:
         missing = sum(1 for row in rows if not row["claude_entry"])
         if missing:
-            print(f"{missing} items have no Claude entry. --claude asks Claude Haiku 5.5 for them "
-                  f"(about ${missing * collection.CLAUDE_COST_PER_ITEM:.3f}).")
+            print(f"{missing} items have no Claude entry. --claude asks {collection.claude_model()} for them "
+                  f"(about ${missing * collection.cost_per_item():.3f}).")
     path = Path(args.out)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(collection.compare_page(rows), encoding="utf-8")
@@ -706,6 +706,13 @@ def _batch(db, args) -> None:
     import anthropic
 
     from pipeline import collection_batch as cb
+    from pipeline import llm
+
+    if llm.gateway() and args.batch_command != "status":
+        # The Batches API is Anthropic's own; an Anthropic-compatible gateway (STEYG) has no /v1/messages/batches.
+        raise SystemExit("collection batch needs the Anthropic API, and CLAUDE_BASE_URL (a gateway) is set. Use "
+                         "'collection compare --claude --max-cost <usd>' (one gateway call a row, capped), "
+                         "or unset CLAUDE_BASE_URL to use ANTHROPIC_API_KEY.")
 
     cb.prepare(db)
     if args.batch_command == "status":
@@ -818,7 +825,7 @@ def main() -> None:
     check_parser.add_argument("--words", nargs="+", help="only these words (to try it on a few)")
     check_parser.add_argument("--apply", action="store_true", help="mark the wrong senses needs_ai (never unsure)")
     check_parser.add_argument("--recheck", action="store_true", help="also check senses that were checked before")
-    check_parser.add_argument("--model", default="claude-haiku-5-5")
+    check_parser.add_argument("--model", help="default claude-haiku-5-5; through a gateway CLAUDE_CHECK_MODEL or CLAUDE_MODEL")
     check_parser.add_argument("--max-cost", type=float, default=2.0, help="stop starting new checks at this many US dollars (default 2)")
     check_parser.add_argument("--workers", type=int, default=4, help="Claude calls in parallel (default 4)")
     check_parser.add_argument("--media-dir", default="data/media", help="folder with the media files (default data/media)")
@@ -941,7 +948,7 @@ def main() -> None:
     c_compare.add_argument("--per-kind", type=int, default=20)
     c_compare.add_argument("--texts", nargs="+", help="only these rows")
     c_compare.add_argument("--from-server", action="store_true", help="also read Claude answers from word_lookup")
-    c_compare.add_argument("--claude", action="store_true", help="ask Claude Haiku 5.5 for the missing ones (paid)")
+    c_compare.add_argument("--claude", action="store_true", help="ask Claude Haiku 5.5 (or the gateway model) for the missing ones (paid)")
     c_compare.add_argument("--max-cost", type=float, default=0.25, help="cap for --claude in US dollars (default 0.25)")
     c_compare.add_argument("--out", default="data/out/collection-compare.html")
     c_compare.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
@@ -952,7 +959,7 @@ def main() -> None:
     c_push.add_argument("--limit", type=int)
     c_push.add_argument("--yes", action="store_true", help="write; without it this is a dry run")
     c_push.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
-    c_batch = collection_commands.add_parser("batch", help="Claude Haiku 5.5 through the Batch API (paid, half price)")
+    c_batch = collection_commands.add_parser("batch", help="Claude Haiku 5.5 through the Batch API (paid, half price; not through a gateway)")
     batch_commands = c_batch.add_subparsers(dest="batch_command", required=True)
     b_submit = batch_commands.add_parser("submit", help="send pending, failed and retry rows")
     b_submit.add_argument("--kind", nargs="+", choices=["word", "phrasal_verb", "idiom", "collocation"])

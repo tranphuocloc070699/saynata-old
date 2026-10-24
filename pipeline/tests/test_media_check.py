@@ -107,7 +107,7 @@ def test_a_malformed_answer_raises(text):
 
 def test_cost_uses_the_haiku_price_and_the_highest_price_for_an_unknown_model():
     assert media_check.cost_usd("claude-haiku-5-5", 1_000_000, 1_000_000) == pytest.approx(0.60)
-    assert media_check.cost_usd("some-new-model", 1_000_000, 0) == pytest.approx(0.10)
+    assert media_check.cost_usd("some-new-model", 1_000_000, 0) == pytest.approx(2.00)  # the highest listed
 
 
 # --- clip frame ----------------------------------------------------------------------------------------
