@@ -42,6 +42,7 @@ from psycopg.types.json import Json
 from pipeline.media import sanitize_filename
 from pipeline.media_check import easy_example
 from pipeline.media_generate import DEFAULT_MEDIA_BASE_URL, ProviderStop
+from pipeline import llm
 from pipeline.postgres import file_facts
 
 PROMPT_VERSION = "ai-v1"  # a new version means "draw every sense again"
@@ -59,8 +60,9 @@ CODEX_TIMEOUT = 15 * 60
 IMAGE_WIDTH = 1536  # 3:2, like the OpenAI pictures (TASK-53); the app crops it to 16:9
 GUESS_SIZE = 768  # the guesser sees the picture as a JPEG with this longest side
 
-# US dollars per million tokens (input, output). From the Claude pricing table, checked 2026-10-16.
-PRICES = {"claude-sonnet-5-5": (2.00, 10.00), "claude-haiku-5-5": (0.10, 0.50)}
+# Through a gateway (CLAUDE_BASE_URL) each step can have its own model; it must read pictures for the guess.
+STEP_ENVS = {SCENE_MODEL: "CLAUDE_SCENE_MODEL", GUESS_MODEL: "CLAUDE_GUESS_MODEL"}
+PRICES = llm.PRICES  # US dollars per million tokens (input, output), one table for the whole pipeline
 # What one sense costs in Claude money, for the cap and the dry-run estimate only (the real cost comes from the
 # usage of each answer). One try is about 1,500 tokens in and 1,500 out for the scene (the thinking counts as
 # output) and two small guess calls; a sense needs about 1.3 tries. The first real run shows the true number.
@@ -173,6 +175,7 @@ class Reply:
     text: str
     input_tokens: int
     output_tokens: int
+    model: str | None = None  # the model that really answered (a gateway model), for the price
 
 
 # (model, system prompt or None, content) -> Reply. fetch_from_claude is the real one; tests use a fake.
@@ -181,8 +184,7 @@ Fetch = Callable[[str, str | None, "str | list[dict]"], Reply]
 
 def cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
     """Dollars for one call. A model without a price here is counted at the highest price listed."""
-    price_in, price_out = PRICES.get(model) or (max(p[0] for p in PRICES.values()), max(p[1] for p in PRICES.values()))
-    return (input_tokens * price_in + output_tokens * price_out) / 1_000_000
+    return llm.cost_usd(model, input_tokens, output_tokens)
 
 
 def make_fetch(scene_effort: str | None = None) -> Fetch:
@@ -196,28 +198,21 @@ def make_fetch(scene_effort: str | None = None) -> Fetch:
 
 def fetch_from_claude(model: str, system: str | None, content, effort: str | None = None) -> Reply:
     """One real Claude call. The SDK client retries 429, 5xx and connection errors by itself (max_retries=5).
-    A wrong key or a refused account stops the whole run (ProviderStop). No temperature: Sonnet 5.5 refuses it."""
+    A wrong key or a refused account stops the whole run (ProviderStop). No temperature: Sonnet 5.5 refuses it.
+    model is SCENE_MODEL or GUESS_MODEL; through a gateway it becomes the gateway model (llm.model)."""
     import anthropic
 
-    from pipeline.generate import _client
-
-    kwargs: dict = {"system": system} if system else {}
-    if effort:
-        kwargs["output_config"] = {"effort": effort}
+    real_model = llm.model(model, STEP_ENVS.get(model))
     try:
-        response = _client().messages.create(
-            model=model,
-            max_tokens=4000,  # room for the thinking that is on by default; the answer is about 200 tokens
-            messages=[{"role": "user", "content": content}],
-            **kwargs,
-        )
+        # max_tokens: room for the thinking that is on by default; the answer is about 200 tokens
+        response = llm.create(model=real_model, max_tokens=4000, system=system, content=content, effort=effort)
     except (anthropic.AuthenticationError, anthropic.PermissionDeniedError) as error:
         raise ProviderStop(f"Claude: {error}") from error
     if response.stop_reason == "refusal":
         raise RuntimeError(f"Claude refused: {response.stop_details}")
     # The first *text* block: the model may send a thinking block first.
     text = next((block.text for block in response.content if block.type == "text"), "")
-    return Reply(text, response.usage.input_tokens, response.usage.output_tokens)
+    return Reply(text, response.usage.input_tokens, response.usage.output_tokens, real_model)
 
 
 @dataclass
@@ -231,7 +226,7 @@ class Usage:
     def add(self, model: str, reply: Reply) -> None:
         self.input_tokens += reply.input_tokens
         self.output_tokens += reply.output_tokens
-        self.cost += cost_usd(model, reply.input_tokens, reply.output_tokens)
+        self.cost += cost_usd(reply.model or model, reply.input_tokens, reply.output_tokens)
 
 
 class BadAnswer(ValueError):
