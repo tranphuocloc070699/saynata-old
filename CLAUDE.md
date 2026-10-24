@@ -12,7 +12,7 @@ learning Swift and English at the same time.
 | `pipeline/` | Python 3.12, uv, Claude Sonnet 5.5 (through `llm.py`), Codex CLI | Builds the bundled dictionary and media, AI pictures, prefill and local collection, language lines | doc-6, doc-15, doc-18 |
 | `admin/` | React, Vite, TypeScript, Refine, shadcn/ui | Admin CMS at `admin.saynata.com`: words, sentences, media, users, sources | doc-13, doc-14 |
 | `extension/` | Chromium MV3, TypeScript, Vite, Vitest | Browser extension: select English, see the simple explanation | doc-19 |
-| `web/` | Next.js 16, TypeScript, Tailwind 4, GSAP, Vitest | The learner website (homepage only), deployed next to the backend | doc-23 |
+| `web/` | Next.js 16, TypeScript, Tailwind 4, GSAP, Vitest | The learner website (homepage, sign-in and sign-up), deployed next to the backend | doc-17, doc-23 |
 
 **Details of every part** (endpoints, tables, Flyway versions, env keys, commands): [doc-24 System map](backlog/docs/features/doc-24%20-%20System-map.md).
 Read it only for the part you touch.

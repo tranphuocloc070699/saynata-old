@@ -1,9 +1,11 @@
 ---
 id: TASK-102
 title: Web app for learners (Next.js)
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@claude'
 created_date: '2026-10-23 10:05'
+updated_date: '2026-10-24 17:34'
 labels:
   - web
 dependencies: []
@@ -30,3 +32,12 @@ Saynata has the iPhone app, a Mac menu-bar app and a browser extension, but no p
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Cat room component from the developer's CatRoom code (paid pictures served at /cats/, git-ignored, hidden under 760px)
+2. Auth client: email code, Google and Apple ID tokens, refresh, sign-out; tokens in localStorage
+3. /sign-in and /sign-up pages: Apple and Google pills, OR, email code
+4. Vitest tests, build, browser check; doc-23, doc-11, CLAUDE.md
+<!-- SECTION:PLAN:END -->

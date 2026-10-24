@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SaynataApi, type Suggestion } from "@/lib/api";
+import { browserTokens } from "@/lib/auth";
 import { fetchResult, startState, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
 import { useTargetLanguage } from "@/lib/targetLanguage";
@@ -16,7 +17,7 @@ import { SentenceCard } from "./SentenceCard";
 import { WordCard, WordSkeleton } from "./WordCard";
 import { WordSheet } from "./WordSheet";
 
-const api = new SaynataApi("");
+const api = new SaynataApi("", browserTokens);
 const SUGGEST_DELAY_MS = 250;
 const SUGGEST_MAX_LENGTH = 40;
 /** Cached answers, so a guest can try them (TASK-83.11 prefill). */

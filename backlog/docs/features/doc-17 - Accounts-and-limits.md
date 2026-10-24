@@ -3,11 +3,11 @@ id: doc-17
 title: Accounts and limits
 type: specification
 created_date: '2026-10-15 10:00'
-updated_date: '2026-10-24 11:07'
+updated_date: '2026-10-24 18:29'
 ---
 # Accounts and limits
 
-> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-24 (language lines use the gate: TASK-106.2; before that 2026-10-23: sign-in sheet, TASK-96).
+> Status: **backend built** (TASK-66 accounts, TASK-68 sign-in for new Claude calls, TASK-69 rate limits, TASK-67 daily budget). The iOS side is built too (TASK-70, see "iOS app" below). Sign in with Google, Apple and an emailed link: TASK-92, see "Other ways to sign in". The website signs in with the email code, Google and Apple: TASK-102, see "Web app". The short version of the whole flow: "Workflow at a glance". Last traced from code: 2026-10-25 (web sign-in, TASK-102; before that 2026-10-24: language lines use the gate, TASK-106.2; before that 2026-10-23: sign-in sheet, TASK-96).
 > Why: doc-7 rows of 2026-10-15. Related: [Admin API](doc-13%20-%20Admin-API.md) (the admin has its own cookie login), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Word lookup](doc-5%20-%20Word-lookup.md), the Resend and SES setup in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) (sections 10 and 11).
 
 ## What it does
@@ -42,8 +42,8 @@ stateDiagram-v2
         [*] --> Choose
         Choose --> EmailCode: 6-digit code (all apps)
         Choose --> EmailLink: emailed link (iOS)
-        Choose --> Google: Google ID token (iOS)
-        Choose --> Apple: Apple ID token (iOS, paid account)
+        Choose --> Google: Google ID token (iOS, web)
+        Choose --> Apple: Apple ID token (iOS paid account, web)
     }
     SignIn --> SignedIn: AuthService.issueTokensFor gives access (1 h) + refresh (60 days)
     SignedIn --> SignedIn: Authorization Bearer on every call
@@ -73,6 +73,7 @@ Which app offers which way in:
 | Share and Translation extensions | No sheet: they use the app's session | | | | The app's Keychain item |
 | Mac app | Yes | No | No | No | The Mac's own Keychain |
 | Browser extension | Yes | No | No | No | `chrome.storage.local` |
+| Website (saynata.com) | Yes | No | Yes | Yes | `localStorage` (`saynata.session`) |
 
 Each app has its own session, except the two iOS extensions, which share the iPhone app's.
 
@@ -340,6 +341,21 @@ JSON: `GET` answers `{"items":[{"kind","text","preview","createdAt"}]}` newest f
 
 The extension signs in the same way, in its toolbar popup, keeps the session in `chrome.storage.local` and shares one refresh in its service worker. Details: [Browser extension](doc-19%20-%20Browser-extension.md).
 
+## Web app (TASK-102)
+
+The website ([Web app](doc-23%20-%20Web-app.md), `web/`) has `/sign-in` and `/sign-up`: one form, because verifying a code for a new email makes the account. It uses the same `/api/auth` endpoints as the apps and ends with the same tokens.
+
+| Part | Where | What it does |
+|---|---|---|
+| Form | [SignInForm.tsx:53](../../../web/src/components/auth/SignInForm.tsx#L53) | Apple and Google pills first, then under "or" the email field ("Email me a code"), then the 6-digit code (`/api/auth/email-code`, `/api/auth/verify`). **No emailed link**: it opens `saynata://`, so it is app-only. |
+| Google | [SignInForm.google:99](../../../web/src/components/auth/SignInForm.tsx#L99) | A redirect to Google with `response_type=id_token` and the **web** OAuth client ID (`NEXT_PUBLIC_GOOGLE_CLIENT_ID`). The state and the raw nonce wait in sessionStorage (`saynata.google-sign-in`); back on `/sign-in` the ID token is read from the address hash and sent to `/api/auth/google`. The backend accepts it because the web client ID is in `GOOGLE_CLIENT_IDS`. |
+| Apple | [SignInForm.apple:121](../../../web/src/components/auth/SignInForm.tsx#L121) | AppleID JS in a popup with the **Services ID** `com.saynata.web` (`NEXT_PUBLIC_APPLE_SERVICES_ID`), which must be in `APPLE_CLIENT_IDS`. Apple needs the real domain (no `localhost`). |
+| Nonce | `makeNonce` in [auth.ts](../../../web/src/lib/auth.ts) | The provider gets the SHA-256 hex of a random nonce; the backend gets the raw one and checks they match, like on iOS. |
+| Session | `BrowserTokens` in [auth.ts](../../../web/src/lib/auth.ts) | Kept in `localStorage` (`saynata.session`). The access token is refreshed 60 s before it ends, with **one shared refresh** (two requests that find it old wait for the same call). A 401 on refresh signs out; a network error keeps the session for the next try. |
+| Account menu | [AccountMenu.tsx](../../../web/src/components/auth/AccountMenu.tsx), [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx) | In the header: a "Sign in" link for a guest, the email and an icon-only Sign out button when signed in (sign-out revokes the refresh token on the server). |
+
+A signed-in website user gets new Claude calls through `ClaudeGate` like the apps; a guest still asks with `?cachedOnly=true`. The provider setup by hand (web OAuth client, Services ID, env): [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md) section 13.
+
 ## Admin Users page (TASK-105)
 
 The admin can see app accounts, their usage, and block or delete them (doc-13 [Users](doc-13%20-%20Admin-API.md#users-task-105), doc-14).
@@ -392,7 +408,7 @@ The old tests set `app.auth.require-sign-in=false` (and a very high guest IP lim
 - **Google and Apple need setup by hand** (deploy guide section 13). Google is set up (2026-10-18): `GOOGLE_CLIENT_IDS` on the server and `GoogleIOSClientID` in Info.plist hold the same iOS client ID. A new client ID must change both, or the Google button says "not set up yet". Sign in with Apple works only in a `PAID_ACCOUNT=1` build.
 - The emailed link opens the app through the `saynata://` scheme, so iOS asks "Open in Saynata?" on the page. Universal links (no question) need the paid account and Associated Domains.
 - The link works only on the device that asked for it (the secret stays there). Opening it on a Mac or another phone shows the page, but the app there refuses it.
-- The Mac app and the extensions have only the email code. The new options are iOS only.
+- The Mac app and the extensions have only the email code. Google and Apple are on iOS and the website (TASK-102); the emailed link is iOS only.
 - The new options in the sheet are a plain first version, not a reviewed design.
 - The budget check and the usage write are not one atomic step, so a burst of parallel calls can pass the check together and go a little over the cap.
 - If a stream breaks half way, the tokens already spent are not recorded (the usage is read from the finished message).
@@ -418,3 +434,5 @@ It is a **paid pack** (CatMegaBundle, no license to redistribute) and this repo 
 | Without the pictures | same files | The room area is the sky colour with a still `cat.fill` symbol in `textSecondary`; the sheet works the same. |
 
 The ball sheet has 5 frames of 24x16 pixels (a bounce), not 10 of 12 wide.
+
+**The website** (TASK-102) shows a room from the same pack left of the sign-in form ([CatRoom.tsx](../../../web/src/components/CatRoom.tsx), hidden under 760 px). The pictures are served from `/cats/` on the server, copied there by `scripts/upload-web-cats.sh` (doc-11 section 14); without them a plain panel with the pixel cat shows.

@@ -5,6 +5,7 @@
  * as closed rows, the target language last (product rule: explain first, translate last).
  */
 import { SaynataApi, type Sense, type WordResponse } from "@/lib/api";
+import { browserTokens } from "@/lib/auth";
 import {
   hasLanguageRow,
   LineCache,
@@ -29,7 +30,7 @@ const LEVEL_COLOR: Record<string, string> = {
   harder: "text-level-harder bg-level-harder/15",
 };
 
-const api = new SaynataApi("");
+const api = new SaynataApi("", browserTokens);
 /** Lines kept for the whole visit: opening the row again, or the same explanation on another card, costs nothing. */
 const lineCache = new LineCache();
 
