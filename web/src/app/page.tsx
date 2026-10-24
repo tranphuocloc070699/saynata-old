@@ -14,15 +14,6 @@ export default function Page() {
         <span className="font-display text-[1.35rem] leading-none">Saynata</span>
       </header>
       <main className="mx-auto flex w-full max-w-[680px] flex-1 flex-col gap-6 px-4 pt-10 pb-16 sm:px-6 sm:pt-14">
-        <div data-enter className="flex flex-col items-center gap-2 text-center">
-          <h1 className="font-display text-[2.1rem] leading-tight text-balance sm:text-[2.6rem]">
-            Learn English in English.
-          </h1>
-          <p className="max-w-[46ch] font-serif text-[1.05rem] text-ink-2">
-            Type a word or a sentence. Saynata explains it in simple English first, and your language waits at the
-            bottom.
-          </p>
-        </div>
         <Suspense fallback={<div className="min-h-[170px]" />}>
           <Home />
         </Suspense>

@@ -25,9 +25,9 @@ export const CAT_SHEETS = {
 } as const satisfies Record<string, CatSheet>;
 
 export const CAT_BASE_URL = "/cats/";
-/** One frame is 32 px; 3x keeps the pixels square and crisp. */
+/** One frame is 32 px; 2x keeps the pixels square and crisp, and the cat small on the card. */
 export const CAT_FRAME_PX = 32;
-export const CAT_SCALE = 3;
+export const CAT_SCALE = 2;
 
 const KINDS = [CAT_SHEETS.dance, CAT_SHEETS.sleep, CAT_SHEETS.excited, CAT_SHEETS.sick, "box"] as const;
 const BOXES = [CAT_SHEETS.box1, CAT_SHEETS.box2, CAT_SHEETS.box3] as const;
