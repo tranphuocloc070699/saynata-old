@@ -3,11 +3,11 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-24 14:54'
+updated_date: '2026-10-24 18:58'
 ---
 # Prefill
 
-> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue, and since TASK-83.11 also with about 2,500 everyday lines ("Looks good.", "I'll get back to you.", [Common everyday sentences](#common-everyday-sentences-task-8311)); cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). TASK-83.12 splits the runs: the night job answers only what users typed, and what the developer queues is run at once, see [Run at once](#run-at-once-task-8312). Language lines for every definition and sentence, also written by Codex: [Language lines written by Codex](#language-lines-written-by-codex-task-1065) (TASK-106.5, 2026-10-24). Last traced from code: 2026-10-24 (TASK-106.5: `lines` command; 2026-10-23 TASK-100: refused guest sentences queue their words, admin list and remove; TASK-83.3: queued phrases and sentences use the loose sentence match).
+> Status: **backend built** (TASK-83.1, the queue and the job; TASK-83.8 queues the unknown words of translated sentences). The collector in the pipeline (TASK-83.2) fills the queue, and since TASK-83.11 also with about 2,500 everyday lines ("Looks good.", "I'll get back to you.", [Common everyday sentences](#common-everyday-sentences-task-8311)); cached-only lookups and suggestions (TASK-83.4 and later) come after. The free way, entries written by Codex on the developer's Mac and pushed to `word_lookup`, is [Local collection written by Codex](#local-collection-written-by-codex-task-839) at the end (TASK-83.9). TASK-83.12 splits the runs: the night job answers only what users typed, and what the developer queues is run at once, see [Run at once](#run-at-once-task-8312). Language lines for every definition and sentence, also written by Codex: [Language lines written by Codex](#language-lines-written-by-codex-task-1065) (TASK-106.5, 2026-10-24). Last traced from code: 2026-10-25 (TASK-83.15: books collect, review, report; 2026-10-24 TASK-106.5: `lines` command; 2026-10-23 TASK-100: refused guest sentences queue their words, admin list and remove; TASK-83.3: queued phrases and sentences use the loose sentence match).
 > Why: doc-7, decisions of 2026-10-16. Related: [Accounts and limits](doc-17%20-%20Accounts-and-limits.md) (the user budget), [Word lookup](doc-5%20-%20Word-lookup.md), [Sentence translation](doc-4%20-%20Sentence-translation.md), [Media and images](doc-15%20-%20Media-and-images.md), the cron and env keys in the [deploy guide](../guides/doc-11%20-%20Deploy-to-a-VPS.md).
 
 ## What it does
@@ -331,3 +331,41 @@ Measured on 2026-10-24 with the real Codex CLI (`gpt-6-sol`, effort low): 3 para
 - Not tried on the real server yet: the full run and the push wait for the developer.
 - Only the English text is collected, from definitions and sentence texts. When TASK-106.6 (sentence prompt v10) changes what the app sends to `translate-lines`, run `lines collect` again; the column it reads (`sentence_translation.source_text`) stays.
 - A line that equals the English text is rejected, so a text that is already a name or a number stays `needs_review` (it needs no line).
+
+
+## Words from the developer's books, ticked by hand (TASK-83.15)
+
+The free way to fill the server cache from books: `books convert` (TASK-83.14) makes `.md` files, `books collect` finds the new words and phrases, the developer ticks what to keep, and only the ticked ones go through `collection write` (Codex) and `collection push`. No paid call anywhere. The book text stays on the Mac.
+
+```mermaid
+flowchart LR
+    A[".md files + books-report.tsv"] --> B["books collect"]
+    B --> C[("collection table, source book, picked 0 or 1")]
+    C --> D["books review: tick, Save"]
+    D --> C
+    C -->|picked only| E["collection write (Codex)"]
+    E -->|picked only| F["collection push --yes"]
+    F --> G[("VPS word_lookup")]
+```
+
+| Step | Where | What it does |
+|---|---|---|
+| Read books | [ok_books:364](../../../pipeline/src/pipeline/book_words.py#L364) | The `ok` rows of `books-report.tsv`; a book already in `book_done` is skipped, so a second run only reads new books. |
+| Count | [scan_text:244](../../../pipeline/src/pipeline/book_words.py#L244) | Tokens like the backend `SourceAnalyzer` (a trailing 's is dropped, contractions skipped), how each form was written (lower, UPPER, Capitalised at a sentence start, Capitalised in the middle), the books and the first sentence (at most 25 words, the word marked). |
+| Phrases | [PhraseFinder:188](../../../pipeline/src/pipeline/book_words.py#L188) | 2 to 4 words in a row from the WordNet phrasal verbs and idioms; the first word may be a form ("gave up" finds "give up": backend endings plus lemminflect). |
+| Group | [build_items:307](../../../pipeline/src/pipeline/book_words.py#L307) | `name` (never lower case and capitalised mid-sentence, or not a word), `common` (Zipf >= 4), `uncommon` (3-4), `rare` (< 3), `phrase`, `not_on_list` (not on scowl-70 + ngsl, seen at least twice). A form becomes its base when the base is about as common (within 1.0 Zipf). Skipped: bundled, pipeline words, known forms or bases, blocked words. |
+| Server check | [server_cached:351](../../../pipeline/src/pipeline/book_words.py#L351) | With `DATABASE_URL` (read-only) the words that already have a `word_lookup` row are dropped; without it a warning says so and the check is skipped. |
+| Save | [save_items:383](../../../pipeline/src/pipeline/book_words.py#L383) | New rows get `source='book'`, `book_group`, `times`, `books`, `example`, `picked` (1 for common and phrase). A book row that exists only gets more sightings and keeps its pick. Text already in the collection from another source is left alone. |
+| Review | [make_handler:570](../../../pipeline/src/pipeline/book_words.py#L570) | `books review` serves a page on 127.0.0.1 only (Host check, JSON-only POST): a tab per group, a checkbox per row, tick or untick all (of the rows the search shows), Save writes `picked`. A pushed row cannot be changed. |
+| Filter | [PICKED_ONLY:87](../../../pipeline/src/pipeline/collection.py#L87) | Used by `rows_to_write` and `push_rows`: a book row is written and pushed only when `picked = 1`. Unticking a written, not pushed row keeps it out of the push. Other rows are not affected. |
+| Report | [report_lines:448](../../../pipeline/src/pipeline/book_words.py#L448) | `books report`: per group, found, picked, written, pushed. |
+
+Commands, in order: `books collect ~/Applications/Workspace/Books`, `books review`, `books report`, `collection write --limit 20`, `collection push` (dry run), `collection push --yes`.
+
+Tests: `pipeline/tests/test_book_words.py` (grouping, names, base forms, phrases, skips, resume, picks, write and push filter, the review server).
+
+### Known gaps
+
+- Names are decided from the books of one run only: a word seen in lower case in an earlier run and only capitalised now is listed as a name.
+- A `not_on_list` word is answered "not a word" by the backend before it looks in the cache, so a pushed entry for it would never be shown. They start unticked.
+- The phrase list is the WordNet one with no frequency limit, so rare idioms appear in the `phrase` tab, ticked at first; untick what you do not want.
