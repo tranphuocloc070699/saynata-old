@@ -9,8 +9,39 @@ permissions:
   contents: read
 
 jobs:
+  # Full suites run on pushes to main and on PRs into main. Other PRs (into feature/local or a feature branch)
+  # run only the jobs for the parts they change, so CI is faster while working. Developer's rule, 2026-10-24.
+  changes:
+    name: Changed parts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend == 'true' || steps.full.outputs.full == 'true' }}
+      pipeline: ${{ steps.filter.outputs.pipeline == 'true' || steps.full.outputs.full == 'true' }}
+      admin: ${{ steps.filter.outputs.admin == 'true' || steps.full.outputs.full == 'true' }}
+      extension: ${{ steps.filter.outputs.extension == 'true' || steps.full.outputs.full == 'true' }}
+      web: ${{ steps.filter.outputs.web == 'true' || steps.full.outputs.full == 'true' }}
+      full: ${{ steps.full.outputs.full }}
+    steps:
+      - id: full
+        run: echo "full=${{ github.event_name == 'push' || github.base_ref == 'main' }}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend: ['backend/**', '.github/workflows/**']
+            pipeline: ['pipeline/**', '.github/workflows/**']
+            admin: ['admin/**', '.github/workflows/**']
+            extension: ['extension/**', '.github/workflows/**']
+            web: ['web/**', '.github/workflows/**']
+
   backend:
     name: Backend tests
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,6 +61,8 @@ jobs:
 
   docker:
     name: Backend Docker image
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -38,6 +71,8 @@ jobs:
 
   pipeline:
     name: Pipeline tests
+    needs: changes
+    if: needs.changes.outputs.pipeline == 'true'
     runs-on: ubuntu-latest
     # The import and export tests need a real Postgres. Each test makes its own schema and drops it.
     services:
@@ -65,6 +100,8 @@ jobs:
 
   admin:
     name: Admin web app
+    needs: changes
+    if: needs.changes.outputs.admin == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -82,6 +119,8 @@ jobs:
 
   extension:
     name: Browser extension
+    needs: changes
+    if: needs.changes.outputs.extension == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -100,6 +139,8 @@ jobs:
 
   web:
     name: Web app
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
