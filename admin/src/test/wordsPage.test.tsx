@@ -94,7 +94,7 @@ describe("words page", () => {
   it("shows the words as a table with Level, Source and Status, and no badge for a word that is fine (TASK-101)", async () => {
     renderWords([run, house]);
     const table = await screen.findByRole("table", { name: "Rows" });
-    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["Word", "Level", "Source", "Status"]);
+    expect(within(table).getAllByRole("columnheader").map((th) => th.textContent)).toEqual(["", "Word", "Level", "Source", "Status"]);
     const houseRow = (await within(table).findByText("house")).closest("tr")!;
     expect(within(houseRow).getByText("Bundled")).toBeInTheDocument();
     expect(within(houseRow).getByText("A1")).toBeInTheDocument();
@@ -136,6 +136,8 @@ describe("words page", () => {
       "Backend database",
       "Pending",
       "Needs review",
+      "Has media",
+      "No media",
     ]);
   });
 
@@ -347,5 +349,65 @@ describe("words page", () => {
     renderWords([{ ...house, reviewReasons: [] }]);
     await userEvent.click(await screen.findByRole("button", { name: /house/ }));
     expect(screen.queryByText(/No problems found now/)).not.toBeInTheDocument();
+  });
+});
+
+describe("media filter and bulk review", () => {
+  it("Has media sends media=with and shows only words with a picture", async () => {
+    const pictured: WordItem = { ...house, id: 5, word: "apple", media: [{ url: "https://x.test/a.webp", kind: "photo" }] as WordItem["media"] };
+    const getList = renderWords([run, pictured]);
+    await screen.findByText("apple");
+    await choose("Has media");
+    await vi.waitFor(() =>
+      expect(listCalls(getList).at(-1)!.filters).toEqual([{ field: "media", operator: "eq", value: "with" }]),
+    );
+    const list = screen.getByRole("table", { name: "Rows" });
+    await vi.waitFor(() => expect(within(list).queryByText("run")).not.toBeInTheDocument());
+    expect(within(list).getByText("apple")).toBeInTheDocument();
+  });
+
+  it("select all, then mark reviewed posts once per row and clears the selection", async () => {
+    const flagged = new Set<string | number>([1, 3]);
+    const other: WordItem = { ...run, id: 3, word: "walk" };
+    const getList = vi.fn().mockImplementation(async ({ resource }) => {
+      if (resource !== "words") return { data: [], total: 0 };
+      const data = [run, other].map((w) => ({ ...w, needsReview: flagged.has(w.id) }));
+      return { data, total: data.length };
+    });
+    const custom = vi.fn().mockImplementation(async ({ url }: { url: string }) => {
+      flagged.delete(Number(url.split("/").at(-2)));
+      return { data: {} };
+    });
+    const dataProvider = { getList, custom, getApiUrl: () => "https://api.test/api/admin" } as unknown as DataProvider;
+    render(
+      <MemoryRouter>
+        <Refine dataProvider={dataProvider} options={{ disableTelemetry: true }}>
+          <WordsPage />
+        </Refine>
+      </MemoryRouter>,
+    );
+    const list = await screen.findByRole("table", { name: "Rows" });
+    await within(list).findByText("walk");
+
+    await userEvent.click(within(list).getByRole("checkbox", { name: "Select all" }));
+    const bar = screen.getByRole("toolbar", { name: "Selected rows" });
+    expect(bar).toHaveTextContent("2 selected");
+    await userEvent.click(within(bar).getByRole("button", { name: "Mark 2 reviewed" }));
+
+    await vi.waitFor(() => expect(screen.queryByRole("toolbar", { name: "Selected rows" })).not.toBeInTheDocument());
+    const urls = custom.mock.calls.map((c) => c[0].url);
+    expect(urls).toEqual(["https://api.test/api/admin/words/1/reviewed", "https://api.test/api/admin/words/3/reviewed"]);
+    await vi.waitFor(() => expect(within(list).queryByText(/Needs review/)).not.toBeInTheDocument());
+  });
+
+  it("one row checkbox selects only that row", async () => {
+    renderWords([run, house]);
+    const list = await screen.findByRole("table", { name: "Rows" });
+    await within(list).findByText("house");
+    await userEvent.click(within(list).getByRole("checkbox", { name: "Select run" }));
+    expect(screen.getByRole("toolbar", { name: "Selected rows" })).toHaveTextContent("1 selected");
+    expect(within(list).getByRole("checkbox", { name: "Select all" })).toHaveProperty("indeterminate", true);
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(screen.queryByRole("toolbar", { name: "Selected rows" })).not.toBeInTheDocument();
   });
 });

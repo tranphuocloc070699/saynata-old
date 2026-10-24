@@ -1,7 +1,7 @@
-import { useApiUrl, useInfiniteList, useInvalidate } from "@refinedev/core";
+import { useApiUrl, useCustom, useInfiniteList, useInvalidate } from "@refinedev/core";
 import { Check, Loader2, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { PrefillQueueItem } from "@/api/types";
+import type { PrefillOverview, PrefillQueueItem, PrefillSchedule } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { httpClient } from "@/providers/dataProvider";
@@ -16,6 +16,48 @@ const SOURCES: Record<string, string> = {
   "scowl-70": "Common words",
   "oewn-2025": "Phrases",
 };
+
+const VIETNAM_OFFSET_HOURS = 7;
+
+function hhmm(date: Date, offsetHours: number) {
+  const shifted = new Date(date.getTime() + offsetHours * 3_600_000);
+  return `${String(shifted.getUTCHours()).padStart(2, "0")}:${String(shifted.getUTCMinutes()).padStart(2, "0")}`;
+}
+
+// "today 20:00 UTC (03:00 Vietnam), in 3 h". The day word is for UTC, the server's clock.
+export function nextRunText(nextRunAt: string, now: Date = new Date()) {
+  const next = new Date(nextRunAt);
+  const days = Math.round((Date.UTC(next.getUTCFullYear(), next.getUTCMonth(), next.getUTCDate()) -
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())) / 86_400_000);
+  const day = days === 0 ? "today" : days === 1 ? "tomorrow" : next.toISOString().slice(0, 10);
+  const minutes = Math.max(0, Math.round((next.getTime() - now.getTime()) / 60_000));
+  const wait = minutes < 60 ? `in ${minutes} min` : `in ${Math.round(minutes / 60)} h`;
+  return `${day} ${hhmm(next, 0)} UTC (${hhmm(next, VIETNAM_OFFSET_HOURS)} Vietnam), ${wait}`;
+}
+
+function sourceNames(sources: string[]) {
+  return sources.map((source) => `"${SOURCES[source] ?? source}"`).join(", ");
+}
+
+// The footer line that says when pending items get answered.
+function ScheduleNote({ schedule, maxUsdPerRun }: { schedule?: PrefillSchedule; maxUsdPerRun?: number }) {
+  if (!schedule) return null;
+  if (!schedule.on || !schedule.nextRunAt) {
+    return <p>The night job is off (PREFILL_CRON is empty). Pending items run only by hand.</p>;
+  }
+  return (
+    <>
+      <p className="text-foreground">
+        Next night run: {nextRunText(schedule.nextRunAt)}
+        {maxUsdPerRun != null && ` · cap $${maxUsdPerRun.toFixed(2)}`}
+      </p>
+      <p>
+        The night run answers only {sourceNames(schedule.sources)} items. Other sources
+        wait until you run them by hand.
+      </p>
+    </>
+  );
+}
 
 interface Props {
   kind: "word" | "sentence";
@@ -46,6 +88,7 @@ export function PendingQueue({ kind, query }: Props) {
         allPages.reduce((count, page) => count + page.data.length, 0) < (lastPage.total ?? 0) ? allPages.length + 1 : undefined,
     },
   });
+  const { result: overview } = useCustom<PrefillOverview>({ url: `${apiUrl}/prefill`, method: "get" });
   const pages = result.data?.pages ?? [];
   const rows = pages.flatMap((page) => page.data);
   const total = pages[0]?.total ?? 0;
@@ -163,8 +206,11 @@ export function PendingQueue({ kind, query }: Props) {
           {error}
         </p>
       )}
-      <div className="border-t border-border p-3 text-sm text-muted-foreground">
-        {rows.length.toLocaleString("en-US")} of {total.toLocaleString("en-US")} waiting for the night job
+      <div aria-label="Night job" className="space-y-1 border-t border-border p-3 text-sm text-muted-foreground">
+        <ScheduleNote schedule={overview?.data?.schedule} maxUsdPerRun={overview?.data?.maxUsdPerRun} />
+        <p>
+          {rows.length.toLocaleString("en-US")} of {total.toLocaleString("en-US")} waiting
+        </p>
       </div>
     </>
   );
