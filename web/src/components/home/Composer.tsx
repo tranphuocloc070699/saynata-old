@@ -42,12 +42,12 @@ export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mo
         }}
         className="relative flex flex-col gap-3 rounded-[22px] border border-hairline bg-surface p-4 pb-3 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_10px_30px_-12px_rgb(31_42_38/0.18)] transition-[border-color,box-shadow] focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/15"
       >
-        {/* The cat sits on the top edge of the card, its feet one sprite pixel (3 px) into the border, so it
-            never covers text. Every Mochi sheet uses the same 96 px box, so the spot never moves. */}
+        {/* The cat sits on the top edge of the card, its feet one sprite pixel (2 px) into the border, so it
+            never covers text. Every Mochi sheet uses the same 64 px box, so the spot never moves. */}
         <MochiCat
           mood={mood}
-          className="cat absolute right-7 bottom-full block translate-y-[3px] sm:right-10"
-          fallbackClassName="w-[86px] sm:w-[100px]"
+          className="cat absolute right-7 bottom-full block translate-y-[2px] sm:right-10"
+          fallbackClassName="w-[58px] sm:w-[64px]"
         />
         <label htmlFor={inputId} className="sr-only">
           An English word or sentence
@@ -58,7 +58,7 @@ export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mo
           onChange={(event) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
           rows={2}
-          placeholder="A word or a sentence in English"
+          placeholder="Type or paste text to get something interesting"
           autoComplete="off"
           autoCapitalize="off"
           spellCheck={false}
