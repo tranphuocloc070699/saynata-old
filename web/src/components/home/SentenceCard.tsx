@@ -13,6 +13,7 @@ import { useSpeech } from "@/lib/speech";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
 import { Check, Copy, Speaker, Stop } from "../icons";
+import { LikeButton } from "./LikeButton";
 
 type Props = {
   text: string;
@@ -115,6 +116,7 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
         )}
       </article>
       <div className="flex justify-end">
+        {explanation && <LikeButton kind="sentence" text={text} preview={explanation.meaning} chip={null} />}
         <IconButton
           variant="plain"
           label={copied ? "Copied" : "Copy"}

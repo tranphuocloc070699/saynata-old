@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-25 03:40'
+updated_date: '2026-10-25 07:56'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (sign-in, TASK-102).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (History and Liked, TASK-102.6).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -85,6 +85,34 @@ All motion runs through [withMotion](../../../web/src/lib/motion.ts#L15) (`gsap.
 Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and a closed row is `inert`.
 
 Focus: the global `:focus-visible` outline sits in `@layer base` (`globals.css`), so a Tailwind utility can turn it off. The composer textarea uses `outline-none`, and its card shows focus instead (`focus-within`: accent border and a soft ring).
+
+## History and Liked (TASK-102.6, doc-22)
+
+A signed-in user has History and Liked on `/history`, the same lists as the phone and the Mac. A guest sees a sign-in prompt there, and no star on results.
+
+```mermaid
+sequenceDiagram
+    participant U as Learner
+    participant S as SyncStore (lib/sync.ts)
+    participant L as localStorage
+    participant B as POST /api/sync
+    U->>S: lookup, star or remove
+    S->>L: state + queue (shown at once)
+    Note over S: timer 5 s, or 20 ops, or pagehide
+    S->>B: since + ops (max 200)
+    B-->>S: changes + cursor
+    S->>S: merge (newest at wins), replay the queue on top
+```
+
+| Step | File | What happens |
+|---|---|---|
+| Store | [sync.ts:150](../../../web/src/lib/sync.ts#L150) | `SyncStore`: local copy plus op queue per account (`saynata.sync.<email>`). No React, tested with a fake transport |
+| Merge | [applyOp:100](../../../web/src/lib/sync.ts#L100), [mergeItems:124](../../../web/src/lib/sync.ts#L124) | Newest `at` wins; removes and "clear all" stay as tombstones; the server wins a tie; the queue is replayed over every pull |
+| Flush | [sync.ts:238](../../../web/src/lib/sync.ts#L238) | 5 s after the last change, at 20 ops, and `pagehide` with `keepalive` (the queue stays, a repeat is harmless). A failure retries after 30 s; a 400 drops the batch |
+| Transport | [browserTransport:382](../../../web/src/lib/sync.ts#L382) | Bearer token, one refresh and retry on 401 |
+| Record | [Home.tsx:57](../../../web/src/components/home/Home.tsx#L57) | A finished word or sentence result is a `history_add` (preview = first simple explanation, chip = "pos · level") |
+| Star | [LikeButton.tsx](../../../web/src/components/home/LikeButton.tsx) | On word and sentence results; `liked_add` / `liked_remove` |
+| Page | [HistoryView.tsx](../../../web/src/components/history/HistoryView.tsx) | History \| Liked pill, search, clear all (asks first), day groups, "synced N s ago" |
 
 ## Deploy (saynata.com, TASK-102.2, moved from loffy.me in TASK-104)
 

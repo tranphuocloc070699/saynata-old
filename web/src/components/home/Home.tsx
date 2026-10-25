@@ -9,6 +9,7 @@ import { SaynataApi, type Suggestion } from "@/lib/api";
 import { browserTokens } from "@/lib/auth";
 import { fetchResult, startState, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
+import { useSync } from "@/lib/useSync";
 import { useTargetLanguage } from "@/lib/targetLanguage";
 import { Alert } from "../icons";
 import type { CatMood } from "../PixelCat";
@@ -50,6 +51,21 @@ export function Home() {
       setText(query);
     }
   }
+
+  // A finished lookup goes to History (shown at once, sent in a batch; TASK-102.6). A guest has no store.
+  const { store: syncStore } = useSync();
+  const recorded = useRef<Result | null>(null);
+  useEffect(() => {
+    if (!syncStore || recorded.current === result) return;
+    if (result.kind === "word") {
+      recorded.current = result;
+      const sense = result.word.entry.senses[0];
+      syncStore.recordLookup("word", result.word.word, sense?.simpleDefinition ?? "", sense ? `${sense.pos} · ${sense.cefr}` : null);
+    } else if (result.kind === "sentence" && result.explanation) {
+      recorded.current = result;
+      syncStore.recordLookup("sentence", result.query, result.explanation.meaning, null);
+    }
+  }, [result, syncStore]);
 
   // ...and fetch it. Every state from here on comes from a network callback.
   useEffect(() => {
