@@ -1,5 +1,5 @@
 /** One explanation from start to end: word or sentence, then the events for the card. Used by the service worker. */
-import { ApiError, MESSAGES, type SaynataApi } from "./api";
+import { ApiError, MESSAGES, type SaynataApi, type WordResponse } from "./api";
 import type { ExplainEvent, ExplainRequest } from "./messages";
 import { classify, cleanSelection, MAX_SENTENCE_LENGTH } from "./textKind";
 
@@ -19,17 +19,7 @@ export async function explain(
         emit({ type: "error", kind: "tooLong", message: `Select up to ${MAX_SENTENCE_LENGTH} characters.` });
         return;
       case "word":
-        try {
-          emit({ type: "word", response: await api.lookUpWord(text.word, signal) });
-        } catch (error) {
-          // A single non-English word ("buồn") is not in the word API: the sentence API finds the English word.
-          if (signal?.aborted || !(error instanceof ApiError) || (error.status !== 404 && error.status !== 422)) throw error;
-          try {
-            await explainSentence(api, request, cleanSelection(request.text), emit, signal);
-          } catch {
-            throw error; // keep the word error: the sentence call said nothing better
-          }
-        }
+        await explainWord(api, request, text.word, emit, signal);
         return;
       case "sentence":
         await explainSentence(api, request, text.text, emit, signal);
@@ -39,6 +29,44 @@ export async function explain(
     if (signal?.aborted) return;
     if (error instanceof ApiError) emit({ type: "error", kind: error.kind, message: error.message });
     else emit({ type: "error", kind: "server", message: MESSAGES.generic });
+  }
+}
+
+/** Codes of a 422 whose text says best why nothing can be explained (backend NotEnglishException). */
+const NOTHING_TO_EXPLAIN = ["not_a_word", "a_name"];
+
+/**
+ * One word. When the word API has nothing for it (200 without senses, 404 or 422), the sentence API tries it: "buồn"
+ * is not an English word, but it has a meaning. If that fails the word answer stays, except a 422 with a code in
+ * NOTHING_TO_EXPLAIN, whose server text is the better message. Throws the error the card should show.
+ */
+async function explainWord(
+  api: SaynataApi,
+  request: ExplainRequest,
+  word: string,
+  emit: (event: ExplainEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  let wordError: unknown = null;
+  let empty: WordResponse | null = null;
+  try {
+    const response = await api.lookUpWord(word, signal);
+    if (response.entry?.senses?.length) {
+      emit({ type: "word", response });
+      return;
+    }
+    empty = response;
+  } catch (error) {
+    if (signal?.aborted || !(error instanceof ApiError) || (error.status !== 404 && error.status !== 422)) throw error;
+    wordError = error;
+  }
+  try {
+    await explainSentence(api, request, cleanSelection(request.text), emit, signal);
+  } catch (error) {
+    if (signal?.aborted) return;
+    if (error instanceof ApiError && error.code && NOTHING_TO_EXPLAIN.includes(error.code)) throw error;
+    if (empty) emit({ type: "word", response: empty }); // the card says "not an English word"
+    else throw wordError; // keep the word error: the sentence call said nothing better
   }
 }
 

@@ -109,4 +109,53 @@ describe("explain: non-English input (TASK-114.4)", () => {
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ type: "error" });
   });
+
+  describe("a word with no senses or a refused word (TASK-114 follow-up)", () => {
+    const noSenses = { ...wordResponse, entry: { ...wordResponse.entry, senses: [] } };
+
+    it("a 200 without senses goes to the sentence API, then the word card of the wordMatch", async () => {
+      const { events, calls } = await run(
+        "buồn",
+        () => json(noSenses),
+        () => sse(event("done", withMatch)),
+        () => json(wordResponse),
+      );
+      expect(calls.map((c) => c.url)).toEqual([
+        "https://api.test/api/words/bu%E1%BB%93n",
+        "https://api.test/api/translations/stream",
+        "https://api.test/api/words/sad",
+      ]);
+      expect(events).toEqual([{ type: "word", response: wordResponse }]);
+    });
+
+    it("a 422 from the word API goes to the sentence API too", async () => {
+      const { events } = await run("食べる", () => json({ status: 422 }, 422), () => sse(event("done", japanese)));
+      expect(events).toEqual([{ type: "sentence", response: japanese }]);
+    });
+
+    it("keeps the empty word answer when the sentence call fails", async () => {
+      const { events } = await run("teh", () => json(noSenses), () => json({ status: 502 }, 502));
+      expect(events).toEqual([{ type: "word", response: noSenses }]);
+    });
+
+    it("keeps the word error when the sentence call fails after a 404", async () => {
+      const { events } = await run("zyzzyva", () => json({ status: 404, code: "not_found" }, 404), () => json({ status: 502 }, 502));
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({ type: "error", kind: "badRequest" });
+    });
+
+    it.each(["not_a_word", "a_name"])("shows the sentence 422 text for %s", async (code) => {
+      const { events } = await run(
+        "asdkj",
+        () => json(noSenses),
+        () => json({ status: 422, code, detail: "Server text." }, 422),
+      );
+      expect(events).toEqual([{ type: "error", kind: "notEnglish", message: "Server text." }]);
+    });
+
+    it("does not call the sentence API for a word with senses", async () => {
+      const { calls } = await run("Reluctant.", () => json(wordResponse));
+      expect(calls).toHaveLength(1);
+    });
+  });
 });
