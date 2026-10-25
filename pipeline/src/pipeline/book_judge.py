@@ -18,9 +18,10 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from pipeline import collection
-from pipeline.book_words import MARK_END, MARK_START, NAME, NOT_ON_LIST
+from pipeline.book_words import MARK_END, MARK_START, NAME, NOT_ON_LIST, RARE
 
-JUDGED_GROUPS = (NAME, NOT_ON_LIST)
+JUDGED_GROUPS = (NAME, NOT_ON_LIST)  # the default; RARE is opt-in (`books judge --groups rare`)
+ALL_GROUPS = (NAME, NOT_ON_LIST, RARE)
 BATCH_SIZE = 200
 MIN_TIMES = 3  # fewer sightings than this: a typo, a broken line or a one-off name
 MIN_BOOKS = 2  # seen in one book only: a character or a local variable
@@ -40,6 +41,17 @@ keep: a real English word or a real technical term a learner may look up: progra
 (Java, Vue, Nuxt), computing, science and engineering terms, and rare real words.
 drop: a character name, a place or person name, a typo or broken word, a code identifier (a function, class or
 variable name), a file name, a made-up word, or an abbreviation without a clear meaning.
+
+Answer with one verdict per word, using the same id. The reason is at most 8 words."""
+
+RARE_PROMPT = """You help a Vietnamese English learner. Below are rare English words found in the books they read,
+each with one example sentence (the word is inside [[double brackets]]). Decide for each word if it deserves a
+dictionary definition in a learning app.
+
+keep: a real word a learner can use in modern English, even if it is uncommon (technical, scientific, formal or
+literary words that people still read and write today).
+drop: an archaic or dialect form, a broken or misspelled word, a made-up word, a spelling from a language other than
+English, a plain inflected form of a much simpler word, or a word so obscure that no learner needs it.
 
 Answer with one verdict per word, using the same id. The reason is at most 8 words."""
 
@@ -65,7 +77,10 @@ def marked_word(example: str) -> str:
 
 
 def prefilter_reason(row: sqlite3.Row, fiction: tuple[str, ...]) -> str | None:
-    """Why a row is dropped without asking Codex, or None."""
+    """Why a row is dropped without asking Codex, or None. A rare word is a real English word, so one sighting in
+    one book is normal: only the name and not_on_list rows get the sighting rules."""
+    if row["book_group"] == RARE:
+        return None
     if CAMEL.search(marked_word(row["example"] or "")):
         return "camelCase code"
     books = json.loads(row["books"] or "[]")
@@ -78,12 +93,13 @@ def prefilter_reason(row: sqlite3.Row, fiction: tuple[str, ...]) -> str | None:
     return None
 
 
-def prefilter(db: sqlite3.Connection, fiction: tuple[str, ...] = ()) -> Prefilter:
+def prefilter(db: sqlite3.Connection, fiction: tuple[str, ...] = (),
+              groups: tuple[str, ...] = JUDGED_GROUPS) -> Prefilter:
     """The rows without a verdict, split into the ones Codex should read and the ones dropped for free."""
     fiction = tuple(k.lower() for k in fiction)
     rows = db.execute("SELECT id, text, times, books, example, book_group FROM collection WHERE source = 'book' "
-                      f"AND book_group IN ({','.join('?' * len(JUDGED_GROUPS))}) AND judge IS NULL "
-                      "AND pushed_at IS NULL ORDER BY times DESC, text", JUDGED_GROUPS).fetchall()
+                      f"AND book_group IN ({','.join('?' * len(groups))}) AND judge IS NULL "
+                      "AND pushed_at IS NULL ORDER BY book_group, times DESC, text", groups).fetchall()
     result = Prefilter()
     for row in rows:
         reason = prefilter_reason(row, fiction)
@@ -102,7 +118,7 @@ def save_drops(db: sqlite3.Connection, drops: list[tuple[int, str]]) -> None:
 
 
 def build_prompt(rows: list[sqlite3.Row]) -> str:
-    parts = [PROMPT, "<words>"]
+    parts = [RARE_PROMPT if rows and rows[0]["book_group"] == RARE else PROMPT, "<words>"]
     for row in rows:
         example = collection.escape_tags(CONTROL.sub("", row["example"] or "")).replace(MARK_START, "[[").replace(MARK_END, "]]")
         parts.append(f'<word id="{row["id"]}" times="{row["times"]}">{collection.escape_tags(CONTROL.sub("", row["text"]))} | '
@@ -135,14 +151,18 @@ def judge_rows(db: sqlite3.Connection, rows: list[sqlite3.Row], writer, batch_si
     """Sends the rows to Codex in batches. Returns (verdicts saved, batches that failed). A ProviderStop (usage
     limit, not logged in) ends the run; what was saved stays."""
     saved = failed = 0
-    for start in range(0, len(rows), batch_size):
-        batch = rows[start:start + batch_size]
+    batches = [group[start:start + batch_size]  # one group per batch: each group has its own prompt
+               for group in ([r for r in rows if r["book_group"] == g] for g in ALL_GROUPS) if group
+               for start in range(0, len(group), batch_size)]
+    done = 0
+    for batch in batches:
         try:
             answers = writer.write(build_prompt(batch))
         except collection.WriteError:
             failed += 1
             continue
         saved += save_verdicts(db, batch, answers)
+        done += len(batch)
         if progress:
-            progress(min(start + batch_size, len(rows)), len(rows), saved)
+            progress(done, len(rows), saved)
     return saved, failed

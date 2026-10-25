@@ -127,3 +127,20 @@ def test_prompt_has_no_null_bytes_but_keeps_the_marks(db):
     db.execute("UPDATE collection SET example = ? WHERE id = ?", (f"We\x00 use {M[0]}Vue{M[1]}\x01 here.", row_id))
     prompt = bj.build_prompt(bj.prefilter(db).keep)
     assert "\x00" not in prompt and "\x01" not in prompt and "[[Vue]]" in prompt
+
+
+def test_rare_is_opt_in_and_skips_the_sighting_rules(db):
+    add(db, "vue", bw.NAME)
+    add(db, "obloquy", bw.RARE, times=1, books=("a.md",))
+    assert [r["text"] for r in bj.prefilter(db).keep] == ["vue"]
+    plan = bj.prefilter(db, groups=bj.ALL_GROUPS)
+    assert sorted(r["text"] for r in plan.keep) == ["obloquy", "vue"] and not plan.drops
+
+
+def test_rare_rows_get_their_own_prompt_and_batch(db):
+    add(db, "vue", bw.NAME)
+    add(db, "obloquy", bw.RARE, times=1)
+    codex = FakeCodex()
+    saved, _ = bj.judge_rows(db, bj.prefilter(db, groups=bj.ALL_GROUPS).keep, codex)
+    assert saved == 2 and len(codex.prompts) == 2
+    assert sorted("archaic" in p for p in codex.prompts) == [False, True]

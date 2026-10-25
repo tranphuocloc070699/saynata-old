@@ -840,11 +840,11 @@ def _book_words(args) -> None:
 def _judge_books(db, args) -> None:
     from pipeline import book_judge, collection
 
-    plan = book_judge.prefilter(db, tuple(args.fiction))
+    plan = book_judge.prefilter(db, tuple(args.fiction), tuple(args.groups))
     for reason, count in plan.dropped.most_common():
         print(f"  dropped without Codex: {count:>6}  {reason}")
     rows = plan.keep[:args.limit] if args.limit else plan.keep
-    calls = -(-len(rows) // args.batch)
+    calls = sum(-(-n // args.batch) for n in Counter(r["book_group"] for r in rows).values())
     print(f"{len(plan.keep)} rows left for Codex ({len(plan.drops)} dropped by the pre-filter). "
           f"This run: {len(rows)} rows, {calls} Codex calls.")
     if args.dry_run:
@@ -1127,6 +1127,8 @@ def main() -> None:
     b_judge.add_argument("--batch", type=int, default=200, help="rows per Codex call")
     b_judge.add_argument("--model", help="default: the model in ~/.codex/config.toml")
     b_judge.add_argument("--effort", default="low")
+    b_judge.add_argument("--groups", nargs="+", default=["name", "not_on_list"], choices=["name", "not_on_list", "rare"],
+                         help="which book groups to judge (rare: real but uncommon words, keep or drop for a learner)")
     b_judge.add_argument("--fiction", nargs="*", default=[], metavar="WORD",
                          help="words in the file names of fiction books; names seen only there are dropped")
     books_commands.add_parser("report", help="per group: found, picked, written, pushed")
