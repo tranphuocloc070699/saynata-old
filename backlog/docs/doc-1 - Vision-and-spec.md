@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-15 10:08'
+updated_date: '2026-10-25 08:01'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -97,6 +97,8 @@ not call the LLM.
 | `POST` | `/api/auth/refresh` | `{ "refreshToken" }` | same as verify; the old refresh token stops working; `401 invalid_refresh_token` |
 | `POST` | `/api/auth/sign-out` | `{ "refreshToken" }` | `204` |
 | `GET`, `DELETE` | `/api/me` | header `Authorization: Bearer <accessToken>` | `{ id, email }` / `204` (deletes the account and its tokens) |
+| `POST` | `/api/sync` | `{ since, ops[≤200] }` (signed in) | `{ changes: { history, liked }, cursor }` (TASK-93.3): History and Liked on every device; last write wins |
+| `GET`, `PUT` | `/api/me/settings` | `{ targetLanguage, showTranslation, syncHistory }` | the same shape: settings that follow the account (TASK-93.3) |
 
 **Who may cause a new Claude call (TASK-68).** The three public endpoints take an optional `Authorization: Bearer <accessToken>`. Cache hits and bundled words work for everyone (guests too).
 A request that needs a **new** Claude call without a signed-in user gets `401` (unless the server runs with `REQUIRE_SIGN_IN=false`; guests are then limited per IP and by the daily cap) with `"code": "sign_in_required"` (the stream sends an `error` event with the same `code`).
@@ -122,6 +124,7 @@ Rules:
 
 ## Decisions
 
+- **History and Liked sync across devices** (TASK-93, chosen 2026-10-25). For a signed-in user the phone, the Mac and the website show the same lists. A device shows a change at once and sends changes in batches in the background with one `/api/sync` call (after 5 s idle, at 20 changes, or when the app goes to the background; the app keeps unsent changes and retries). Settings (language, Show translation, Sync history) follow the account. Show translation defaults to "Remember last choice"; Sync history is on by default and has a switch. Details: [History and Liked](features/doc-22%20-%20History-and-Liked.md). Reason: not recorded.
 - **Model: Claude Haiku 5.5** (`app.claude.model`). It has no server-side refusal fallback, so a
   refusal returns HTTP 422.
 - **Temperature 0 is not possible on current Claude models** (the API rejects sampling parameters with a

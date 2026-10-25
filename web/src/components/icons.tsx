@@ -83,9 +83,15 @@ export const SignOut = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const Star = ({ filled, ...p }: SVGProps<SVGSVGElement> & { filled?: boolean }) => (
+  <Icon {...p} fill={filled ? "currentColor" : "none"}>
+    <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z" />
+  </Icon>
+);
+
 export const Trash = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
-    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
+    <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
   </Icon>
 );
 
@@ -107,5 +113,12 @@ export const User = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
     <circle cx="12" cy="8" r="4" />
     <path d="M4 21a8 8 0 0 1 16 0" />
+  </Icon>
+);
+
+export const Search = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
   </Icon>
 );
