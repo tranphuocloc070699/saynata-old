@@ -3,7 +3,8 @@
  * The sentence result, like the iOS SentenceCard (TASK-89.2): the original with tappable words (a tap opens the
  * word in WordSheet, over the result), the simple summary ("In simple words") that grows while it streams, the key
  * words, "Better way to say it" (closed, TASK-110) when the text has a real mistake, then the target language
- * closed and last.
+ * closed and last. It mounts once the first meaning piece arrives; Home shows a skeleton before that, so a text
+ * that is not English never shows as a result.
  */
 import { useState } from "react";
 import type { Explanation } from "@/lib/api";

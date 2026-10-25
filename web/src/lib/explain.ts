@@ -38,6 +38,11 @@ export function startState(raw: string): Result {
   }
 }
 
+/** A sentence with no meaning piece yet: the backend has not said it is English, so only a skeleton shows. */
+export function waitingForMeaning(result: Result): boolean {
+  return result.kind === "sentence" && !result.meaning && result.explanation === null;
+}
+
 /** Fetches the answer for `raw` and calls `update` with each new state. Nothing is reported after `signal` aborts. */
 export async function fetchResult(
   api: Pick<SaynataApi, "lookUpWord" | "explainSentence">,
