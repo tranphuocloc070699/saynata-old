@@ -40,48 +40,51 @@ struct LikedCopyFile: LikedCopyStoring {
     }
 }
 
-/// The liked words and sentences of the signed-in user (TASK-93.2). Views read `items` and `isLiked`; the star calls
-/// `toggle`. The change shows at once and is sent to the server; if the server refuses, it is undone.
+/// The liked words and sentences of the signed-in user (TASK-93.2, local-first since TASK-93.4). Views read `items` and
+/// `isLiked`; the star calls `toggle`. The change shows at once, is saved on the phone and goes to the outbox; `SyncEngine`
+/// sends it later. A network error never undoes a like.
 @Observable
 @MainActor
 final class LikedStore {
+    /// The store of the app and the extensions. One list in memory, so every screen shows the same stars.
+    static let shared: LikedStore = LikedStore(
+        copy: LikedCopyFile.shared,
+        outbox: SyncOutbox.shared,
+        isSignedIn: { AccountStore.shared.isSignedIn },
+        didQueue: { SyncEngine.shared.noteChange() })
+
     /// Newest first.
     private(set) var items: [SavedItem]
     /// True when a guest tapped the star. The main screen opens the sign-in sheet and sets it back to false.
     var signInRequested = false
-    /// A short message when the last change did not reach the server. Cleared by the next change.
-    private(set) var errorMessage: String?
 
-    /// The like that waits for a sign-in. It is sent by `signedIn()`.
+    /// The like that waits for a sign-in. It is added by `signedIn()`.
     private(set) var pending: SavedItem?
 
-    @ObservationIgnored private let makeAPI: @MainActor () throws -> any LikedAPI
     @ObservationIgnored private let copy: any LikedCopyStoring
+    @ObservationIgnored private let outbox: (any SyncOutboxing)?
     @ObservationIgnored private let isSignedIn: @MainActor () -> Bool
+    @ObservationIgnored private let didQueue: @MainActor () -> Void
 
     /// - Parameters:
-    ///   - makeAPI: Builds the server client on each call, so a missing setting is an error, not a crash at launch.
-    ///   - isSignedIn: True when there is a signed-in account. A guest never reaches the server.
+    ///   - outbox: Where the ops go. Nil: the list works on the phone only.
+    ///   - isSignedIn: True when there is a signed-in account. A guest gets the sign-in sheet and queues nothing.
+    ///   - didQueue: Called after an op was queued, so the engine can start its timer.
     init(
-        makeAPI: @escaping @MainActor () throws -> any LikedAPI,
         copy: any LikedCopyStoring,
-        isSignedIn: @escaping @MainActor () -> Bool
+        outbox: (any SyncOutboxing)?,
+        isSignedIn: @escaping @MainActor () -> Bool,
+        didQueue: @escaping @MainActor () -> Void = {}
     ) {
-        self.makeAPI = makeAPI
         self.copy = copy
+        self.outbox = outbox
         self.isSignedIn = isSignedIn
+        self.didQueue = didQueue
         items = copy.load()
     }
 
-    /// The real store: the backend client, the file in the App Group folder, and the shared account.
-    static func live() -> LikedStore {
-        LikedStore(
-            makeAPI: {
-                BackendClient(baseURL: try AppConfig.backendBaseURL(), cache: nil, auth: AccountStore.shared)
-            },
-            copy: LikedCopyFile.shared,
-            isSignedIn: { AccountStore.shared.isSignedIn })
-    }
+    /// The real store (shared by the whole app).
+    static func live() -> LikedStore { shared }
 
     func isLiked(_ item: SavedItem) -> Bool {
         items.contains { $0.id == item.id }
@@ -90,9 +93,8 @@ final class LikedStore {
     // MARK: - Star
 
     /// Likes the item, or unlikes it when it is liked. A guest gets the sign-in sheet instead, and the like
-    /// is sent after sign-in.
+    /// is added after sign-in.
     func toggle(_ item: SavedItem) async {
-        errorMessage = nil
         guard isSignedIn() else {
             pending = item
             signInRequested = true
@@ -106,49 +108,33 @@ final class LikedStore {
     }
 
     private func like(_ item: SavedItem) async {
-        let before = items
-        setItems([item] + items.filter { $0.id != item.id })
-        do {
-            try await makeAPI().like(item)
-        } catch {
-            fail(error, undoTo: before, pendingLike: item)
-        }
+        let liked = SavedItem(kind: item.kind, text: item.text, preview: item.preview, chip: item.chip, date: .now)
+        setItems([liked] + items.filter { $0.id != item.id })
+        await queue(SyncOp(type: .likedAdd, item: liked, at: liked.date))
     }
 
     /// Unlikes by item id. Also used by the swipe in the Liked list.
     func unlike(id: String) async {
         guard let item = items.first(where: { $0.id == id }) else { return }
-        errorMessage = nil
-        let before = items
         setItems(items.filter { $0.id != id })
-        do {
-            try await makeAPI().unlike(kind: item.kind, text: item.text)
-        } catch {
-            fail(error, undoTo: before, pendingLike: nil)
-        }
+        await queue(SyncOp(type: .likedRemove, item: item, at: .now))
     }
 
-    private func fail(_ error: Error, undoTo before: [SavedItem], pendingLike: SavedItem?) {
-        setItems(before)
-        if case BackendError.signInRequired = error {
-            // The session ended: ask again for a sign-in, and send the like afterwards.
-            pending = pendingLike
-            signInRequested = true
-        } else {
-            errorMessage = error.localizedDescription
-        }
+    private func queue(_ op: SyncOp) async {
+        guard let outbox else { return }
+        await outbox.append(op)
+        didQueue()
     }
 
     // MARK: - Sign-in and sign-out
 
-    /// The user signed in: send the like that was waiting, then load the list from the server.
+    /// The user signed in: add the like that was waiting. The engine syncs the rest.
     func signedIn() async {
         let waiting = pending
         pending = nil
         if let waiting, !isLiked(waiting) {
             await like(waiting)
         }
-        await refresh()
     }
 
     /// The sign-in sheet was closed without signing in.
@@ -156,27 +142,37 @@ final class LikedStore {
         pending = nil
     }
 
-    /// Replaces the list with the server's. The label of a word (`chip`) is not on the server, so it is kept from the
-    /// copy on the phone. A failed call keeps the copy: the list still shows offline.
-    func refresh() async {
-        guard isSignedIn() else { return }
-        do {
-            let fromServer = try await makeAPI().likedItems()
-            let chips = Dictionary(items.compactMap { item in item.chip.map { (item.id, $0) } },
-                                   uniquingKeysWith: { first, _ in first })
-            setItems(fromServer.map { item in
-                SavedItem(kind: item.kind, text: item.text, preview: item.preview,
-                          chip: chips[item.id], date: item.date)
-            })
-        } catch {
-            // Offline or a server error: keep what we have.
+    /// Reads the file again: an extension may have changed it while the app was away.
+    func reloadFromCopy() {
+        items = copy.load()
+    }
+
+    /// Applies rows of `changes.liked`. A local change newer than the server row wins. The label of a word (`chip`) is
+    /// not on the server, so it is kept from the copy on the phone.
+    func merge(_ changes: [SyncItem]) {
+        guard !changes.isEmpty else { return }
+        var merged = items
+        for change in changes {
+            let incoming = change.savedItem
+            let index = merged.firstIndex { $0.id == incoming.id }
+            if change.deleted {
+                if let index, merged[index].date <= change.at { merged.remove(at: index) }
+            } else if let index {
+                if merged[index].date < change.at {
+                    merged[index] = SavedItem(
+                        kind: incoming.kind, text: incoming.text, preview: incoming.preview,
+                        chip: merged[index].chip, date: incoming.date)
+                }
+            } else {
+                merged.append(incoming)
+            }
         }
+        setItems(merged.sorted { $0.date > $1.date })
     }
 
     /// Signed out: the liked list belongs to the account, so it goes from this phone.
     func clear() {
         pending = nil
-        errorMessage = nil
         setItems([])
     }
 

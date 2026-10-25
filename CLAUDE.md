@@ -47,9 +47,9 @@ English explanation** of the meaning (short, plain words, B1-B2 level), so the l
 The target language (Vietnamese, etc.) is a small helper line at the **bottom** of the result, never the headline.
 
 - UI order: simple English explanation, then words (IPA, type, level, meaning), then the target-language line last.
-- The target-language line is **collapsed by default** (a row titled with the picked language, for example "Vietnamese" or "Korean", that the user taps to open, per result).
+- The target-language line is a row titled with the picked language (for example "Vietnamese" or "Korean") that the user taps to open, per result. By default it **remembers the last choice** (it starts closed on a new install, then stays the way the user left it).
   Vietnamese shows the dictionary text; other languages show the simple explanation translated on the device (Apple Translation).
-  Settings has a "Show translation" option to change this: Collapsed (default), Always open, or Remember last choice.
+  Settings has a "Show translation" option to change this: Remember last choice (default), Always open, or Collapsed. For a signed-in user the choice follows the account (all devices).
 - Words in a sentence use the same word card as a word search, in compact form.
 - Prompts and response models: ask the LLM for the English explanation first; the target-language text is a
   secondary field. Do not name or design a feature as "translate X".
