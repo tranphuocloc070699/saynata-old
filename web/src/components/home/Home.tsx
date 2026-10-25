@@ -135,18 +135,10 @@ export function Home() {
         : "asleep";
 
   return (
-    // On a wide screen (lg) a result makes the page two columns: the composer stays in view on the left, the
-    // result grows on the right, so a PC user sees both without scrolling. Before a result the composer sits
-    // alone in the middle, and a phone always keeps one column.
-    <div
-      ref={root}
-      className={
-        result.kind === "idle"
-          ? "mx-auto flex w-full max-w-[680px] flex-col gap-5"
-          : "flex w-full flex-col gap-5 lg:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:items-start lg:gap-8"
-      }
-    >
-      <div className="flex flex-col gap-5 lg:sticky lg:top-8">
+    // One centered column: the composer on top, the result below. A fold opens by pushing the page down,
+    // so the result never gets its own scrollbar.
+    <div ref={root} className="mx-auto flex w-full max-w-[680px] flex-col gap-5">
+      <div className="flex flex-col gap-5">
         <Composer
           value={text}
           onChange={setText}

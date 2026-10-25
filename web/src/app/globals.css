@@ -10,6 +10,7 @@
   --meaning: #e8eee9;
   --hairline: #d9e0da;
   --chip: #dcebe4;
+  --tag: #ecece9;
   --ink: #1f2a26;
   --ink-2: #4a5a53;
   --muted: #5f6e67;
@@ -35,6 +36,7 @@
     --meaning: #232c28;
     --hairline: #2e3833;
     --chip: #24382f;
+    --tag: #2b2f2d;
     --ink: #e8eeea;
     --ink-2: #b5c2bb;
     --muted: #8a9992;
@@ -57,6 +59,7 @@
   --color-meaning: var(--meaning);
   --color-hairline: var(--hairline);
   --color-chip: var(--chip);
+  --color-tag: var(--tag);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
