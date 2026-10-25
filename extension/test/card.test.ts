@@ -322,3 +322,31 @@ describe("pictures in the word card", () => {
     expect(order).toEqual(["head", "sense", "media-row", "example", "sense", "example", "fold"]);
   });
 });
+
+describe("headline of the sentence card (TASK-114.4)", () => {
+  const vietnamese = {
+    ...sentenceResponse,
+    text: "tôi thấy buồn",
+    explanation: { ...sentenceResponse.explanation, english: "I feel sad.", sourceLang: "vi" },
+  } as TranslationResponse;
+
+  it("shows the English version in the headline slot and keeps summary and language row", () => {
+    const state = applyEvent(initialState("tôi thấy buồn", "sentence", "vi", false), { type: "sentence", response: vietnamese });
+    const card = renderCard(state, actions());
+    expect(card.querySelector(".quote")?.textContent).toBe("“I feel sad.”");
+    expect(card.textContent).not.toContain("From");
+    expect(card.querySelector(".meaning")?.textContent).toContain("Not wanting to say yes");
+    expect(card.textContent).toContain("miễn cưỡng");
+  });
+
+  it("English input shows the typed text", () => {
+    expect(renderCard(sentenceDone(), actions()).querySelector(".quote")?.textContent).toBe("“reluctant to approve the plan”");
+  });
+
+  it("a wordMatch event turns a sentence card into a word card, and a sentence event turns a word card back", () => {
+    const asWord = applyEvent(initialState("buồn bã", "sentence", "vi", false), { type: "word", response: wordResponse as WordResponse });
+    expect(asWord.kind).toBe("word");
+    const asSentence = applyEvent(initialState("buồn", "word", "vi", false), { type: "sentence", response: vietnamese });
+    expect(asSentence.kind).toBe("sentence");
+  });
+});

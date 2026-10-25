@@ -43,6 +43,12 @@ export interface SentenceWord {
 }
 
 export interface Explanation {
+  /** TASK-114: the natural English version of non-English input. Missing for English input. */
+  english?: string;
+  /** TASK-114: ISO code of the typed language. Missing for English input. */
+  sourceLang?: string;
+  /** TASK-114: one English headword, phrasal verb or idiom for a single non-English item. */
+  wordMatch?: string;
   meaning: string;
   words: SentenceWord[];
   translation: string;

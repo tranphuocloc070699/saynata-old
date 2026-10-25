@@ -38,3 +38,75 @@ describe("explain", () => {
     expect(long.calls).toHaveLength(0);
   });
 });
+
+describe("explain: non-English input (TASK-114.4)", () => {
+  const vietnamese = {
+    ...sentenceResponse,
+    text: "tôi thấy buồn hôm nay",
+    explanation: { ...sentenceResponse.explanation, english: "I feel sad today.", sourceLang: "vi" },
+  };
+  const japanese = {
+    ...sentenceResponse,
+    text: "今日は悲しいです",
+    explanation: { ...sentenceResponse.explanation, english: "I am sad today.", sourceLang: "ja" },
+  };
+  const withMatch = { ...vietnamese, explanation: { ...vietnamese.explanation, wordMatch: "sad" } };
+
+  it("a Vietnamese sentence keeps english and sourceLang in the sentence result", async () => {
+    const { events } = await run("tôi thấy buồn hôm nay", () => sse(event("done", vietnamese)));
+    expect(events).toEqual([{ type: "sentence", response: vietnamese }]);
+  });
+
+  it("a Japanese sentence works the same", async () => {
+    const { events } = await run(
+      "今日は悲しいです", // no spaces: it counts as one word, so the word API says no first
+      () => json({ status: 404, code: "not_found" }, 404),
+      () => sse(event("done", japanese)),
+    );
+    expect(events).toEqual([{ type: "sentence", response: japanese }]);
+  });
+
+  it("English input has no english field and still ends as a sentence", async () => {
+    const { events } = await run("reluctant to approve the plan", () => sse(event("done", sentenceResponse)));
+    expect(events).toEqual([{ type: "sentence", response: sentenceResponse }]);
+    expect(sentenceResponse.explanation).not.toHaveProperty("english");
+  });
+
+  it("a wordMatch opens the word card", async () => {
+    const { events, calls } = await run("buồn bã", () => sse(event("done", withMatch)), () => json(wordResponse));
+    expect(calls[1].url).toBe("https://api.test/api/words/sad");
+    expect(events).toEqual([{ type: "word", response: wordResponse }]);
+  });
+
+  it("a failed wordMatch lookup falls back to the sentence result", async () => {
+    const { events } = await run("buồn bã", () => sse(event("done", withMatch)), () => json({ status: 404, code: "not_cached" }, 404));
+    expect(events).toEqual([{ type: "sentence", response: withMatch }]);
+  });
+
+  it("a wordMatch with no senses falls back to the sentence result", async () => {
+    const empty = { ...wordResponse, entry: { senses: [] } };
+    const { events } = await run("buồn bã", () => sse(event("done", withMatch)), () => json(empty));
+    expect(events).toEqual([{ type: "sentence", response: withMatch }]);
+  });
+
+  it("a single Vietnamese word refused by the word API goes to the sentence API, then the word card", async () => {
+    const { events, calls } = await run(
+      "buồn",
+      () => json({ status: 404, code: "not_found" }, 404),
+      () => sse(event("done", withMatch)),
+      () => json(wordResponse),
+    );
+    expect(calls.map((c) => c.url)).toEqual([
+      "https://api.test/api/words/bu%E1%BB%93n",
+      "https://api.test/api/translations/stream",
+      "https://api.test/api/words/sad",
+    ]);
+    expect(events).toEqual([{ type: "word", response: wordResponse }]);
+  });
+
+  it("a refused word keeps its own error when the sentence call fails too", async () => {
+    const { events } = await run("zyzzyva", () => json({ status: 404, code: "not_found" }, 404), () => json({ status: 422, code: "not_english" }, 422));
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ type: "error" });
+  });
+});
