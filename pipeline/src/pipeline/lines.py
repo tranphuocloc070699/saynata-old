@@ -123,7 +123,14 @@ def usable_text(text: str | None) -> str | None:
 
 def backend_line_prompt(path: Path = CLAUDE_SERVICE) -> str:
     """ClaudeService.LINE_PROMPT, read from the Java file, so Codex gets the very same instructions as the backend."""
-    return collection.java_text_block(path.read_text(encoding="utf-8"), "LINE_PROMPT")
+    source = path.read_text(encoding="utf-8")
+    # LINE_PROMPT is `""" ... """ + LINE_RULES + """ ... """` (TASK-106.7): put the rule lines in place of the join,
+    # so the three blocks read as one. They share one indent, so Java's indent rule gives the same text.
+    rules = re.search(r'\bLINE_RULES\s*=\s*"""[ \t]*\n(.*?)\n[ \t]*""";', source, re.S)
+    if rules:
+        source = re.sub(r'\n[ \t]*"""\s*\+\s*LINE_RULES\s*\+\s*"""[ \t]*\n',
+                        lambda _: "\n" + rules.group(1) + "\n", source)
+    return collection.java_text_block(source, "LINE_PROMPT")
 
 
 def backend_line_prompt_version(path: Path = APPLICATION_PROPERTIES) -> str:
