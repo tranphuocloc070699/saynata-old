@@ -55,6 +55,9 @@
     uv run pipeline lines push --yes     # write it (only after the developer's go-ahead)
     uv run pipeline lines report         # counts per language and status, and the time to write the rest
     uv run pipeline books convert ~/Applications/Workspace/Books   # TASK-83.14: every PDF and EPUB to .md (no LLM)
+    uv run pipeline books collect ~/Applications/Workspace/Books   # TASK-83.15: new words and phrases of the .md files into the collection (no LLM)
+    uv run pipeline books review         # a page on 127.0.0.1 to tick which book words to write and push
+    uv run pipeline books report         # per group: found / picked / written / pushed
 """
 
 import argparse
@@ -797,7 +800,9 @@ def report() -> None:
 
 
 def books_command(args) -> None:
-    """Books to Markdown (TASK-83.14). See books.py."""
+    """Books to Markdown (TASK-83.14, books.py) and their words (TASK-83.15, book_words.py)."""
+    if args.books_command != "convert":
+        return _book_words(args)
     from pipeline import books
 
     folder = args.folder.expanduser().resolve()
@@ -812,6 +817,58 @@ def books_command(args) -> None:
     books.write_report(results, report)
     print(books.summary_line(results))
     print(f"Report: {report}")
+
+
+def _book_words(args) -> None:
+    from pipeline import book_words, collection
+
+    db = collection.connect(store.DB_PATH)
+    if args.books_command == "report":
+        print("\n".join(book_words.report_lines(db)))
+    elif args.books_command == "review":
+        db.close()
+        book_words.review(store.DB_PATH, args.port, not args.no_open)
+        return
+    elif args.books_command == "collect":
+        _collect_books(db, args)
+    db.close()
+
+
+def _collect_books(db, args) -> None:
+    from wordfreq import zipf_frequency
+
+    from pipeline import book_words, collection, prefill
+
+    folder = args.folder.expanduser().resolve()
+    out = args.out.expanduser().resolve() if args.out else None
+    books = book_words.ok_books(folder, out)
+    english = prefill.read_word_list("scowl-70.txt") | prefill.read_word_list("ngsl.txt")
+    pipeline_db = sqlite3.connect(store.DB_PATH)
+    known = prefill.bundled_from_files() | collection.all_pipeline_lemmas(pipeline_db)
+    pipeline_db.close()
+    pg, cached = None, None
+    try:
+        pg = postgres.connect(postgres.database_url(args.database_url), read_only=True)
+        known |= prefill.bundled_from_postgres(pg)
+        version = collection.backend_word_prompt_version()
+        cached = lambda texts: book_words.server_cached(pg, texts, version)  # noqa: E731
+    except RuntimeError:
+        print("Warning: no DATABASE_URL, so words already cached on the server are not skipped.")
+    table = book_words.phrase_table(prefill.wordnet_lemmas(prefill.load_wordnet()))
+
+    def progress(index, total, name):
+        print(f"[{index}/{total}] {name}", flush=True)
+
+    result, scanned = book_words.collect_books(
+        db, books, english=english, known=known, zipf_of=lambda w: zipf_frequency(w, "en"), table=table,
+        cached=cached, on_book=progress)
+    if pg:
+        pg.close()
+    print(f"{len(scanned)} new books read ({len(books) - len(scanned)} were collected before). New rows: "
+          + (", ".join(f"{g} {result.new[g]}" for g in book_words.GROUPS if result.new[g]) or "none")
+          + f". Sightings added to {result.updated} old rows; {result.in_collection} already in the collection.")
+    print()
+    print("\n".join(book_words.report_lines(db)))
 
 
 def main() -> None:
@@ -1021,6 +1078,14 @@ def main() -> None:
     b_convert = books_commands.add_parser("convert", help="every .pdf and .epub in a folder to .md, with a report")
     b_convert.add_argument("folder", type=Path)
     b_convert.add_argument("--out", type=Path, help="default: each .md next to its book")
+    b_collect = books_commands.add_parser("collect", help="new words and phrases of the ok books into the collection")
+    b_collect.add_argument("folder", type=Path)
+    b_collect.add_argument("--out", type=Path, help="the --out folder of books convert, if you used one")
+    b_collect.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env (read-only)")
+    b_review = books_commands.add_parser("review", help="a page on 127.0.0.1 to tick which words to write and push")
+    b_review.add_argument("--port", type=int, default=8765)
+    b_review.add_argument("--no-open", action="store_true", help="do not open the browser")
+    books_commands.add_parser("report", help="per group: found, picked, written, pushed")
     args = parser.parse_args()
     if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \
             and args.source != "words":
