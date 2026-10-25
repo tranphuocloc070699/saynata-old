@@ -24,6 +24,10 @@ import tools.jackson.databind.json.JsonMapper;
  * through {@link LineTranslationService}: saved line, else one small line call, else "" (never null: old apps decode a String; a guest, a cachedOnly
  * request, a refused or failed call). For English there is no line call; the translation is the text itself.
  *
+ * Text typed in another language (TASK-114.1) is answered by Claude with its English version. The row is saved under
+ * the key of that English version, so different wordings with the same English share one row; a small alias row
+ * ({@link SentenceSourceAlias}) maps the typed text to it, so the same typed text is a hit next time.
+ *
  * There is no @Transactional here on purpose: the Claude call can take seconds, and a
  * transaction would hold a DB connection open the whole time.
  *
@@ -32,10 +36,14 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 public class TranslationService {
 
+    /** The source_text column holds 500 characters; a longer English version is answered but not saved. */
+    private static final int MAX_SAVED_TEXT = 500;
+
     private static final TypeReference<List<Explanation.Word>> WORD_LIST = new TypeReference<>() {
     };
 
     private final SentenceTranslationRepository repository;
+    private final SentenceSourceAliasRepository aliases;
     private final ClaudeService claude;
     private final ClaudeProperties properties;
     private final JsonMapper jsonMapper;
@@ -43,9 +51,10 @@ public class TranslationService {
     private final ClaudeGate gate;
     private final LineTranslationService lines;
 
-    public TranslationService(SentenceTranslationRepository repository, ClaudeService claude, ClaudeProperties properties,
-            JsonMapper jsonMapper, PersonalTextDetector personalTextDetector, ClaudeGate gate,
-            LineTranslationService lines) {
+    public TranslationService(SentenceTranslationRepository repository, SentenceSourceAliasRepository aliases,
+            ClaudeService claude, ClaudeProperties properties, JsonMapper jsonMapper,
+            PersonalTextDetector personalTextDetector, ClaudeGate gate, LineTranslationService lines) {
+        this.aliases = aliases;
         this.gate = gate;
         this.lines = lines;
         this.repository = repository;
@@ -145,6 +154,13 @@ public class TranslationService {
             return answer(normalized, targetLang, readExplanation(saved.get()), true, cachedOnly, timing);
         }
 
+        // Text typed in another language was saved under the key of its English version (TASK-114.1). The alias finds it.
+        Optional<TranslationResponse> viaAlias = timing.time("lookup",
+                () -> readByAlias(version, normalized, targetLang, cachedOnly, timing));
+        if (viaAlias.isPresent()) {
+            return viaAlias.get();
+        }
+
         // Exact text missed. Try the loose key: "how are you" finds a saved "How are you?".
         // The exact key was tried first, so "US" and "us" stay apart when both are saved.
         if (!CacheKeys.normalizeSentenceLoose(normalized).isEmpty()) {
@@ -160,6 +176,9 @@ public class TranslationService {
 
         timing.cache("miss");
         Explanation explanation = askClaude.apply(normalized);
+        if (explanation.english() != null) {
+            return saveOtherLanguage(normalized, targetLang, explanation, version, cachedOnly, timing);
+        }
         try {
             // The row has no language: "en" is the language of the explanation, and the translation column stays empty.
             timing.time("save", () -> repository.saveAndFlush(new SentenceTranslation(
@@ -174,6 +193,76 @@ public class TranslationService {
         }
     }
 
+    /** A saved alias of the typed text: its English row with the typed text's own language and word match. */
+    private Optional<TranslationResponse> readByAlias(String version, String normalized, TargetLanguage targetLang,
+            boolean cachedOnly, SentenceTiming timing) {
+        Optional<SentenceSourceAlias> alias = aliases.findById(CacheKeys.sentenceSourceKey(version, normalized));
+        if (alias.isEmpty()) {
+            return Optional.empty();
+        }
+        Optional<SentenceTranslation> row = repository.findByCacheKey(alias.get().getCacheKey());
+        if (row.isEmpty()) {
+            return Optional.empty();
+        }
+        timing.cache("hit");
+        Explanation english = otherLanguage(readExplanation(row.get()), row.get().getSourceText(), alias.get());
+        return Optional.of(answer(normalized, targetLang, english, true, cachedOnly, timing));
+    }
+
+    /**
+     * Claude answered for text in another language (TASK-114.1). The English part is saved under the key of the
+     * English version, so another wording with the same English finds the same row and no second row is made. An
+     * alias row remembers the typed text, with its language and word match, for the next request.
+     */
+    private TranslationResponse saveOtherLanguage(String normalized, TargetLanguage targetLang, Explanation explanation,
+            String version, boolean cachedOnly, SentenceTiming timing) {
+        String english = CacheKeys.normalizeSentence(explanation.english());
+        if (english.length() > MAX_SAVED_TEXT) {
+            return answer(normalized, targetLang, explanation, false, cachedOnly, timing);
+        }
+        String englishKey = CacheKeys.sentenceKey(version, english);
+        Explanation shown = explanation;
+        Optional<SentenceTranslation> existing = timing.time("lookup", () -> repository.findByCacheKey(englishKey));
+        if (existing.isPresent()) {
+            shown = withSavedEnglishPart(explanation, existing.get());
+        } else {
+            try {
+                timing.time("save", () -> repository.saveAndFlush(new SentenceTranslation(
+                        englishKey, english, "en", explanation.meaning(),
+                        jsonMapper.writeValueAsString(explanation.words()), null, null, "", properties.model(),
+                        version)));
+            } catch (DataIntegrityViolationException e) {
+                // Another request saved the same English version while we waited for Claude. Keep the first answer.
+                SentenceTranslation first = repository.findByCacheKey(englishKey).orElseThrow(() -> e);
+                shown = withSavedEnglishPart(explanation, first);
+            }
+        }
+        saveAlias(CacheKeys.sentenceSourceKey(version, normalized), englishKey, explanation);
+        return answer(normalized, targetLang, shown, false, cachedOnly, timing);
+    }
+
+    private Explanation withSavedEnglishPart(Explanation fromClaude, SentenceTranslation row) {
+        Explanation saved = readExplanation(row);
+        return new Explanation(row.getSourceText(), fromClaude.sourceLang(), fromClaude.wordMatch(), saved.meaning(),
+                saved.words(), saved.better(), saved.betterWhy(), "");
+    }
+
+    private void saveAlias(String aliasKey, String cacheKey, Explanation explanation) {
+        try {
+            aliases.saveAndFlush(new SentenceSourceAlias(aliasKey, cacheKey, explanation.sourceLang(),
+                    explanation.wordMatch()));
+        } catch (DataIntegrityViolationException e) {
+            // The same typed text was saved by another request at the same time. The first alias is as good.
+        }
+    }
+
+    /** The saved English explanation of a row, with the English version, the language and the word match on top. */
+    private static Explanation otherLanguage(Explanation saved, String english, SentenceSourceAlias alias) {
+        String match = alias.getWordMatch().isEmpty() ? null : alias.getWordMatch();
+        return new Explanation(english, alias.getSourceLang(), match, saved.meaning(), saved.words(), saved.better(),
+                saved.betterWhy(), "");
+    }
+
     /** The English part is ready (cached or new): add the language line. */
     private TranslationResponse answer(String normalized, TargetLanguage targetLang, Explanation english, boolean cached,
             boolean cachedOnly, SentenceTiming timing) {
@@ -184,12 +273,19 @@ public class TranslationService {
 
     private Explanation withLanguageLine(Explanation english, TargetLanguage targetLang, String normalized,
             boolean cachedOnly, boolean store, boolean alreadyGated, SentenceTiming timing) {
-        // "line" is the saved-line lookup plus, on a miss, the second LLM call.
-        String line = targetLang == TargetLanguage.EN
-                ? normalized
-                : timing.time("line", () -> lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated))
-                        .orElse("");
-        return new Explanation(english.meaning(), english.words(), english.better(), english.betterWhy(), line);
+        // "line" is the saved-line lookup plus, on a miss, the second LLM call. The line is built from the typed text.
+        // English needs no line: it is the text itself, or the English version when the text was another language.
+        // A learner who typed in the target language needs no line either: the typed text is the line.
+        String line;
+        if (targetLang == TargetLanguage.EN) {
+            line = english.english() != null ? english.english() : normalized;
+        } else if (targetLang.code().equals(english.sourceLang())) {
+            line = normalized;
+        } else {
+            line = timing.time("line", () -> lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated))
+                    .orElse("");
+        }
+        return english.withTranslation(line);
     }
 
     private Explanation readExplanation(SentenceTranslation row) {

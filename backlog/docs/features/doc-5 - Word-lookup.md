@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-25 07:47'
+updated_date: '2026-10-25 09:30'
 ---
 > Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-25 (the word language row shows the translated headword per sense: TASK-106.8; before that 2026-10-25: a miss in `line_translation` saves the line in all 7 languages with one call: TASK-106.7; before that 2026-10-24: word language row from `POST /api/translate-lines`: TASK-106.3; language lines endpoint: TASK-106.2; before that 2026-10-22: unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -364,6 +364,10 @@ Tests: [TranslationRowPreferenceTests.swift](../../../EnglishTranslation/English
 | Speed | [V19__add_prefix_indexes.java](../../../backend/src/main/java/db/migration/V19__add_prefix_indexes.java) | Postgres indexes with `text_pattern_ops` (a plain index is not used for `LIKE 'x%'` unless the collation is "C"): `lemma`, `word`, `lower(source_text)`. H2 in tests gets plain indexes. The cached words and phrases are **not** sorted in SQL: `ORDER BY length` would read every match (89 ms for 200,000 phrases on "p"), a plain `LIMIT` stops after a few rows (under 1 ms, checked with `EXPLAIN ANALYZE` on Postgres 15). Java sorts the few rows. |
 
 Known gaps: the 24 cached phrases are the first 24 the index gives (alphabetical), then sorted by length, so with thousands of phrases on one short prefix the very shortest may be missed. Suggestions are not personal and have no Vietnamese line; the app looks the picked text up as usual.
+
+## wordMatch: a word card for a word typed in another language (TASK-114.1, 2026-10-25)
+
+When the sentence endpoints get ONE non-English word, phrasal verb or idiom that has a good English match, the answer carries `explanation.wordMatch` (the English headword in lower case, "buồn" gives "sad", see doc-4 "Prompt v12"). The backend does **not** call the word service for it. The client opens the word card with the existing `GET /api/words/{wordMatch}` and the usual cache, and shows a small note of the detected language (`explanation.sourceLang`). `wordMatch` is always a valid word path (letters, `'`, `-`, at most 6 words, 64 characters), so the request is never a 400. Two things the client must handle: a one-word match that is not a real dictionary word, or a phrase of 2-6 words that is not cached yet, gets 404 `not_cached` or the not-a-word answer (a phrase is answered only from the cache, see the phrase row above); then the client keeps the sentence result (English version first) instead. A guest asking for a new word gets 401 `sign_in_required` as for any word.
 
 ## Errors
 
