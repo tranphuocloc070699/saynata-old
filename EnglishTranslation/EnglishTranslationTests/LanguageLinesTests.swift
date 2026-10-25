@@ -12,15 +12,21 @@ import Testing
 /// A backend that answers from a table and counts the requests.
 private final class FakeLineBackend: LineTranslating, @unchecked Sendable {
     var table: [String: String] = [:]
+    /// Sense text -> translated headword, sent back only when a headword is asked.
+    var headwords: [String: String] = [:]
     var error: Error?
     var delay: Duration?
     private(set) var requests: [[String]] = []
+    private(set) var askedHeadwords: [String?] = []
 
-    func lines(for texts: [String], in language: TargetLanguage) async throws -> [String?] {
+    func lines(for texts: [String], headword: String?, in language: TargetLanguage) async throws -> [LanguageLine?] {
         requests.append(texts)
+        askedHeadwords.append(headword)
         if let delay { try await Task.sleep(for: delay) }
         if let error { throw error }
-        return texts.map { table[$0] }
+        return texts.map { text in
+            table[text].map { LanguageLine(line: $0, headword: headword == nil ? nil : headwords[text]) }
+        }
     }
 }
 
@@ -137,8 +143,49 @@ struct LanguageLinesTests {
 
         let line = await makeExplainer(.korean).languageLine(for: .word(.run))
 
-        #expect(line == "달리다")
+        #expect(line == LanguageLine(line: "달리다"))
         #expect(backend.requests == [[first]])
+    }
+
+    @Test func quickExplainAsksTheHeadwordOfTheFirstMeaning() async {
+        let first = WordEntry.run.senses[0].simpleDefinition
+        backend.table = [first: "빨리 움직이다"]
+        backend.headwords = [first: "달리다"]
+
+        let line = await makeExplainer(.korean).languageLine(for: .word(.run))
+
+        #expect(line == LanguageLine(line: "빨리 움직이다", headword: "달리다"))
+        #expect(backend.askedHeadwords == [WordEntry.run.word])
+    }
+
+    // MARK: - Headword (TASK-106.8)
+
+    @Test func theHeadwordIsKeptPerSense() async {
+        backend.table = ["money place": "お金を預ける所", "river side": "川のそば"]
+        backend.headwords = ["money place": "銀行", "river side": "土手"]
+        let lines = makeLines()
+
+        await lines.load(["money place", "river side"], headword: "bank", in: .japanese)
+
+        #expect(lines.headword("bank", for: "money place", in: .japanese) == "銀行")
+        #expect(lines.headword("bank", for: "river side", in: .japanese) == "土手")
+        #expect(lines.line(for: "river side", in: .japanese) == "川のそば")
+        #expect(backend.askedHeadwords == ["bank"])
+    }
+
+    @Test func aCachedLineWithoutItsHeadwordIsAskedAgain() async {
+        backend.table = ["a": "A"]
+        let lines = makeLines()
+        await lines.load(["a"], in: .korean)
+
+        backend.headwords = ["a": "HA"]
+        await lines.load(["a"], headword: "w", in: .korean)
+
+        #expect(backend.requests.count == 2)
+        #expect(lines.headword("w", for: "a", in: .korean) == "HA")
+
+        await lines.load(["a"], headword: "w", in: .korean)
+        #expect(backend.requests.count == 2)
     }
 
     @Test func quickExplainGivesNoLineWhenTheBackendFails() async {
@@ -199,7 +246,20 @@ struct BackendLinesRequestTests {
         #expect(request.authorization == "Bearer A1")
         #expect(request.json["targetLang"] as? String == "ko")
         #expect(request.json["texts"] as? [String] == ["a", "b"])
-        #expect(lines == ["A-ko", nil])
+        #expect(request.json["headwords"] == nil)
+        #expect(lines == [LanguageLine(line: "A-ko"), nil])
+    }
+
+    @Test func aHeadwordIsSentForEveryTextAndComesBack() async throws {
+        server.handler = { _ in
+            .json(#"{"targetLang":"ja","lines":[{"text":"a","translation":"A-ja","cached":true,"headword":"銀行"}]}"#)
+        }
+
+        let lines = try await client(signedIn: true).lines(for: ["a"], headword: "bank", in: .japanese)
+
+        let request = try #require(server.requests.first)
+        #expect(request.json["headwords"] as? [String] == ["bank"])
+        #expect(lines == [LanguageLine(line: "A-ja", headword: "銀行")])
     }
 
     @Test func guestAsksCachedOnlyAndAMissComesBackNil() async throws {
@@ -211,7 +271,7 @@ struct BackendLinesRequestTests {
         let request = try #require(server.requests.first)
         #expect(request.query == "cachedOnly=true")
         #expect(request.authorization == nil)
-        #expect(lines == ["A-ko", nil])
+        #expect(lines == [LanguageLine(line: "A-ko"), nil])
     }
 
     @Test func aFailedCallThrowsSoTheRowCanFallBack() async throws {
@@ -235,6 +295,6 @@ struct BackendLinesRequestTests {
 
         #expect(server.requests.count == 2)
         #expect(lines.count == 25)
-        #expect(lines.last == "T25")
+        #expect(lines.last == LanguageLine(line: "T25"))
     }
 }

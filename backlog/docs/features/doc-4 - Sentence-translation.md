@@ -3,10 +3,33 @@ id: doc-4
 title: Sentence translation
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-24 10:56'
+updated_date: '2026-10-25 07:55'
 ---
-> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-24 (TASK-110: prompt `v11` adds "Better way to say it", see below; TASK-106.6: prompt `v10`, Claude writes only the English part, the cache key has no language, the language line comes from `line_translation`, see "Prompt v10" below; before that 2026-10-23, TASK-89.3: prompt `v9`, a short summary: one line, or a gist line and up to 3 bullets with **bold** key words, rendered by the app, the Mac app and the extension, see "Prompt v9" below; TASK-97: home input is one composer card, hamburger and History buttons on top; before that TASK-83.13: one pair of quotes around the whole sentence is ignored by the loose match, Flyway V25 recomputes `match_key`; before that 2026-10-22: TASK-83.3 loose match grows: curly quotes and apostrophes made straight, a final `…` or comma ignored too, Flyway V24 recomputes `match_key`; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: TASK-89.1: prompt `v8`, Claude writes only `isEnglish`, `summary`, `translation`; `summary` is sent as `meaning`, `words` is always empty, see "Prompt v8" below). Before that, 2026-10-16 (prompt `v7`: a shorter, direct meaning, see "Prompt" below; TASK-83.4 `?cachedOnly=true` on both endpoints, 404 `not_cached` without reaching ClaudeGate; TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
+> Status: **working** (iOS → backend → Claude → Postgres). Last traced from code: 2026-10-25 (TASK-113: one timing log line per request, see "Timing log" below; before that 2026-10-24, TASK-110: prompt `v11` adds "Better way to say it", see below; TASK-106.6: prompt `v10`, Claude writes only the English part, the cache key has no language, the language line comes from `line_translation`, see "Prompt v10" below; before that 2026-10-23, TASK-89.3: prompt `v9`, a short summary: one line, or a gist line and up to 3 bullets with **bold** key words, rendered by the app, the Mac app and the extension, see "Prompt v9" below; TASK-97: home input is one composer card, hamburger and History buttons on top; before that TASK-83.13: one pair of quotes around the whole sentence is ignored by the loose match, Flyway V25 recomputes `match_key`; before that 2026-10-22: TASK-83.3 loose match grows: curly quotes and apostrophes made straight, a final `…` or comma ignored too, Flyway V24 recomputes `match_key`; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: TASK-89.1: prompt `v8`, Claude writes only `isEnglish`, `summary`, `translation`; `summary` is sent as `meaning`, `words` is always empty, see "Prompt v8" below). Before that, 2026-10-16 (prompt `v7`: a shorter, direct meaning, see "Prompt" below; TASK-83.4 `?cachedOnly=true` on both endpoints, 404 `not_cached` without reaching ClaudeGate; TASK-83.3 loose match: "how are you" finds a saved "How are you?", no prompt change; TASK-73 the meaning streams word by word, TASK-74 local word cards at once while loading, TASK-75 start-up warm-up; TASK-70 sign-in sheet, Bearer token, refresh and retry, coded errors, see doc-17 "iOS app"; TASK-56 extra words from the bundled dictionary; TASK-50 keyboard hides on tap, send and scroll; TASK-65 streaming: the meaning shows as soon as Claude has written it, see "Streaming" below; the line numbers in tables 1-4 are for the non-streaming path and may be a few lines off). Earlier: 2026-10-14 (TASK-9 personal text is never cached; Listen on the sentence header: TASK-7; TASK-18 removed the direct LLM providers; TASK-28 explain-first prompt `v5`; TASK-21 not-English check and prompt `v6`; TASK-41 sentence result as cards; TASK-22 500-character counter and clear 400; TASK-14 result keeps its language; TASK-29 Settings and Show translation).
 > Spec: R1, R2, R3, R6 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
+
+## Timing log: where a slow answer spends its time (TASK-113, 2026-10-25)
+
+Every sentence request, plain and streaming, logs one INFO line from [SentenceTiming.java](../../../backend/src/main/java/com/englishtranslation/backend/translation/SentenceTiming.java), written in the `finally` of `TranslationService.translate` (so errors log too):
+
+```
+sentence key=3fa9c2d1 cache=miss lang=vi stream=true lookup=4ms gate=2ms llm_first_token=1840ms llm=4200ms save=12ms line=1900ms total=6118ms result=ok
+```
+
+| Field | Meaning |
+|---|---|
+| `key` | The first 8 characters of the cache key. The sentence text is never logged (it can be personal). |
+| `cache` | `hit`, `loose-hit`, `miss`, `personal` (never cached) or `not-cached` (a `cachedOnly` miss). |
+| `lookup` | DB time for the exact key and, if it missed, the loose key (added up). |
+| `gate` | `ClaudeGate.beforeNewCall` (sign-in, budget, limit). |
+| `llm_first_token` | Streaming only: from the start of the LLM call to its first piece of text. Large = the gateway or the model is slow to start. |
+| `llm` | The whole English-part LLM call (plus `BetterCheck`). |
+| `save` | Saving the new row (`saveAndFlush`). |
+| `line` | The language line: the saved-line lookup and, on a miss, the second LLM call. It runs after `llm`, so on a miss the `done` event waits for both. |
+| `total` | Time on the server. The app's wait minus `total` is the network (and the phone). |
+| `result` | `ok`, or the exception class name (no message). |
+
+A step that did not run is left out (a hit has no `gate`, `llm` or `save`). On the VPS, in `backend/`: `docker compose -f docker-compose.prod.yml logs backend | grep 'sentence key='`, and sort by `total`. Tests: `SentenceTimingTest` (format, fake clock), `TranslationServiceTest.everyRequestLogsOneTimingLineWithoutTheText`.
 
 ## Prompt v11: Better way to say it (TASK-110, 2026-10-24)
 

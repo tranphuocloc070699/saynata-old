@@ -2,6 +2,7 @@ package com.englishtranslation.backend.lines;
 
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.claude.WordLinesAnswer;
 import com.englishtranslation.backend.common.ApiException;
 import com.englishtranslation.backend.limits.ClaudeGate;
 import com.englishtranslation.backend.translation.TargetLanguage;
@@ -11,7 +12,11 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,15 +36,20 @@ public class LineTranslationService {
 
     static final int MAX_TEXTS = 20;
     static final int MAX_TEXT = 500;
+    static final int MAX_HEADWORD = 100;
 
     private final LineTranslationRepository lines;
     private final ClaudeService claude;
     private final ClaudeGate gate;
     private final Clock clock;
     private final String promptVersion;
+    /** The prompt_version of headword rows (TASK-106.8), e.g. "headword-v1"; kept apart from the line version. */
+    private final String headwordPromptVersion;
 
     public LineTranslationService(LineTranslationRepository lines, ClaudeService claude, ClaudeGate gate, Clock clock,
-            @Value("${app.claude.line-prompt-version:v1}") String promptVersion) {
+            @Value("${app.claude.line-prompt-version:v1}") String promptVersion,
+            @Value("${app.claude.headword-prompt-version:v1}") String headwordPromptVersion) {
+        this.headwordPromptVersion = "headword-" + headwordPromptVersion;
         this.lines = lines;
         this.claude = claude;
         this.gate = gate;
@@ -72,37 +82,46 @@ public class LineTranslationService {
             }
             normalized.add(clean);
         }
-        // hash -> normalized text; the same text twice is asked once.
-        Map<String, String> hashToText = new LinkedHashMap<>();
-        for (String clean : normalized) {
-            hashToText.putIfAbsent(hash(clean), clean);
+        List<String> headwords = normalizedHeadwords(request.headwords(), texts.size());
+
+        // One key per (text, headword): the same item twice is asked once.
+        Map<String, Item> items = new LinkedHashMap<>();
+        List<Item> itemOfText = new ArrayList<>();
+        for (int i = 0; i < normalized.size(); i++) {
+            Item item = new Item(normalized.get(i), headwords.get(i));
+            itemOfText.add(items.computeIfAbsent(item.lineHash + "|" + item.headwordHash, key -> item));
         }
 
         String code = lang.code();
         Map<String, String> found = new HashMap<>();
         for (LineTranslation saved : lines.findByTargetLangAndPromptVersionAndTextHashIn(code, promptVersion,
-                hashToText.keySet())) {
+                items.values().stream().map(Item::lineHash).collect(Collectors.toSet()))) {
             found.put(saved.getTextHash(), saved.getTranslation());
         }
-        Map<String, String> misses = new LinkedHashMap<>();
-        hashToText.forEach((hash, text) -> {
-            if (!found.containsKey(hash)) {
-                misses.put(hash, text);
+        Map<String, String> foundHeadwords = new HashMap<>();
+        Set<String> headwordHashes = items.values().stream().map(item -> item.headwordHash).filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (!headwordHashes.isEmpty()) {
+            for (LineTranslation saved : lines.findByTargetLangAndPromptVersionAndTextHashIn(code,
+                    headwordPromptVersion, headwordHashes)) {
+                foundHeadwords.put(saved.getTextHash(), saved.getTranslation());
             }
-        });
+        }
+        List<Item> misses = items.values().stream()
+                .filter(item -> !found.containsKey(item.lineHash)
+                        || (item.headwordHash != null && !foundHeadwords.containsKey(item.headwordHash)))
+                .toList();
 
-        Map<String, String> fresh = new HashMap<>();
         if (!cachedOnly && !misses.isEmpty()) {
-            fresh = askClaude(lang, misses, alreadyGated);
+            askClaude(lang, misses, alreadyGated, found, foundHeadwords);
         }
 
         List<TranslateLinesResponse.Line> answer = new ArrayList<>();
         for (int i = 0; i < texts.size(); i++) {
-            String hash = hash(normalized.get(i));
-            String saved = found.get(hash);
-            answer.add(saved != null
-                    ? new TranslateLinesResponse.Line(texts.get(i), saved, true)
-                    : new TranslateLinesResponse.Line(texts.get(i), fresh.get(hash), false));
+            Item item = itemOfText.get(i);
+            String headword = item.headwordHash == null ? null : foundHeadwords.get(item.headwordHash);
+            answer.add(new TranslateLinesResponse.Line(texts.get(i), found.get(item.lineHash),
+                    item.lineWasSaved && found.containsKey(item.lineHash), headword));
         }
         return new TranslateLinesResponse(lang, answer);
     }
@@ -148,31 +167,60 @@ public class LineTranslationService {
         }
     }
 
-    /** One call for every miss, then each line is saved. Returns hash -> translation. */
-    private Map<String, String> askClaude(TargetLanguage lang, Map<String, String> misses, boolean alreadyGated) {
+    /**
+     * One call for every miss, in ALL languages (TASK-106.7): every line is saved, so a later learner in another
+     * language hits the cache. With a headword in any miss the call also translates the headwords (TASK-106.8).
+     * The lines and headwords of the requested language are put into {@code found} and {@code foundHeadwords}.
+     */
+    private void askClaude(TargetLanguage lang, List<Item> misses, boolean alreadyGated, Map<String, String> found,
+            Map<String, String> foundHeadwords) {
         checkGate(alreadyGated);
-        List<String> missTexts = List.copyOf(misses.values());
-        List<String> translated = claude.translateLines(lang, missTexts);
+        List<String> missTexts = misses.stream().map(Item::text).toList();
+        List<WordLinesAnswer.Lines> translated;
+        if (misses.stream().anyMatch(item -> item.headword != null)) {
+            translated = claude.translateWordLinesAllLanguages(missTexts,
+                    misses.stream().map(Item::headword).toList());
+        } else {
+            translated = claude.translateLinesAllLanguages(missTexts).stream()
+                    .map(map -> new WordLinesAnswer.Lines(map, Map.of())).toList();
+        }
         if (translated.size() != missTexts.size()) {
             throw new IllegalStateException("Claude returned " + translated.size() + " lines for "
                     + missTexts.size() + " texts.");
         }
-        Map<String, String> result = new HashMap<>();
-        int i = 0;
-        for (Map.Entry<String, String> miss : misses.entrySet()) {
-            String line = translated.get(i++).strip();
-            if (line.isEmpty()) {
-                continue; // an empty line is not saved; the app shows its fallback
+        for (int i = 0; i < misses.size(); i++) {
+            Item item = misses.get(i);
+            WordLinesAnswer.Lines answer = translated.get(i);
+            // An empty or missing line is not saved; the app shows its fallback. A saved line is never replaced.
+            forEachLine(answer.lines(), (lineLang, text) -> {
+                if (lineLang == lang && found.putIfAbsent(item.lineHash, text) == null) {
+                    item.lineWasSaved = false;
+                }
+                save(lineLang, item.lineHash, item.text, promptVersion, text);
+            });
+            if (item.headwordHash != null) {
+                forEachLine(answer.headwords(), (lineLang, text) -> {
+                    if (lineLang == lang) {
+                        foundHeadwords.putIfAbsent(item.headwordHash, text);
+                    }
+                    save(lineLang, item.headwordHash, item.headword, headwordPromptVersion, text);
+                });
             }
-            result.put(miss.getKey(), line);
-            save(lang, miss.getKey(), miss.getValue(), line);
         }
-        return result;
     }
 
-    private void save(TargetLanguage lang, String hash, String text, String line) {
+    private static void forEachLine(Map<TargetLanguage, String> lines, BiConsumer<TargetLanguage, String> action) {
+        lines.forEach((lineLang, value) -> {
+            String text = value == null ? "" : value.strip();
+            if (!text.isEmpty() && lineLang != TargetLanguage.EN) {
+                action.accept(lineLang, text);
+            }
+        });
+    }
+
+    private void save(TargetLanguage lang, String hash, String text, String version, String line) {
         try {
-            lines.saveAndFlush(new LineTranslation(hash, text, lang.code(), promptVersion, line, "llm",
+            lines.saveAndFlush(new LineTranslation(hash, text, lang.code(), version, line, "llm",
                     clock.instant()));
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same line at the same moment. Ours is still a good answer.
@@ -186,6 +234,57 @@ public class LineTranslationService {
 
     static String hash(String normalizedText) {
         return CacheKeys.key(normalizedText);
+    }
+
+    /** The key of a headword row: the headword together with the sense text, so each sense has its own word. */
+    static String headwordHash(String normalizedHeadword, String normalizedText) {
+        return CacheKeys.key("headword", normalizedHeadword, normalizedText);
+    }
+
+    /** One entry per text: the normalized headword, or null when none is asked. */
+    private static List<String> normalizedHeadwords(List<String> headwords, int size) {
+        List<String> result = new ArrayList<>();
+        if (headwords != null && headwords.size() != size) {
+            throw bad("invalid_headwords", "Send one headword (or null) for each text.");
+        }
+        for (int i = 0; i < size; i++) {
+            String clean = headwords == null ? "" : normalize(headwords.get(i));
+            if (clean.length() > MAX_HEADWORD) {
+                throw bad("invalid_headwords", "Each headword must be at most " + MAX_HEADWORD + " characters.");
+            }
+            result.add(clean.isEmpty() ? null : clean);
+        }
+        return result;
+    }
+
+    /** One text to ask: the sense text and its optional headword, with their row keys. */
+    private static final class Item {
+        final String text;
+        final String headword;
+        final String lineHash;
+        final String headwordHash;
+        /** False when the line in the requested language comes from this request's call, not from the table. */
+        boolean lineWasSaved = true;
+
+        Item(String text, String headword) {
+            this.text = text;
+            this.headword = headword;
+            this.lineHash = hash(text);
+            this.headwordHash = headword == null ? null : LineTranslationService.headwordHash(headword, text);
+        }
+
+        String text() {
+            return text;
+        }
+
+        String headword() {
+            return headword;
+        }
+
+        String lineHash() {
+            return lineHash;
+        }
+
     }
 
     private static ApiException bad(String code, String message) {

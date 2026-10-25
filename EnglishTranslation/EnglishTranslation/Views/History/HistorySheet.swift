@@ -38,7 +38,9 @@ struct HistorySheet: View {
         .background(Theme.Colors.background)
         .task {
             historyItems = await history.items()
-            await liked.refresh()
+            // Read what other devices changed, then show it. The lists above are already on screen.
+            await SyncEngine.shared.syncNow()
+            historyItems = await history.items()
         }
         .confirmationDialog("Clear all of History?", isPresented: $isAskingToClear, titleVisibility: .visible) {
             Button("Clear History", role: .destructive) {
@@ -240,7 +242,7 @@ actor MemoryHistory: HistoryStoring {
                   preview: "The fog made everything hard to see.", date: now.addingTimeInterval(-90_000)),
     ]
     return HistorySheet(history: MemoryHistory(items), onSelect: { _ in })
-        .environment(LikedStore(makeAPI: { throw BackendError.signInRequired }, copy: PreviewLikedCopy(), isSignedIn: { false }))
+        .environment(LikedStore(copy: PreviewLikedCopy(), outbox: nil, isSignedIn: { false }))
         .environment(AccountStore(secrets: NoSecretStore()))
 }
 

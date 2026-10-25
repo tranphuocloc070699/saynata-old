@@ -54,7 +54,7 @@ final class TranslationStore {
     init(
         makeTranslator: @escaping @MainActor () throws -> any Translating = TranslatorFactory.makeTranslator,
         makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup,
-        history: (any HistoryStoring)? = HistoryStore.shared,
+        history: (any HistoryStoring)? = SyncedHistory.shared,
         prefetchDelay: Duration = .milliseconds(400),
         languagePreference: TargetLanguagePreference = .shared
     ) {

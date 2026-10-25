@@ -125,6 +125,22 @@ class ClaudeServiceJsonInPromptTest {
     }
 
     @Test
+    void allLanguageLinesAreOneCallWithAllSevenLanguagesInThePrompt() {
+        replies.add(message("{\"items\":[{\"vi\":\"a\",\"ja\":\"b\",\"ko\":\"c\",\"zh\":\"d\",\"fr\":\"e\",\"es\":\"f\","
+                + "\"de\":\"g\"},{\"vi\":\"h\",\"ja\":\"\",\"ko\":\"j\"}]}"));
+
+        var items = service().translateLinesAllLanguages(List.of("a safe place for money", "I gave up."));
+
+        assertThat(items).hasSize(2);
+        assertThat(items.get(0)).hasSize(7).containsEntry(TargetLanguage.KO, "c").containsEntry(TargetLanguage.DE, "g");
+        assertThat(items.get(1)).containsOnlyKeys(TargetLanguage.VI, TargetLanguage.KO);
+        assertThat(requests).hasSize(1);
+        assertThat(requests.get(0)).doesNotContain("output_config").contains("Answer with ONLY one JSON object")
+                .contains("Korean").contains("German").contains("a safe place for money");
+        verify(usage).record(Feature.LINE, "gpt-6-luna", 100, 40);
+    }
+
+    @Test
     void temperatureIsSentWithSentenceCallsOnlyWhenSet() {
         replies.add(message(SENTENCE_JSON));
         replies.add(message(SENTENCE_JSON));

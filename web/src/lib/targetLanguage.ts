@@ -6,7 +6,7 @@ import { DEFAULT_LANGUAGE, languageFromSaved, type LanguageCode } from "./langua
 const KEY = "saynata.targetLang";
 const CHANGED = "saynata:target-lang";
 
-function read(): LanguageCode {
+export function readTargetLanguage(): LanguageCode {
   try {
     return languageFromSaved(localStorage.getItem(KEY));
   } catch {
@@ -23,15 +23,18 @@ function subscribe(onChange: () => void): () => void {
   };
 }
 
+export function writeTargetLanguage(code: LanguageCode): void {
+  try {
+    localStorage.setItem(KEY, code);
+  } catch {
+    // Storage blocked: the choice cannot be kept, so the default stays.
+  }
+  window.dispatchEvent(new Event(CHANGED));
+}
+
+/** The language and a setter. Pass the settings setter so a signed-in change also goes to the account. */
 export function useTargetLanguage(): [LanguageCode, (code: LanguageCode) => void] {
-  const language = useSyncExternalStore(subscribe, read, () => DEFAULT_LANGUAGE);
-  const set = useCallback((code: LanguageCode) => {
-    try {
-      localStorage.setItem(KEY, code);
-    } catch {
-      // Storage blocked: the choice cannot be kept, so the default stays.
-    }
-    window.dispatchEvent(new Event(CHANGED));
-  }, []);
+  const language = useSyncExternalStore(subscribe, readTargetLanguage, () => DEFAULT_LANGUAGE);
+  const set = useCallback((code: LanguageCode) => writeTargetLanguage(code), []);
   return [language, set];
 }

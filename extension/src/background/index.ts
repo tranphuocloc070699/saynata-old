@@ -73,7 +73,7 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
         await openSignIn();
         return { ok: true };
       case "lines":
-        return { ok: true, ...(await api.translateLines(request.texts, request.targetLang)) };
+        return { ok: true, ...(await api.translateLines(request.texts, request.targetLang, undefined, request.headword)) };
     }
   } catch (error) {
     if (error instanceof ApiError) return { ok: false, kind: error.kind, message: error.message };

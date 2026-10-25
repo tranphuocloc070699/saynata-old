@@ -1,7 +1,7 @@
 import { useApiUrl, useCustom, useInfiniteList, useInvalidate } from "@refinedev/core";
-import { Check, Loader2, Trash2, X } from "lucide-react";
+import { Check, Loader2, Play, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { PrefillOverview, PrefillQueueItem, PrefillSchedule } from "@/api/types";
+import type { PrefillOverview, PrefillQueueItem, PrefillRunSummary, PrefillSchedule } from "@/api/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { httpClient } from "@/providers/dataProvider";
@@ -59,6 +59,100 @@ function ScheduleNote({ schedule, maxUsdPerRun }: { schedule?: PrefillSchedule; 
   );
 }
 
+const MAX_CAP_USD = 10; // the backend refuses more (AdminPrefillController.MAX_ALLOWED_USD)
+const POLL_MS = 5_000;
+
+function lastRunText(run: PrefillRunSummary) {
+  const when = run.finishedAt.slice(0, 16).replace("T", " ");
+  return `Last run (${run.trigger}, ${when} UTC): ${run.done} done, ${run.failed} failed, $${run.spentUsd.toFixed(2)} · stopped: ${run.stoppedBecause.replace("-", " ")}`;
+}
+
+// Starts a prefill run now (TASK-83.17): all pending sources or one, with an optional cap. Empty cap = the server's
+// PREFILL_MAX_USD_PER_RUN. The run goes on in the background on the server; the footer polls while it runs.
+function RunNow({ overview, onStarted }: { overview?: PrefillOverview; onStarted: () => void }) {
+  const apiUrl = useApiUrl();
+  const [source, setSource] = useState("");
+  const [cap, setCap] = useState("");
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string>();
+  const pendingSources = (overview?.bySource ?? []).filter((s) => (s.byStatus.pending ?? 0) > 0);
+  const running = !!overview?.running;
+
+  async function start() {
+    const usd = Number(cap);
+    if (cap && !(usd > 0 && usd <= MAX_CAP_USD)) {
+      setError(`The cap must be more than $0 and at most $${MAX_CAP_USD}.`);
+      return;
+    }
+    // Built by hand: the backend reads a repeated "source", and axios would send "source[]".
+    const params = new URLSearchParams();
+    if (source) params.append("source", source);
+    if (cap) params.set("maxUsd", cap);
+    const query = params.toString();
+    setStarting(true);
+    setError(undefined);
+    try {
+      await httpClient.post(`${apiUrl}/prefill/run${query ? `?${query}` : ""}`, {}, { headers: { "Content-Type": "application/json" } });
+      onStarted();
+    } catch (e) {
+      setError((e as Error).message || "Could not start the run.");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  const fieldClass = "h-9 rounded-lg border border-border bg-card px-2 text-sm text-foreground";
+  return (
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <select aria-label="Source to run" className={`${fieldClass} min-w-40 flex-1`} value={source} onChange={(e) => setSource(e.target.value)}>
+          <option value="">All pending sources ({pendingSources.length})</option>
+          {pendingSources.map((s) => (
+            <option key={s.source} value={s.source}>
+              {SOURCES[s.source] ?? s.source} ({s.byStatus.pending.toLocaleString("en-US")})
+            </option>
+          ))}
+        </select>
+        <input
+          aria-label="Cap in US dollars"
+          title="The most this run may spend, in US dollars"
+          className={`${fieldClass} w-24`}
+          type="number"
+          min="0.01"
+          max={MAX_CAP_USD}
+          step="0.05"
+          placeholder={overview?.maxUsdPerRun != null ? `$${overview.maxUsdPerRun.toFixed(2)}` : "cap"}
+          value={cap}
+          onChange={(e) => {
+            setCap(e.target.value);
+            setError(undefined);
+          }}
+        />
+        <Button
+          size="icon"
+          variant="outline"
+          aria-label="Run prefill now"
+          title={running ? "A run is going" : "Run prefill now"}
+          disabled={running || starting}
+          onClick={start}
+        >
+          {running || starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+        </Button>
+      </div>
+      {error && (
+        <p role="alert" className="text-destructive">
+          {error}
+        </p>
+      )}
+      {running ? (
+        <p role="status" className="text-foreground">Running… the list refreshes every few seconds.</p>
+      ) : (
+        overview?.lastRuns?.[0] && <p>{lastRunText(overview.lastRuns[0])}</p>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   kind: "word" | "sentence";
   query: string;
@@ -88,7 +182,23 @@ export function PendingQueue({ kind, query }: Props) {
         allPages.reduce((count, page) => count + page.data.length, 0) < (lastPage.total ?? 0) ? allPages.length + 1 : undefined,
     },
   });
-  const { result: overview } = useCustom<PrefillOverview>({ url: `${apiUrl}/prefill`, method: "get" });
+  const { result: overview, query: overviewQuery } = useCustom<PrefillOverview>({
+    url: `${apiUrl}/prefill`,
+    method: "get",
+    queryOptions: { refetchInterval: (q) => (q.state.data?.data?.running ? POLL_MS : false) },
+  });
+  const running = !!overview?.data?.running;
+  // While a run goes, answered rows leave the queue; reload once more when it ends so the last ones go too.
+  const wasRunning = useRef(false);
+  useEffect(() => {
+    if (wasRunning.current && !running) invalidate({ resource: RESOURCE, invalidates: ["all"] });
+    wasRunning.current = running;
+  }, [running, invalidate]);
+  useEffect(() => {
+    if (!running) return;
+    const timer = setInterval(() => invalidate({ resource: RESOURCE, invalidates: ["all"] }), POLL_MS);
+    return () => clearInterval(timer);
+  }, [running, invalidate]);
   const pages = result.data?.pages ?? [];
   const rows = pages.flatMap((page) => page.data);
   const total = pages[0]?.total ?? 0;
@@ -207,6 +317,7 @@ export function PendingQueue({ kind, query }: Props) {
         </p>
       )}
       <div aria-label="Night job" className="space-y-1 border-t border-border p-3 text-sm text-muted-foreground">
+        <RunNow overview={overview?.data} onStarted={() => overviewQuery.refetch()} />
         <ScheduleNote schedule={overview?.data?.schedule} maxUsdPerRun={overview?.data?.maxUsdPerRun} />
         <p>
           {rows.length.toLocaleString("en-US")} of {total.toLocaleString("en-US")} waiting

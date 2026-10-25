@@ -30,14 +30,23 @@ struct TranslationRowPreferenceTests {
         return TranslationRowPreference(defaults: defaults)
     }
 
-    @Test func defaultIsCollapsed() {
+    @Test func defaultIsRememberLast() {
         let preference = makePreference()
-        #expect(preference.mode == .collapsed)
+        #expect(preference.mode == .rememberLast)
         #expect(!preference.startsOpen)
+        preference.rowChanged(isOpen: true)
+        #expect(preference.startsOpen)
+    }
+
+    @Test func serverValuesMatchTheAccountSettingsApi() {
+        #expect(TranslationRowMode.allCases.map(\.serverValue) == ["collapsed", "alwaysOpen", "remember"])
+        #expect(TranslationRowMode(serverValue: "remember") == .rememberLast)
+        #expect(TranslationRowMode(serverValue: "nonsense") == nil)
     }
 
     @Test func collapsedStaysClosedEvenAfterAnOpen() {
         let preference = makePreference()
+        preference.mode = .collapsed
         preference.rowChanged(isOpen: true)
         #expect(!preference.startsOpen)
     }
@@ -71,9 +80,9 @@ struct TranslationRowPreferenceTests {
         #expect(again.mode == .alwaysOpen)
     }
 
-    @Test func unknownSavedValueFallsBackToCollapsed() {
+    @Test func unknownSavedValueFallsBackToTheDefault() {
         let preference = makePreference()
         preference.defaults.set("nonsense", forKey: TranslationRowPreference.modeKey)
-        #expect(preference.mode == .collapsed)
+        #expect(preference.mode == .rememberLast)
     }
 }
