@@ -37,6 +37,29 @@ public class EnglishWords {
         return words.contains(word.toLowerCase(Locale.ROOT));
     }
 
+    /**
+     * True when the text is plain prose (letters, digits, spaces and sentence punctuation only, so code never
+     * passes) with at least one word, and every word is on the list. An apostrophe or hyphen inside a word stays
+     * ("don't", "well-known").
+     */
+    public boolean containsOnlyWords(String text) {
+        if (!text.matches("[\\p{L}\\p{N}\\s.,;:!?'’‘\"“”\\-—…]+")) {
+            return false;
+        }
+        boolean any = false;
+        for (String token : text.split("[^\\p{L}'’-]+")) {
+            String word = token.replaceAll("^['’-]+|['’-]+$", "");
+            if (word.isEmpty()) {
+                continue;
+            }
+            if (!contains(word) && !contains(word.replace('’', '\''))) {
+                return false;
+            }
+            any = true;
+        }
+        return any;
+    }
+
     public int size() {
         return words.size();
     }
