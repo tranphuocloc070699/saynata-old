@@ -10,7 +10,7 @@ import { browserTokens } from "@/lib/auth";
 import { fetchResult, fetchTranslation, startState, waitingForMeaning, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
 import { settingsStore } from "@/lib/settings";
-import { startChips } from "@/lib/startChips";
+import { ghostCompletion, startChips, suggestionChips } from "@/lib/startChips";
 import { liveItems } from "@/lib/sync";
 import { useSync } from "@/lib/useSync";
 import { useTargetLanguage } from "@/lib/targetLanguage";
@@ -24,6 +24,8 @@ import { WordSheet } from "./WordSheet";
 const api = new SaynataApi("", browserTokens);
 const SUGGEST_DELAY_MS = 250;
 const SUGGEST_MAX_LENGTH = 40;
+/** Alt+1 ... Alt+9: the first nine chips have a key. */
+const MAX_KEY_CHIPS = 9;
 /** Cached answers, so a guest can try them (TASK-83.11 prefill). */
 const SAMPLES = ["give up", "run", "Hold on a second.", "Looks good."];
 /** How long the box stays empty before the shown result is removed. */
@@ -145,10 +147,8 @@ export function Home() {
       controller.abort();
     };
   }, [prefix, targetLang, wantsSuggestions]);
-  const suggestions =
-    wantsSuggestions && suggested.prefix === prefix
-      ? suggested.list.filter((s) => s.text.toLowerCase() !== prefix.toLowerCase())
-      : [];
+  // The server's list for this exact text. Until it arrives, the matching recent words already show (TASK-116).
+  const serverTexts = wantsSuggestions && suggested.prefix === prefix ? suggested.list.map((s) => s.text) : [];
 
   // Motion 1: the page enters (the intro in page.tsx too, so the whole document is searched) and the send
   // button pops in. Runs once. The cat drops onto the card by itself when its picture is ready (MochiCat).
@@ -181,7 +181,27 @@ export function Home() {
   const recentItems = liveItems(syncState.history);
   const hasRecentWord = recentItems.some((item) => item.kind === "word");
   const start = startChips(recentItems, hot, SAMPLES);
-  const chips = suggestions.length > 0 ? suggestions.map((s) => s.text) : result.kind === "idle" && !text ? start : [];
+  const typedChips = wantsSuggestions ? suggestionChips(prefix, recentItems, serverTexts, MAX_KEY_CHIPS) : [];
+  const showingSuggestions = typedChips.length > 0;
+  const chips = showingSuggestions ? typedChips : result.kind === "idle" && !text ? start : [];
+  // The grey completion: the top chip, only when it starts with what was typed (the text as typed, not trimmed).
+  const ghost = showingSuggestions ? ghostCompletion(text, chips[0]) : "";
+
+  // Alt+1 ... Alt+9 open the chip with that number, from anywhere on the page. event.code, not event.key: on a Mac
+  // Alt+1 types a symbol, so key is not "1". preventDefault so no character is typed.
+  const onChipShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.isComposing) return;
+    const match = /^Digit([1-9])$/.exec(event.code);
+    const chip = match ? chips[Number(match[1]) - 1] : undefined;
+    if (!chip) return;
+    event.preventDefault();
+    submit(chip);
+  });
+  useEffect(() => {
+    const listen = (event: KeyboardEvent) => onChipShortcut(event);
+    window.addEventListener("keydown", listen);
+    return () => window.removeEventListener("keydown", listen);
+  }, []);
 
   // Motion 3: suggestions and sample chips fan out quickly when the list changes.
   useGSAP(
@@ -212,18 +232,26 @@ export function Home() {
           targetLang={targetLang}
           onLanguage={(code) => settingsStore.update({ targetLanguage: code })}
           mood={mood}
+          ghost={ghost}
         />
 
         {chips.length > 0 && (
-          <ul aria-label={suggestions.length > 0 ? "Suggestions" : hasRecentWord ? "Recent" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
-            {chips.map((chip) => (
+          <ul aria-label={showingSuggestions ? "Suggestions" : hasRecentWord ? "Recent" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
+            {chips.map((chip, index) => (
               <li key={chip} className="chip-item">
                 <button
                   type="button"
                   onClick={() => submit(chip)}
-                  className="min-h-9 cursor-pointer rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 transition-colors hover:border-accent/50 hover:text-accent"
+                  title={index < MAX_KEY_CHIPS ? `Alt + ${index + 1}` : undefined}
+                  className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 transition-colors hover:border-accent/50 hover:text-accent"
                 >
                   {chip}
+                  {/* The key to press. A phone or tablet has no keyboard shortcut, so the hint is hidden there. */}
+                  {index < MAX_KEY_CHIPS && (
+                    <kbd aria-hidden className="text-[0.7rem] font-medium text-muted tabular-nums [@media(hover:none)]:hidden">
+                      {index + 1}
+                    </kbd>
+                  )}
                 </button>
               </li>
             ))}

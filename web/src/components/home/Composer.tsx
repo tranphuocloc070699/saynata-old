@@ -3,7 +3,7 @@
  * The one composer card, like the iOS home (TASK-97): the text box, the language chip and the send button inside,
  * the cat on its top edge. Enter sends, Shift+Enter adds a line.
  */
-import { useId, type KeyboardEvent } from "react";
+import { useId, useState, type KeyboardEvent, type SyntheticEvent } from "react";
 import { MAX_SENTENCE_LENGTH } from "@/lib/textKind";
 import { LANGUAGES, type LanguageCode } from "@/lib/languages";
 import { IconButton } from "../IconButton";
@@ -18,14 +18,30 @@ type Props = {
   targetLang: LanguageCode;
   onLanguage: (code: LanguageCode) => void;
   mood: CatMood;
+  /** The rest of the top suggestion, shown grey after the typed text. Tab accepts it. Empty = none. */
+  ghost?: string;
 };
 
-export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mood }: Props) {
+export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mood, ghost = "" }: Props) {
   const inputId = useId();
   const tooLong = value.length > MAX_SENTENCE_LENGTH;
   const canSend = value.trim().length > 0 && !tooLong;
 
+  // The grey text only shows while the caret is at the end of the text and nothing is selected.
+  const [caretAtEnd, setCaretAtEnd] = useState(true);
+  const showGhost = ghost !== "" && caretAtEnd;
+  const readCaret = (event: SyntheticEvent<HTMLTextAreaElement>) => {
+    const { selectionStart, selectionEnd, value: text } = event.currentTarget;
+    setCaretAtEnd(selectionStart === selectionEnd && selectionEnd === text.length);
+  };
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Tab is taken only when there is a grey completion. Otherwise it moves the focus as usual.
+    if (event.key === "Tab" && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && showGhost) {
+      event.preventDefault();
+      onChange(value + ghost);
+      return;
+    }
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       if (canSend) onSubmit();
@@ -52,18 +68,35 @@ export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mo
         <label htmlFor={inputId} className="sr-only">
           An English word or sentence
         </label>
-        <textarea
-          id={inputId}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          onKeyDown={onKeyDown}
-          rows={2}
-          placeholder="Type or paste text to get something interesting"
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          className="field-sizing-content max-h-60 min-h-[3.25rem] w-full resize-none bg-transparent font-serif text-[1.2rem] leading-snug outline-none placeholder:text-muted/80"
-        />
+        {/* The grey completion sits under the textarea, with the same font and wrapping. The typed part is
+            invisible, so only the rest shows, right after the caret. */}
+        <div className="relative">
+          {showGhost && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 overflow-hidden font-serif text-[1.2rem] leading-snug break-words whitespace-pre-wrap"
+            >
+              <span className="invisible">{value}</span>
+              <span className="text-muted/60">{ghost}</span>
+            </div>
+          )}
+          <textarea
+            id={inputId}
+            value={value}
+            onChange={(event) => {
+              onChange(event.target.value);
+              readCaret(event);
+            }}
+            onSelect={readCaret}
+            onKeyDown={onKeyDown}
+            rows={2}
+            placeholder="Type or paste text to get something interesting"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            className="field-sizing-content relative max-h-60 min-h-[3.25rem] w-full resize-none bg-transparent font-serif text-[1.2rem] leading-snug outline-none placeholder:text-muted/80"
+          />
+        </div>
         <div className="flex items-center gap-1">
           <label className="relative inline-flex min-h-11 cursor-pointer items-center">
             <span className="sr-only">Your language</span>
