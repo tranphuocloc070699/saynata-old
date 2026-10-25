@@ -64,6 +64,19 @@ export async function fetchResult(
         },
         signal,
       );
+      const match = response.explanation.wordMatch?.trim();
+      if (match) {
+        // The text means one English word or phrase: show its word card. Any failure or empty answer keeps the sentence.
+        try {
+          const word = await api.lookUpWord(match, signal);
+          if (word.entry?.senses?.length) {
+            report(() => ({ kind: "word", query: raw, word }));
+            return;
+          }
+        } catch {
+          // Fall through to the sentence result.
+        }
+      }
       report(() => ({
         kind: "sentence",
         query: text.text,

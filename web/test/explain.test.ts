@@ -80,3 +80,64 @@ describe("fetchResult", () => {
     expect(seen).toEqual([]);
   });
 });
+
+describe("fetchResult with non-English input (TASK-114)", () => {
+  const withExtra = (extra: object) => {
+    const response = sentenceResponse();
+    Object.assign(response.explanation, extra);
+    return response;
+  };
+
+  it("keeps english and sourceLang for Vietnamese and Japanese input", async () => {
+    for (const [raw, lang] of [
+      ["tôi rất vui khi gặp bạn", "vi"],
+      ["お会いできて 嬉しいです", "ja"],
+    ]) {
+      const response = withExtra({ english: "I am glad to meet you.", sourceLang: lang });
+      const seen = await states({ lookUpWord: never, explainSentence: async () => response }, raw);
+      expect(seen.at(-1)).toMatchObject({
+        kind: "sentence",
+        explanation: { english: "I am glad to meet you.", sourceLang: lang },
+      });
+    }
+  });
+
+  it("leaves English input without the new fields", async () => {
+    const response = sentenceResponse();
+    const seen = await states({ lookUpWord: never, explainSentence: async () => response }, "Hold on a second");
+    const last = seen.at(-1) as Extract<Result, { kind: "sentence" }>;
+    expect(last.explanation?.english).toBeUndefined();
+    expect(last.explanation?.wordMatch).toBeUndefined();
+  });
+
+  it("opens the word card for a wordMatch", async () => {
+    const word = wordResponse();
+    const response = withExtra({ english: "give up", sourceLang: "vi", wordMatch: "give up" });
+    const lookups: string[] = [];
+    const seen = await states(
+      {
+        lookUpWord: async (w) => (lookups.push(w), word),
+        explainSentence: async () => response,
+      },
+      "từ bỏ",
+    );
+    expect(lookups).toEqual(["give up"]);
+    expect(seen.at(-1)).toEqual({ kind: "word", query: "từ bỏ", word });
+  });
+
+  it("falls back to the sentence result when the word lookup fails or is empty", async () => {
+    const response = withExtra({ english: "give up", sourceLang: "vi", wordMatch: "give up" });
+    const failing = await states(
+      {
+        lookUpWord: () => Promise.reject(new ApiError("badRequest", "not cached", 404)),
+        explainSentence: async () => response,
+      },
+      "từ bỏ",
+    );
+    expect(failing.at(-1)).toMatchObject({ kind: "sentence", explanation: { english: "give up" } });
+
+    const empty = { ...wordResponse(), entry: { senses: [] } } as WordResponse;
+    const emptied = await states({ lookUpWord: async () => empty, explainSentence: async () => response }, "từ bỏ");
+    expect(emptied.at(-1)).toMatchObject({ kind: "sentence" });
+  });
+});

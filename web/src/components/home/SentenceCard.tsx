@@ -26,13 +26,15 @@ type Props = {
   onWord: (word: string) => void;
 };
 
-export function SentenceCard({ text, meaning, explanation, targetLang, onWord }: Props) {
+export function SentenceCard({ text: typed, meaning, explanation, targetLang, onWord }: Props) {
   const speech = useSpeech();
   const [copied, setCopied] = useState(false);
   const [{ showTranslation }] = useSettings();
   const [startOpen] = useState(() => translationRowOpen(showTranslation));
   const streaming = explanation === null;
   const summary = explanation?.meaning ?? meaning;
+  // For non-English input the English version takes the headline slot (TASK-114).
+  const text = explanation?.english?.trim() || typed;
 
   const copy = async () => {
     try {
@@ -106,7 +108,7 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
         {explanation?.better && (
           <div data-reveal>
             <FoldedRow title="Better way to say it">
-              <BetterVersion text={text} better={explanation.better} why={explanation.betterWhy} speech={speech} />
+              <BetterVersion text={typed}better={explanation.better} why={explanation.betterWhy} speech={speech} />
             </FoldedRow>
           </div>
         )}
@@ -123,7 +125,7 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
         )}
       </article>
       <div className="flex justify-end">
-        {explanation && <LikeButton kind="sentence" text={text} preview={explanation.meaning} chip={null} />}
+        {explanation && <LikeButton kind="sentence" text={typed}preview={explanation.meaning} chip={null} />}
         <IconButton
           variant="plain"
           label={copied ? "Copied" : "Copy"}
