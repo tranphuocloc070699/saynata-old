@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-25 03:40'
+updated_date: '2026-10-25 07:53'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (sign-in, TASK-102).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (account page, TASK-102.8).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -135,7 +135,8 @@ sequenceDiagram
 | Apple | [apple:121](../../../web/src/components/auth/SignInForm.tsx#L121) | AppleID JS in a popup with the Services ID |
 | Client | [auth.ts:52](../../../web/src/lib/auth.ts#L52) | `AuthApi`: email-code, verify, google, apple, refresh, sign-out. Auth errors (`invalid_code` etc.) show the server's text |
 | Session | [auth.ts:121](../../../web/src/lib/auth.ts#L121) | `BrowserTokens`: the session in localStorage (`saynata.session`), refreshed 60 s before it expires, one shared refresh; a 401 on refresh signs out, a network error keeps the session. It is the `TokenSource` of every `SaynataApi` |
-| Header | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx:9](../../../web/src/components/auth/AccountMenu.tsx#L9) | Logo home; a guest sees "Sign in", a signed-in user the email and a Sign out icon button |
+| Header | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx:9](../../../web/src/components/auth/AccountMenu.tsx#L9) | Logo home; a guest sees "Sign in"; a signed-in user sees the email (from 640 px) and icon-only links to History (`/history`), Settings (`/settings`) and Account (`/account`), then a Sign out icon button (TASK-102.8) |
+| Account page (TASK-102.8) | [AccountPage.tsx](../../../web/src/components/auth/AccountPage.tsx), [account.ts](../../../web/src/lib/account.ts) | `/account`: profile card (pixel cat, email, "Member since October 2026 · Google" from `GET /api/me`, Sign out icon), three stat tiles (Words looked up, Liked, AI answers today as "7 / 50") and a Delete account row. A guest is sent to `/sign-in?next=/account`. Delete is two taps: the red trash icon, then it turns into a confirm state (with Cancel); confirm calls `DELETE /api/me`, `browserTokens.signOut()`, then goes home. `AccountApi` sends the Bearer token and retries once after a refresh |
 | After sign-in | [safeNextPath:257](../../../web/src/lib/auth.ts#L257) | Goes to `?next=` only when it is a path on this site, else `/` |
 
 Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
@@ -164,6 +165,7 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 | `web/test/textKind.test.ts` | Word or sentence |
 | `web/test/mochi.test.ts` | The five choices have equal shares, Box picks one of three, the visit keeps its cat, a missing file means fallback, `steps()` and frame 1 with reduced motion in `globals.css` |
 | `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
+| `web/test/account.test.ts` | `AccountApi` (Bearer, DELETE, one refresh, no token, errors), `memberLine`, `statTiles`, the guest redirect path |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
 
 ## Change checklist

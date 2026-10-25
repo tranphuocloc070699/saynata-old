@@ -1,10 +1,10 @@
 "use client";
 /** The header's account corner (TASK-102, doc-23): "Sign in" for a guest, the email and a sign-out button when signed in. */
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { browserTokens } from "@/lib/auth";
 import { IconButton } from "../IconButton";
-import { SignOut } from "../icons";
+import { Clock, Gear, SignOut, User } from "../icons";
 
 export function AccountMenu() {
   // The server and the first client render show nothing, so the HTML matches; the session is in localStorage.
@@ -31,9 +31,12 @@ export function AccountMenu() {
   }
   return (
     <div className="ml-auto flex min-w-0 items-center gap-1">
-      <span className="truncate text-sm text-muted" title={session.email}>
+      <span className="hidden truncate text-sm text-muted sm:inline" title={session.email}>
         {session.email}
       </span>
+      <NavIcon href="/history" label="History" icon={<Clock />} />
+      <NavIcon href="/settings" label="Settings" icon={<Gear />} />
+      <NavIcon href="/account" label="Account" icon={<User />} />
       <IconButton
         label="Sign out"
         variant="plain"
@@ -45,3 +48,17 @@ export function AccountMenu() {
 }
 
 const noopSubscribe = () => () => undefined;
+
+/** An icon-only link, the same 44 px target as IconButton. */
+function NavIcon({ href, label, icon }: { href: string; label: string; icon: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      title={label}
+      className="grid size-11 shrink-0 place-items-center rounded-full text-muted hover:text-ink"
+    >
+      <span className="size-[18px]">{icon}</span>
+    </Link>
+  );
+}
