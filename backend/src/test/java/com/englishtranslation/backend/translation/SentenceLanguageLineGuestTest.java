@@ -49,7 +49,7 @@ class SentenceLanguageLineGuestTest {
         assertThat(response.cached()).isTrue();
         assertThat(response.explanation().meaning()).isEqualTo("A friendly hello.");
         assertThat(response.explanation().translation()).isEmpty();
-        verify(claude, never()).translateLines(any(), anyList());
+        verify(claude, never()).translateLinesAllLanguages(anyList());
         assertThat(lines.count()).isZero();
     }
 }
