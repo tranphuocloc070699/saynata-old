@@ -95,6 +95,27 @@ export const Trash = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const Clock = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </Icon>
+);
+
+export const Gear = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1" />
+  </Icon>
+);
+
+export const User = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </Icon>
+);
+
 export const Search = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
     <circle cx="11" cy="11" r="7" />
