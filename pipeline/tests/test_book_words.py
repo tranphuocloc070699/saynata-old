@@ -202,3 +202,11 @@ def test_review_server_is_local_and_saves_picks(db, tmp_path):
         server.shutdown()
         server.server_close()
     assert rows(collection.connect(tmp_path / "pipeline.db"))["obscure"]["picked"] == 1
+
+
+def test_a_not_on_list_book_word_is_pushed_as_needs_review(db):
+    db.execute("INSERT INTO collection (kind, text, source, priority, status, book_group) "
+               "VALUES ('word', 'vue', 'book', 0, 'done', 'not_on_list'), ('word', 'wander', 'book', 0, 'done', 'common'), "
+               "('word', 'abide', 'scowl-70', 0, 'needs_review', NULL)")
+    rows = {r["text"]: r for r in db.execute("SELECT * FROM collection")}
+    assert [collection.needs_review(rows[t]) for t in ("vue", "wander", "abide")] == [True, False, True]

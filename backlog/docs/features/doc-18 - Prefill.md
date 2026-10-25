@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-24 18:58'
+updated_date: '2026-10-25 04:43'
 ---
 # Prefill
 
@@ -367,5 +367,5 @@ Tests: `pipeline/tests/test_book_words.py` (grouping, names, base forms, phrases
 ### Known gaps
 
 - Names are decided from the books of one run only: a word seen in lower case in an earlier run and only capitalised now is listed as a name.
-- A `not_on_list` word is answered "not a word" by the backend before it looks in the cache, so a pushed entry for it would never be shown. They start unticked.
+- A `not_on_list` word is answered "not a word" by the backend before it looks in the cache, so a pushed entry for it would never be shown. They start unticked. A ticked one is pushed with `needs_review = true` ([needs_review:1010](../../../pipeline/src/pipeline/collection.py#L1010)), so the developer finds it in the admin and fixes the definition; the backend still needs a change before it shows them.
 - The phrase list is the WordNet one with no frequency limit, so rare idioms appear in the `phrase` tab, ticked at first; untick what you do not want.

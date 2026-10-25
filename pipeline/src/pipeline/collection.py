@@ -1007,6 +1007,12 @@ def plan_push(pg, rows: list[sqlite3.Row], prompt_version: str) -> PushPlan:
     return plan
 
 
+def needs_review(row: sqlite3.Row) -> bool:
+    """needs_review in word_lookup: the checks were not sure, or a book word that is not on the backend word list
+    (nuxt, vue), so the developer finds it in the admin and fixes it before the backend can answer it."""
+    return row["status"] == "needs_review" or row["book_group"] == "not_on_list"
+
+
 def first_cefr(entry: Entry) -> str | None:
     return entry.senses[0].cefr if entry.senses else None
 
@@ -1022,7 +1028,7 @@ def push(connection: sqlite3.Connection, pg, plan: PushPlan, prompt_version: str
                 "INSERT INTO word_lookup (cache_key, word, entry_json, model, prompt_version, needs_review, cefr, "
                 "created_at) VALUES (%s, %s, %s, %s, %s, %s, %s, now()) ON CONFLICT (cache_key) DO NOTHING",
                 (cache_key(row["text"], prompt_version), row["text"], entry.model_dump_json(), row["model"][:64],
-                 prompt_version, row["status"] == "needs_review", first_cefr(entry)))
+                 prompt_version, needs_review(row), first_cefr(entry)))
             inserted += cursor.rowcount
     pg.commit()
     done = [row["id"] for row in plan.to_insert] + [row["id"] for row in plan.rows if row["text"] in plan.exists]
