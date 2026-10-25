@@ -59,7 +59,7 @@ class PromptVersionCacheTest {
     private TranslationService sentenceService(ClaudeProperties properties) {
         return new TranslationService(sentences, org.mockito.Mockito.mock(com.englishtranslation.backend.translation.SentenceSourceAliasRepository.class), claude, properties, jsonMapper, new com.englishtranslation.backend.translation.PersonalTextDetector(),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class),
-                org.mockito.Mockito.mock(com.englishtranslation.backend.lines.LineTranslationService.class));
+                org.mockito.Mockito.mock(com.englishtranslation.backend.lines.LineTranslationService.class), new EnglishWords());
     }
 
     private WordService wordService(ClaudeProperties properties) {

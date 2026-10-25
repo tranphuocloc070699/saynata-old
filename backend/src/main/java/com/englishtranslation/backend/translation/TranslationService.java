@@ -4,8 +4,10 @@ import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.cache.NotCachedException;
 import com.englishtranslation.backend.claude.ClaudeProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.limits.ClaudeGate;
 import com.englishtranslation.backend.lines.LineTranslationService;
+import com.englishtranslation.backend.word.EnglishWords;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -50,10 +52,13 @@ public class TranslationService {
     private final PersonalTextDetector personalTextDetector;
     private final ClaudeGate gate;
     private final LineTranslationService lines;
+    private final EnglishWords englishWords;
 
     public TranslationService(SentenceTranslationRepository repository, SentenceSourceAliasRepository aliases,
             ClaudeService claude, ClaudeProperties properties, JsonMapper jsonMapper,
-            PersonalTextDetector personalTextDetector, ClaudeGate gate, LineTranslationService lines) {
+            PersonalTextDetector personalTextDetector, ClaudeGate gate, LineTranslationService lines,
+            EnglishWords englishWords) {
+        this.englishWords = englishWords;
         this.aliases = aliases;
         this.gate = gate;
         this.lines = lines;
@@ -130,8 +135,7 @@ public class TranslationService {
                 throw new NotCachedException();
             }
             timing.time("gate", gate::beforeNewCall);
-            return timing.time("llm",
-                    () -> BetterCheck.apply(normalizedText, callClaude.apply(normalizedText, timing)));
+            return timing.time("llm", () -> BetterCheck.apply(normalizedText, askOrRetry(normalizedText, callClaude, timing)));
         };
         String normalized = CacheKeys.normalizeSentence(text);
 
@@ -190,6 +194,22 @@ public class TranslationService {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
             SentenceTranslation first = repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
             return answer(normalized, targetLang, readExplanation(first), true, cachedOnly, timing);
+        }
+    }
+
+    /**
+     * The model sometimes calls a rare-but-real phrase "none" (random letters). The word list is the judge of what
+     * a word is, so when every word is on it, the text is asked once more with a note, and only a second "none" is a 422.
+     */
+    private Explanation askOrRetry(String normalizedText, BiFunction<String, SentenceTiming, Explanation> callClaude,
+            SentenceTiming timing) {
+        try {
+            return callClaude.apply(normalizedText, timing);
+        } catch (NotEnglishException e) {
+            if (!NotEnglishException.NOT_A_WORD_CODE.equals(e.code()) || !englishWords.containsOnlyWords(normalizedText)) {
+                throw e;
+            }
+            return claude.explainSentenceOfRealWords(normalizedText);
         }
     }
 
