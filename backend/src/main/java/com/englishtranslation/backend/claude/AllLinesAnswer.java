@@ -22,6 +22,12 @@ public record AllLinesAnswer(
 
         /** Language -> line. A missing or blank line is left out. */
         public Map<TargetLanguage, String> byLanguage() {
+            return map(vi, ja, ko, zh, fr, es, de);
+        }
+
+        /** Language -> value for the 7 languages in this order. A missing or blank value is left out. */
+        static Map<TargetLanguage, String> map(String vi, String ja, String ko, String zh, String fr, String es,
+                String de) {
             Map<TargetLanguage, String> map = new EnumMap<>(TargetLanguage.class);
             put(map, TargetLanguage.VI, vi);
             put(map, TargetLanguage.JA, ja);
