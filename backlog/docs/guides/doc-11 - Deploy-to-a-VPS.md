@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-24 18:29'
+updated_date: '2026-10-25 03:40'
 ---
 # Deploy to a VPS
 
@@ -743,8 +743,8 @@ www.saynata.com {
    and checks the site.
 4. **Check.** Open `https://saynata.com`, explain "give up", then a sentence.
 
-**The Mochi cat sprites (paid pack, never in git).** The homepage loads `/cats/<file>.png`, and the sign-in pages load the cat room pictures (`cozy.png`, `playful.png`, `furniture.png`, `running.png`, `sleeping.png`, TASK-102) from the same folder; without the files it shows its
-own pixel cat. Copy them from the Mac with `scripts/upload-web-cats.sh [path-to-CatMegaBundle]` (ssh host `vps_sieutoc`,
+**The Mochi cat sprites (paid pack, never in git).** The homepage loads `/cats/<file>.png`, and the sign-in pages load the cat room pictures (`cozy-room.png`, `playful-room.png`, `running.png`, `sleeping.png`, TASK-102) from the same folder; without the files it shows its
+own pixel cat. Copy them from the Mac with `scripts/upload-web-cats.sh [path-to-CatMegaBundle] [path-to-RandomCatRoom/public/cats]` (ssh host `vps_sieutoc`,
 folder `/var/lib/saynata/web-cats`), then add this `handle_path` block inside the `saynata.com` block above, before
 `handle /api/*`, and reload Caddy. The files never change under the same name, so the cache can be one year:
 

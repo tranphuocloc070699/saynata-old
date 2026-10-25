@@ -161,7 +161,7 @@ body {
 }
 
 /*
- * The cat room on the sign-in page (components/CatRoom.tsx), the developer's CatRoom.css. Positions are percent of
+ * The cat room on the sign-in page (components/CatRoom.tsx), the developer's RandomCatRoom CSS. Positions are percent of
  * the 512px room. Pixel art, so no smoothing. The room is only on a wide screen: under 760px the form is alone.
  */
 .cat-room {
@@ -185,37 +185,51 @@ body {
   width: 100%;
   aspect-ratio: 1;
 }
-.cat-room__art {
+.cat-room__background {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;
 }
-.cat-room__art,
-.cat-room__art image,
+.cat-room__background,
 .cat-room__sprite-strip {
   image-rendering: pixelated;
 }
-.cat-room__cat-position {
+/* The route and the cat are sized from the 512px room, so the cat scales with it. */
+.cat-room__route {
   position: absolute;
-  width: 12.5%;
-  aspect-ratio: 1;
-  transform: translate(-50%, -100%);
+  height: 0;
 }
-.cat-room--cozy .cat-room__cat-position {
+.cat-room--cozy .cat-room__route {
   left: 63.28125%;
   top: 65.4296875%;
+  width: 12.5%;
 }
-.cat-room--playful .cat-room__cat-position {
+.cat-room--playful .cat-room__route {
   left: 41.015625%;
   top: 71.2890625%;
+  width: 28.3203125%; /* 145 / 512: the way the cat runs */
+}
+.cat-room__traveler {
+  width: 100%;
+  aspect-ratio: 1;
+}
+.cat-room--playful .cat-room__traveler {
+  width: 44.1379310345%; /* 64 / 145 */
   animation: cat-patrol 5.2s linear infinite;
 }
-.cat-room__cat-facing,
+.cat-room__anchor {
+  width: 100%;
+  height: 100%;
+  transform: translate(-50%, -100%);
+}
+.cat-room__facing,
 .cat-room__sprite-window {
   width: 100%;
   height: 100%;
 }
-.cat-room--playful .cat-room__cat-facing {
+.cat-room--playful .cat-room__facing {
   animation: cat-direction 5.2s steps(1, end) infinite;
 }
 .cat-room__sprite-window {
@@ -250,10 +264,10 @@ body {
 @keyframes cat-patrol {
   0%,
   100% {
-    left: 41.015625%;
+    transform: translateX(0);
   }
   50% {
-    left: 69.3359375%;
+    transform: translateX(226.5625%); /* 145 / 64 */
   }
 }
 @keyframes cat-direction {
@@ -267,14 +281,14 @@ body {
     transform: scaleX(1);
   }
 }
-.cat-room--paused .cat-room__cat-position,
-.cat-room--paused .cat-room__cat-facing,
+.cat-room--paused .cat-room__traveler,
+.cat-room--paused .cat-room__facing,
 .cat-room--paused .cat-room__sprite-strip {
   animation-play-state: paused;
 }
 @media (prefers-reduced-motion: reduce) {
-  .cat-room__cat-position,
-  .cat-room__cat-facing,
+  .cat-room__traveler,
+  .cat-room__facing,
   .cat-room__sprite-strip {
     animation: none !important;
   }
