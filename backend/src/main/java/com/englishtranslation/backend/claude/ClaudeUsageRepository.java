@@ -24,4 +24,7 @@ public interface ClaudeUsageRepository extends JpaRepository<ClaudeUsage, Long> 
     BigDecimal adminCostSince(@Param("from") Instant from);
 
     List<ClaudeUsage> findByCreatedAtGreaterThanEqual(Instant from);
+
+    /** New Claude calls one user caused since {@code from} (the account page shows the last 24 hours). */
+    long countByUserIdAndCreatedAtGreaterThanEqual(Long userId, Instant from);
 }
