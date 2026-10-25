@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-25 08:01'
+updated_date: '2026-10-25 09:30'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -108,6 +108,11 @@ Too many requests give `429` `rate_limited` with a `Retry-After` header. Details
 `explanation` = `{ meaning, words: [{ word, partOfSpeech, meaning }], translation }`. Only
 `translation` is in `targetLang`; `meaning` and `words` are simple English (difficult = above B1).
 The fields always come in this order: `meaning`, `words`, `translation`.
+When the typed text is **not English** (TASK-114.1) three fields come first: `english` (the natural English a native
+speaker would say; `meaning` then explains this English version), `sourceLang` (ISO 639-1 code of the typed text, for
+example `vi`) and `wordMatch` (only for one word, phrasal verb or idiom with a good English match: `"sad"` for
+`"buồn"`; the app opens that word card through `GET /api/words/{wordMatch}`). For English text all three are left out
+of the JSON. `text` stays what the user typed.
 
 `entry` = `{ senses: [{ pos, cefr, simpleDefinition, vietnamese, examples, usage: [{ pattern, example }] }] }`,
 the pipeline shape in camelCase, without the image fields.
@@ -115,7 +120,7 @@ the pipeline shape in camelCase, without the image fields.
 Rules:
 - `text`: 1–500 characters. `word`: 1–64 characters, one token.
 - `targetLang`: required, one of the codes above. Unknown or missing → 400.
-- Not English (code, gibberish like "asdkj qwe zzxq", another language) → **422** with detail "This doesn't look like English. Type an English word or sentence." Nothing is cached (TASK-21). The model returns an `isEnglish` flag; the backend turns `false` into the 422 and never stores or returns the flag.
+- Code or gibberish (like "asdkj qwe zzxq") → **422** with detail "This doesn't look like English. Type an English word or sentence." Nothing is cached (TASK-21). The model returns `sourceLang: "none"`; the backend turns it into the 422 and never stores or returns it. Text in **another language** is not rejected any more (TASK-114.1): it is answered with its natural English version first (`english`, `sourceLang`, optional `wordMatch`, see above) and cached by that English version.
 - `translation` is always a translation of the input, never an explanation. "base form: X" appears only for inflected words.
 - Each language is cached on its own: the same sentence in `vi` and `ja` is two rows and two LLM calls.
 - `cached: true` when the result came from the DB.

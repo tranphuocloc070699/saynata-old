@@ -36,7 +36,7 @@ class ClaudeServiceTest {
     void sentencePromptAsksOnlyForTheEnglishSummaryAndNoTranslation() {
         String prompt = ClaudeService.SENTENCE_PROMPT;
 
-        assertThat(prompt).contains("1. summary", "the answer is a short summary in simple English");
+        assertThat(prompt).contains("3. summary", "the answer is a short summary in simple English");
         assertThat(prompt).doesNotContain("translation:", "<target_language>");
     }
 
@@ -62,16 +62,16 @@ class ClaudeServiceTest {
     @Test
     void sentencePromptTellsClaudeToFlagCodeGibberishAndOtherLanguages() {
         assertThat(ClaudeService.SENTENCE_PROMPT)
-                .contains("0. isEnglish")
-                .contains("program code", "random letters", "another language");
+                .contains("0. sourceLang")
+                .contains("program code", "random letters", "\"none\"");
     }
 
     @Test
     void v11PromptAsksForAFixOnlyForRealMistakesAndNeverForBookOrNewsText() {
         String prompt = onOneLine(ClaudeService.SENTENCE_PROMPT);
 
-        assertThat(prompt.indexOf("1. summary")).isLessThan(prompt.indexOf("2. better"));
-        assertThat(prompt.indexOf("2. better")).isLessThan(prompt.indexOf("3. betterWhy"));
+        assertThat(prompt.indexOf("3. summary")).isLessThan(prompt.indexOf("4. better"));
+        assertThat(prompt.indexOf("4. better")).isLessThan(prompt.indexOf("5. betterWhy"));
         assertThat(prompt).contains("The default is \"\"")
                 .contains("reads like a book, the news or a website")
                 .contains("more than 40 words")
@@ -79,20 +79,31 @@ class ClaudeServiceTest {
     }
 
     @Test
-    void sentenceSchemaHasTheIsEnglishFlag() {
+    void sentenceSchemaHasTheLanguageEnglishAndWordMatchFirst() {
         String schema = StructuredOutputConfig.<SentenceAnswer>builder().format(SentenceAnswer.class).build().toString();
 
-        assertThat(schema).contains("isEnglish", "summary", "better", "betterWhy").doesNotContain("words");
+        assertThat(schema).contains("sourceLang", "english", "wordMatch", "summary", "better", "betterWhy")
+                .doesNotContain("words", "isEnglish");
         assertThat(SentenceAnswer.class.getRecordComponents()).extracting(c -> c.getName())
-                .containsExactly("isEnglish", "summary", "better", "betterWhy");
+                .containsExactly("sourceLang", "english", "wordMatch", "summary", "better", "betterWhy");
+    }
+
+    @Test
+    void v12PromptAsksForTheEnglishVersionAndTheWordMatch() {
+        String prompt = onOneLine(ClaudeService.SENTENCE_PROMPT);
+
+        assertThat(prompt.indexOf("0. sourceLang")).isLessThan(prompt.indexOf("1. english"));
+        assertThat(prompt.indexOf("1. english")).isLessThan(prompt.indexOf("2. wordMatch"));
+        assertThat(prompt.indexOf("2. wordMatch")).isLessThan(prompt.indexOf("3. summary"));
+        assertThat(prompt).contains("natural English a native speaker would say").contains("\"buồn\" gives \"sad\"");
     }
 
     @Test
     void v10PromptAsksForTheFlagAndTheSummaryOnly() {
         String prompt = onOneLine(ClaudeService.SENTENCE_PROMPT);
 
-        assertThat(prompt).contains("1. summary").doesNotContain("translation:", "words:", "meaning:", "base form");
-        assertThat(prompt.indexOf("0. isEnglish")).isLessThan(prompt.indexOf("1. summary"));
+        assertThat(prompt).contains("3. summary").doesNotContain("translation:", "words:", "meaning:", "base form");
+        assertThat(prompt.indexOf("0. sourceLang")).isLessThan(prompt.indexOf("3. summary"));
     }
 
     @Test
@@ -148,13 +159,80 @@ class ClaudeServiceTest {
     }
 
     @Test
-    void modelJsonWithTheFlagIsRead() {
+    void oldAnswerWithTheIsEnglishFlagIsStillRead() {
         JsonMapper mapper = JsonMapper.builder().build();
 
-        SentenceAnswer answer = mapper.readValue(
+        SentenceAnswer no = mapper.readValue(
                 "{\"isEnglish\":false,\"summary\":\"\",\"translation\":\"\"}", SentenceAnswer.class);
+        SentenceAnswer yes = mapper.readValue("{\"isEnglish\":true,\"summary\":\"Hi.\"}", SentenceAnswer.class);
 
-        assertThat(answer.isEnglish()).isFalse();
+        assertThat(no.hasNoLanguage()).isTrue();
+        assertThat(yes.englishText()).isTrue();
+    }
+
+    @Test
+    void vietnameseSentenceBecomesTheEnglishVersionWithTheLanguage() {
+        JsonMapper mapper = JsonMapper.builder().build();
+        SentenceAnswer answer = mapper.readValue("{\"sourceLang\":\"vi\",\"english\":\"I feel sad today.\","
+                + "\"wordMatch\":\"\",\"summary\":\"The person is sad today.\",\"better\":\"\",\"betterWhy\":\"\"}",
+                SentenceAnswer.class);
+
+        Explanation explanation = ClaudeService.toExplanation(answer);
+
+        assertThat(explanation).isEqualTo(new Explanation("I feel sad today.", "vi", null,
+                "The person is sad today.", List.of(), null, null, ""));
+        assertThat(mapper.writeValueAsString(explanation)).startsWith(
+                "{\"english\":\"I feel sad today.\",\"sourceLang\":\"vi\",\"meaning\":");
+    }
+
+    @Test
+    void japaneseSentenceWithARegionCodeKeepsOnlyTheLanguage() {
+        SentenceAnswer answer = new SentenceAnswer("JA-JP", "Thank you very much.", "", "Thanks a lot.", "", "");
+
+        Explanation explanation = ClaudeService.toExplanation(answer);
+
+        assertThat(explanation.sourceLang()).isEqualTo("ja");
+        assertThat(explanation.english()).isEqualTo("Thank you very much.");
+    }
+
+    @Test
+    void singleWordKeepsAValidWordMatchInLowerCase() {
+        SentenceAnswer answer = new SentenceAnswer("vi", "sad", " Sad ", "Feeling unhappy.", "", "");
+
+        assertThat(ClaudeService.toExplanation(answer).wordMatch()).isEqualTo("sad");
+    }
+
+    @Test
+    void wordMatchThatIsNotAValidWordPathIsDropped() {
+        for (String bad : new String[] { "", " ", "one two three four five six seven", "sad!", "a/b", "x1" }) {
+            SentenceAnswer answer = new SentenceAnswer("vi", "sad", bad, "Feeling unhappy.", "", "");
+
+            assertThat(ClaudeService.toExplanation(answer).wordMatch()).as(bad).isNull();
+        }
+    }
+
+    @Test
+    void englishAnswerHasNoEnglishLanguageOrWordMatchEvenIfTheModelSendsThem() {
+        SentenceAnswer answer = new SentenceAnswer("en", "should be ignored", "ignored", "A greeting.", "", "");
+
+        Explanation explanation = ClaudeService.toExplanation(answer);
+
+        assertThat(explanation).isEqualTo(new Explanation("A greeting.", List.of(), ""));
+        assertThat(explanation.english()).isNull();
+    }
+
+    @Test
+    void otherLanguageWithoutAnEnglishVersionIsRejected() {
+        SentenceAnswer answer = new SentenceAnswer("vi", "", "", "Something.", "", "");
+
+        assertThatThrownBy(() -> ClaudeService.toExplanation(answer)).isInstanceOf(NotEnglishException.class);
+    }
+
+    @Test
+    void noneIsRejectedAsCodeOrGibberish() {
+        SentenceAnswer answer = new SentenceAnswer("none", "", "", "", "", "");
+
+        assertThatThrownBy(() -> ClaudeService.toExplanation(answer)).isInstanceOf(NotEnglishException.class);
     }
 
     @Test
