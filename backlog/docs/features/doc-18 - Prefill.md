@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-25 04:43'
+updated_date: '2026-10-25 07:45'
 ---
 # Prefill
 
@@ -154,7 +154,7 @@ A third way to fill the queue, by hand. The admin opens **Sources** in the admin
 
 ## Run at once (TASK-83.12)
 
-The night job is for what **users** typed (`sentence-words`). Words, phrases and sentences that the **developer** queues must be in the cache right away, so they are run by hand, not at night.
+The night job is for what **users** typed (`sentence-words`). Words, phrases and sentences that the **developer** queues must be in the cache right away, so they are run by hand, not at night: from the pipeline (below) or with the play button in the admin Pending footer, which picks one source or all and a cap (TASK-83.17, doc-14).
 
 ```mermaid
 flowchart LR
