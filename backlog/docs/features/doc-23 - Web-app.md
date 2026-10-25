@@ -3,7 +3,7 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-24 18:29'
+updated_date: '2026-10-25 03:40'
 ---
 # Web app
 
@@ -110,7 +110,7 @@ In production Caddy sends `/api/*` to the backend, so the rewrite in `next.confi
 Two pages, [/sign-in](../../../web/src/app/sign-in/page.tsx) ("Log in") and [/sign-up](../../../web/src/app/sign-up/page.tsx), show the same
 form in two modes. Sign-in and sign-up are one flow on the backend: verifying a code for a new email makes the account. On a wide screen
 the cat room ([CatRoom.tsx](../../../web/src/components/CatRoom.tsx)) sits left of the form; under 760 px only the form shows.
-The room is the cozy or playful picture of the paid pack (50/50 per visit, served from `/cats/`, uploaded by `scripts/upload-web-cats.sh`);
+The room is the cozy or playful picture of the paid pack (precomposed 512 px PNGs from RandomCatRoom, 50/50 per visit, served from `/cats/`, uploaded by `scripts/upload-web-cats.sh`);
 without it a plain panel with `PixelCat` shows.
 
 ```mermaid

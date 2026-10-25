@@ -73,14 +73,32 @@ CREATE INDEX IF NOT EXISTS idx_collection_next ON collection (status, priority D
 """
 
 
+# Columns added after the first version. The last four are only used by book rows (source 'book', books.py).
+ADDED_COLUMNS = {
+    "batch_id": "TEXT",
+    "book_group": "TEXT",              # name | common | uncommon | rare | phrase | not_on_list
+    "times": "INTEGER NOT NULL DEFAULT 0",  # how often the books use it
+    "books": "TEXT",                   # JSON list of the books that use it
+    "example": "TEXT",                 # one sentence from a book (at most 25 words)
+    "picked": "INTEGER NOT NULL DEFAULT 0",  # 1 = the developer ticked it in `books review`
+}
+SOURCE_BOOK = "book"
+# A book row is written and pushed only when it is picked; every other row is not affected.
+PICKED_ONLY = f"(source != '{SOURCE_BOOK}' OR picked = 1)"
+
+
 def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     connection.executescript(SCHEMA)
-    if "batch_id" not in {row[1] for row in connection.execute("PRAGMA table_info(collection)")}:
-        connection.execute("ALTER TABLE collection ADD COLUMN batch_id TEXT")  # tables made before the batch writer
-        connection.commit()
+    have = {row[1] for row in connection.execute("PRAGMA table_info(collection)")}
+    for column, definition in ADDED_COLUMNS.items():  # tables made before the batch writer or the books
+        if column not in have:
+            connection.execute(f"ALTER TABLE collection ADD COLUMN {column} {definition}")
+    connection.execute("CREATE TABLE IF NOT EXISTS book_done (book TEXT PRIMARY KEY, "
+                       "collected_at TEXT DEFAULT CURRENT_TIMESTAMP)")  # books.py: books already collected
+    connection.commit()
     return connection
 
 
@@ -498,6 +516,8 @@ def report_lines(connection: sqlite3.Connection) -> list[str]:
     lines.append("")
     lines.append("Per kind: " + ", ".join(f"{kind} {per_kind[kind]}" for kind in KINDS))
     pending = totals["pending"] + totals["failed"] + totals["retry"]
+    pending -= connection.execute(f"SELECT count(*) FROM collection WHERE NOT {PICKED_ONLY} "
+                                  "AND status IN ('pending', 'failed', 'retry')").fetchone()[0]  # not ticked yet
     lines.append(f"To write: {pending} rows. At {BATCH_SIZE} per Codex call, about {SECONDS_PER_CALL} s a call and "
                  f"{DEFAULT_WORKERS} calls at once: about {estimate_hours(pending):.1f} hours.")
     return lines
@@ -666,6 +686,7 @@ def rows_to_write(connection: sqlite3.Connection, kinds: list[str] | None, texts
     if kinds:
         where.append(f"kind IN ({','.join('?' * len(kinds))})")
         params += kinds
+    where.append(PICKED_ONLY)
     where.append("batch_id IS NULL")  # a row waiting in a Claude batch is not written twice
     rows = connection.execute(f"SELECT * FROM collection WHERE {' AND '.join(where)} ORDER BY priority DESC, id",
                               params).fetchall()
@@ -961,7 +982,7 @@ def push_rows(connection: sqlite3.Connection, kinds: list[str], include_review: 
     statuses = ("done", "needs_review") if include_review else ("done",)
     rows = connection.execute(
         f"SELECT * FROM collection WHERE status IN ({','.join('?' * len(statuses))}) "
-        f"AND kind IN ({','.join('?' * len(kinds))}) AND pushed_at IS NULL AND entry IS NOT NULL "
+        f"AND kind IN ({','.join('?' * len(kinds))}) AND pushed_at IS NULL AND entry IS NOT NULL AND {PICKED_ONLY} "
         "ORDER BY priority DESC, id", (*statuses, *kinds)).fetchall()
     return rows[:limit] if limit else rows
 
