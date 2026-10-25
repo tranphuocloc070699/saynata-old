@@ -10,6 +10,7 @@ import { browserTokens } from "@/lib/auth";
 import { fetchResult, fetchTranslation, startState, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
 import { settingsStore } from "@/lib/settings";
+import { liveItems } from "@/lib/sync";
 import { useSync } from "@/lib/useSync";
 import { useTargetLanguage } from "@/lib/targetLanguage";
 import { Alert } from "../icons";
@@ -24,6 +25,10 @@ const SUGGEST_DELAY_MS = 250;
 const SUGGEST_MAX_LENGTH = 40;
 /** Cached answers, so a guest can try them (TASK-83.11 prefill). */
 const SAMPLES = ["give up", "run", "Hold on a second.", "Looks good."];
+/** A signed-in learner's empty box offers their latest lookups instead. */
+const RECENT_CHIPS = 10;
+/** How long the box stays empty before the shown result is removed. */
+const RESET_DELAY_MS = 400;
 
 export function Home() {
   const router = useRouter();
@@ -57,7 +62,7 @@ export function Home() {
   }
 
   // A finished lookup goes to History (shown at once, sent in a batch; TASK-102.6). A guest has no store.
-  const { store: syncStore } = useSync();
+  const { store: syncStore, state: syncState } = useSync();
   const recorded = useRef<Result | null>(null);
   useEffect(() => {
     if (!syncStore || recorded.current === result) return;
@@ -105,6 +110,14 @@ export function Home() {
     if (clean === query) setAttempt((n) => n + 1);
     else router.push(`${pathname}?q=${encodeURIComponent(clean)}`, { scroll: false });
   };
+
+  // The box was emptied: after a short pause remove the result and go back to the start page.
+  const emptied = text.trim() === "" && query !== "";
+  useEffect(() => {
+    if (!emptied) return;
+    const timer = setTimeout(() => router.push(pathname, { scroll: false }), RESET_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [emptied, pathname, router]);
 
   // Suggestions while typing: only from the bundle and the cache, so they cost nothing (GET /api/suggest).
   const prefix = text.trim();
@@ -156,7 +169,11 @@ export function Home() {
     { scope: root, dependencies: [result] },
   );
 
-  const chips = suggestions.length > 0 ? suggestions.map((s) => s.text) : result.kind === "idle" && !text ? SAMPLES : [];
+  const recent = liveItems(syncState.history)
+    .slice(0, RECENT_CHIPS)
+    .map((item) => item.text);
+  const startChips = recent.length > 0 ? recent : SAMPLES;
+  const chips = suggestions.length > 0 ? suggestions.map((s) => s.text) : result.kind === "idle" && !text ? startChips : [];
 
   // Motion 3: suggestions and sample chips fan out quickly when the list changes.
   useGSAP(
@@ -190,7 +207,7 @@ export function Home() {
         />
 
         {chips.length > 0 && (
-          <ul aria-label={suggestions.length > 0 ? "Suggestions" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
+          <ul aria-label={suggestions.length > 0 ? "Suggestions" : recent.length > 0 ? "Recent" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
             {chips.map((chip) => (
               <li key={chip} className="chip-item">
                 <button
