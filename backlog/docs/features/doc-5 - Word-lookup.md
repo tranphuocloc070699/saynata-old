@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-10-24 10:13'
+updated_date: '2026-10-25 05:37'
 ---
 > Status: **working end to end** (bundle, local cache, backend, word card). iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-10-24 (word language row from `POST /api/translate-lines`: TASK-106.3; language lines endpoint: TASK-106.2; before that 2026-10-22: unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -30,7 +30,7 @@ flowchart TD
     L -- no --> API["GET /api/words/{word}"]
     API --> BW{"In Postgres dictionary_word? (TASK-58)"}
     BW -- yes --> BUNDLED["Answer with the bundled entry + media; no Claude, nothing saved"]
-    BW -- no --> WL{"On the English word list? (TASK-38)"}
+    BW -- no --> WL{"On the English word list? (TASK-38; the cache is read first, TASK-83.16)"}
     WL -- no --> EMPTY
     WL -- yes --> PG{"In Postgres word_lookup?"}
     PG -- yes --> SAVE[Save in local cache]
@@ -58,7 +58,7 @@ sequenceDiagram
     WC->>WS: lookUp("Reluctant")
     WS->>WS: normalizeWord gives "reluctant"
     WS->>DB: bundled? dictionary_word with lemma "reluctant" (TASK-58); if yes: its entry + media, cached: true, stop
-    WS->>WS: word list check (SCOWL + NGSL); not on it: empty senses, no Claude, no save
+    WS->>WS: cache read first (TASK-83.16: a pushed tech term such as vue is answered); then the word list (SCOWL + NGSL); not cached and not on it: empty senses, no Claude, no save
     WS->>WS: key = sha256 of word, v7, reluctant
     WS->>DB: findByCacheKey(key)
     alt hit

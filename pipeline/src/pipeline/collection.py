@@ -81,6 +81,9 @@ ADDED_COLUMNS = {
     "books": "TEXT",                   # JSON list of the books that use it
     "example": "TEXT",                 # one sentence from a book (at most 25 words)
     "picked": "INTEGER NOT NULL DEFAULT 0",  # 1 = the developer ticked it in `books review`
+    "picked_by_hand": "INTEGER NOT NULL DEFAULT 0",  # 1 = the developer changed the tick; the judge leaves it alone
+    "judge": "TEXT",                   # keep | drop: the Codex judge of name and not_on_list rows (book_judge.py)
+    "judge_reason": "TEXT",
 }
 SOURCE_BOOK = "book"
 # A book row is written and pushed only when it is picked; every other row is not affected.
@@ -1009,8 +1012,9 @@ def plan_push(pg, rows: list[sqlite3.Row], prompt_version: str) -> PushPlan:
 
 def needs_review(row: sqlite3.Row) -> bool:
     """needs_review in word_lookup: the checks were not sure, or a book word that is not on the backend word list
-    (nuxt, vue), so the developer finds it in the admin and fixes it before the backend can answer it."""
-    return row["status"] == "needs_review" or row["book_group"] == "not_on_list"
+    (nuxt, vue), so the developer finds it in the admin and fixes it before the backend can answer it. A name-group book word
+    (a tech term like vue that is capitalised in the text) is the same."""
+    return row["status"] == "needs_review" or row["book_group"] in ("not_on_list", "name")
 
 
 def first_cefr(entry: Entry) -> str | None:

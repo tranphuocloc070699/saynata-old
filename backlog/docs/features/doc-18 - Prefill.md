@@ -3,7 +3,7 @@ id: doc-18
 title: Prefill
 type: other
 created_date: '2026-10-16 08:28'
-updated_date: '2026-10-25 04:43'
+updated_date: '2026-10-25 05:37'
 ---
 # Prefill
 
@@ -360,7 +360,9 @@ flowchart LR
 | Filter | [PICKED_ONLY:87](../../../pipeline/src/pipeline/collection.py#L87) | Used by `rows_to_write` and `push_rows`: a book row is written and pushed only when `picked = 1`. Unticking a written, not pushed row keeps it out of the push. Other rows are not affected. |
 | Report | [report_lines:448](../../../pipeline/src/pipeline/book_words.py#L448) | `books report`: per group, found, picked, written, pushed. |
 
-Commands, in order: `books collect ~/Applications/Workspace/Books`, `books review`, `books report`, `collection write --limit 20`, `collection push` (dry run), `collection push --yes`.
+| Judge (TASK-83.16) | [book_judge.py](../../../pipeline/src/pipeline/book_judge.py) | `books judge` handles the `name` and `not_on_list` rows without a verdict. A free pre-filter drops camelCase code (read from the marked word of the example), fewer than 3 sightings, one book only, and (with `--fiction WORD...`) names seen only in books whose file name has that word; it saves them as `drop` with a `pre-filter:` reason and prints how many are left. The rest go to Codex in batches of 200 (`JudgeWriter`, same `codex exec` call as `collection write`) with the example sentence; each row gets `judge` keep/drop and a short `judge_reason`. Rows with a verdict are not sent again (resumable); `--dry-run` shows the counts and the first message, `--limit` caps the rows. A keep is ticked unless the developer changed that tick by hand (`picked_by_hand`). The review page shows the verdict and reason and has a verdict filter. |
+
+Commands, in order: `books collect ~/Applications/Workspace/Books`, `books judge`, `books review`, `books report`, `collection write --limit 20`, `collection push` (dry run), `collection push --yes`.
 
 Tests: `pipeline/tests/test_book_words.py` (grouping, names, base forms, phrases, skips, resume, picks, write and push filter, the review server).
 

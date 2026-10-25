@@ -93,6 +93,22 @@ class WordServiceTest {
     }
 
     @Test
+    void cachedWordNotOnTheListIsAnsweredButAnUncachedOneStillIsRejected() {
+        String key = CacheKeys.key("word", properties.wordPromptVersion(), "runk");
+        repository.saveAndFlush(new WordLookup(
+                key, "runk", "{\"senses\":[]}", properties.model(), properties.wordPromptVersion()));
+
+        WordResponse cached = service.lookUp("runk");
+        WordResponse uncached = service.lookUp("runq");
+
+        assertThat(cached.cached()).isTrue();
+        assertThat(uncached.cached()).isFalse();
+        assertThat(uncached.entry().senses()).isEmpty();
+        verify(claude, never()).describeWord(anyString());
+        assertThat(repository.count()).isEqualTo(1);
+    }
+
+    @Test
     void realRareWordCallsClaude() {
         when(claude.describeWord("serendipity")).thenReturn(new WordEntry(List.of()));
 
