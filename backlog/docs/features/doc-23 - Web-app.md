@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-24 11:01'
+updated_date: '2026-10-24 18:29'
 ---
 # Web app
 
-> Status: homepage built (TASK-102.1), the other 7 MVP pages not started (TASK-102). Last traced from code: 2026-10-24 (language row, TASK-106.4).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (sign-in, TASK-102).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -55,12 +55,12 @@ sequenceDiagram
 
 | Step | File | What happens |
 |---|---|---|
-| Page | [page.tsx](../../../web/src/app/page.tsx) | Static header and intro; `Home` inside `Suspense` because it reads `?q=` |
+| Page | [page.tsx](../../../web/src/app/page.tsx) | `SiteHeader` (logo and account menu) and intro; `Home` inside `Suspense` because it reads `?q=` |
 | State | [Home.tsx:25](../../../web/src/components/home/Home.tsx#L25) | The address is the source of truth. A new query, language or retry sets the first state during render ([Home.tsx:41](../../../web/src/components/home/Home.tsx#L41)) and an effect fetches the rest ([Home.tsx:54](../../../web/src/components/home/Home.tsx#L54)) |
 | Search | [explain.ts:20](../../../web/src/lib/explain.ts#L20), [explain.ts:35](../../../web/src/lib/explain.ts#L35) | `startState` and `fetchResult`, no React, tested. One word (or a/an/the + word) goes to the word API, the rest to the sentence stream |
 | Client | [api.ts:180](../../../web/src/lib/api.ts#L180) | Copied from the extension (`extension/src/shared/api.ts`) plus `suggest()`. Stream first, `POST /api/translations` once as a fallback |
 | Suggestions | [Home.tsx:69](../../../web/src/components/home/Home.tsx#L69) | 1-40 characters, 250 ms after the last key, cached and bundled only, so a guest costs nothing |
-| Word card | [WordCard.tsx](../../../web/src/components/home/WordCard.tsx) | Headword, IPA, Listen; one card per sense with level chip and picture or clip; Examples, How to use it and the target language as closed rows, the language last. **Language row (TASK-106.4, doc-5):** every language except English gets it ([useLanguageLines:40](../../../web/src/components/home/WordCard.tsx#L40)); the first time any row opens, one `POST /api/translate-lines` carries all sense explanations ([translateLines:203](../../../web/src/lib/api.ts#L203), [loadLines:61](../../../web/src/lib/lines.ts#L61)). The web app has no sign-in yet, so it is always a guest: `?cachedOnly=true`, never a Claude call. Lines are kept in memory per (text, language) (`LineCache`). While it loads Vietnamese shows the dictionary text and other languages a small loading bar; a guest miss shows the dictionary text (Vietnamese) or "Sign in to see this line in your language." with a link to `/sign-in` ([LanguageLine:170](../../../web/src/components/home/WordCard.tsx#L170)); an error shows a short line (Vietnamese keeps the dictionary text). What the row shows is decided by the pure [rowContent:99](../../../web/src/lib/lines.ts#L99) |
+| Word card | [WordCard.tsx](../../../web/src/components/home/WordCard.tsx) | Headword, IPA, Listen; one card per sense with level chip and picture or clip; Examples, How to use it and the target language as closed rows, the language last. **Language row (TASK-106.4, doc-5):** every language except English gets it ([useLanguageLines:40](../../../web/src/components/home/WordCard.tsx#L40)); the first time any row opens, one `POST /api/translate-lines` carries all sense explanations ([translateLines:203](../../../web/src/lib/api.ts#L203), [loadLines:61](../../../web/src/lib/lines.ts#L61)). A guest asks with `?cachedOnly=true` (never a Claude call); a signed-in user (`browserTokens`, see Sign in below) gets a missing line from Claude. Lines are kept in memory per (text, language) (`LineCache`). While it loads Vietnamese shows the dictionary text and other languages a small loading bar; a guest miss shows the dictionary text (Vietnamese) or "Sign in to see this line in your language." with a link to `/sign-in` ([LanguageLine:170](../../../web/src/components/home/WordCard.tsx#L170)); an error shows a short line (Vietnamese keeps the dictionary text). What the row shows is decided by the pure [rowContent:99](../../../web/src/lib/lines.ts#L99) |
 | Sentence card | [SentenceCard.tsx](../../../web/src/components/home/SentenceCard.tsx) | Original with tappable words (a tap opens the word sheet; the box, `?q=` and the sentence stay), summary that grows while it streams, key words, the target language last and closed, Copy under the card |
 | Word sheet | [WordSheet.tsx](../../../web/src/components/home/WordSheet.tsx) | A word tapped in a sentence (or in its Words list) opens the same `WordCard` in a native `<dialog>` with `showModal()`: a bottom sheet on a phone, a centered card from 640 px. It looks the word up with the same `fetchResult` call as a search. Esc, a click on the backdrop and the Close button (aria-label "Close") close it; focus goes back to where it was. Like the iOS `SentenceWordSheet` |
 | Language | [targetLanguage.ts](../../../web/src/lib/targetLanguage.ts) | `localStorage` through `useSyncExternalStore`; a change runs the search again |
@@ -105,14 +105,52 @@ restarts the `web` service of [docker-compose.prod.yml](../../../backend/docker-
 homepage work in this mode (checked with `node server.js` locally). Caddy lines, DNS and the by-hand steps: doc-11 section 14.
 In production Caddy sends `/api/*` to the backend, so the rewrite in `next.config.ts` is not used.
 
+## Sign in (TASK-102)
+
+Two pages, [/sign-in](../../../web/src/app/sign-in/page.tsx) ("Log in") and [/sign-up](../../../web/src/app/sign-up/page.tsx), show the same
+form in two modes. Sign-in and sign-up are one flow on the backend: verifying a code for a new email makes the account. On a wide screen
+the cat room ([CatRoom.tsx](../../../web/src/components/CatRoom.tsx)) sits left of the form; under 760 px only the form shows.
+The room is the cozy or playful picture of the paid pack (50/50 per visit, served from `/cats/`, uploaded by `scripts/upload-web-cats.sh`);
+without it a plain panel with `PixelCat` shows.
+
+```mermaid
+sequenceDiagram
+    participant U as Learner
+    participant F as SignInForm
+    participant P as Google / Apple
+    participant B as Backend /api/auth
+    U->>F: Apple or Google pill
+    F->>F: makeNonce(): raw + SHA-256 hex
+    F->>P: hex nonce (Google: redirect, Apple: popup)
+    P-->>F: ID token (Google: in the #hash of /sign-in)
+    F->>B: POST /google or /apple {idToken, raw nonce}
+    B-->>F: access + refresh token
+    F->>F: browserTokens.signedIn(), go to ?next=
+```
+
+| Part | File | What it does |
+|---|---|---|
+| Form | [SignInForm.tsx:53](../../../web/src/components/auth/SignInForm.tsx#L53) | Apple and Google pills first, then under "or" the email field ("Email me a code"), then the 6-digit code ([sendCode:146](../../../web/src/components/auth/SignInForm.tsx#L146), [verify:165](../../../web/src/components/auth/SignInForm.tsx#L165)). No emailed link: it opens `saynata://`, so it is app-only |
+| Google | [google:99](../../../web/src/components/auth/SignInForm.tsx#L99) | Redirect to Google with `response_type=id_token`; the state and raw nonce wait in sessionStorage (`saynata.google-sign-in`); back on `/sign-in` the ID token is read from the address hash |
+| Apple | [apple:121](../../../web/src/components/auth/SignInForm.tsx#L121) | AppleID JS in a popup with the Services ID |
+| Client | [auth.ts:52](../../../web/src/lib/auth.ts#L52) | `AuthApi`: email-code, verify, google, apple, refresh, sign-out. Auth errors (`invalid_code` etc.) show the server's text |
+| Session | [auth.ts:121](../../../web/src/lib/auth.ts#L121) | `BrowserTokens`: the session in localStorage (`saynata.session`), refreshed 60 s before it expires, one shared refresh; a 401 on refresh signs out, a network error keeps the session. It is the `TokenSource` of every `SaynataApi` |
+| Header | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx:9](../../../web/src/components/auth/AccountMenu.tsx#L9) | Logo home; a guest sees "Sign in", a signed-in user the email and a Sign out icon button |
+| After sign-in | [safeNextPath:257](../../../web/src/lib/auth.ts#L257) | Goes to `?next=` only when it is a path on this site, else `/` |
+
+Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
+[auth.ts:266](../../../web/src/lib/auth.ts#L266). The backend must list both in `GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS` (doc-11 section 13, doc-17).
+
 ## Errors
 
 | Cause | Where | HTTP | What the user sees |
 |---|---|---|---|
-| Guest asks for something not cached | `errorMessage` in [explain.ts:79](../../../web/src/lib/explain.ts#L79) | 401 `sign_in_required` | "Sign in to explain new text. Dictionary words and common sentences work without an account." (no Sign in page yet) |
+| Guest asks for something not cached | `errorMessage` in [explain.ts:79](../../../web/src/lib/explain.ts#L79) | 401 `sign_in_required` | "Sign in to explain new text. Dictionary words and common sentences work without an account." with a link to `/sign-in?next=` |
 | Word not on the word list | same | 404 | "This word is not in the dictionary yet. Check the spelling." |
 | Too many requests | `rateLimitMessage` in api.ts | 429 | "Too many requests. Try again in N minutes." |
 | No connection | api.ts | — | "Can't reach Saynata. Check your connection and try again." |
+| Wrong code, bad email, provider not set up | `authError` in [auth.ts:40](../../../web/src/lib/auth.ts#L40) | 400 / 401 | The server's own text, for example "That code is wrong or expired." |
+| Google or Apple did not finish | SignInForm | — | "Google sign-in did not finish. Try again." (or Apple) |
 | Over 500 characters | `startState` | — | "Make it shorter: up to 500 characters." and the counter turns red |
 
 ## Tests
@@ -125,19 +163,20 @@ In production Caddy sends `/api/*` to the backend, so the rewrite in `next.confi
 | `web/test/sse.test.ts` | The stream parser |
 | `web/test/textKind.test.ts` | Word or sentence |
 | `web/test/mochi.test.ts` | The five choices have equal shares, Box picks one of three, the visit keeps its cat, a missing file means fallback, `steps()` and frame 1 with reduced motion in `globals.css` |
+| `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
 
 ## Change checklist
 
-- The Mochi PNGs never go in git or in `web/public` (no right to redistribute, the repo is public). `scripts/upload-web-cats.sh` copies them to the server; the file names in it and in `CAT_SHEETS` (`lib/mochi.ts`) must match.
+- The Mochi PNGs never go in git or in `web/public` (no right to redistribute, the repo is public). `scripts/upload-web-cats.sh` copies them to the server; the file names in it and in `CAT_SHEETS` (`lib/mochi.ts`) must match. The sign-in room pictures follow the same rule (same script, names in `CatRoom.tsx`).
 - `lib/api.ts`, `lib/sse.ts`, `lib/textKind.ts`, `lib/languages.ts`, `lib/lines.ts` are copies of `extension/src/shared/`. A fix in one belongs in the other.
 - Colors are tokens in `globals.css`, the same values as the iOS Color Sets. Change the Color Set first (design-system.md).
 - A new element that should enter with the page gets `data-enter`; a new part of a result gets `data-reveal`.
 
 ## Known gaps
 
-- Only the homepage exists. Word page (`/word/run`), Introduction, Sign in, History & Liked, Settings, Privacy & Terms and 404 are TASK-102.
-- No sign-in yet, so a guest's miss ends with a message, not a sign-in sheet. No Like star.
-- The `/sign-in` link in the language row's guest hint goes to a page that does not exist yet (TASK-102). Until the web has sign-in, a guest sees a line only when the backend already has it (TASK-106.5 fills them all).
+- Only the homepage and sign-in exist. Word page (`/word/run`), Introduction, History & Liked, Settings, Privacy & Terms and 404 are TASK-102.
+- A guest's miss ends with a message and a link to `/sign-in`, not a sign-in sheet. No Like star and no History yet.
+- A guest sees a language line only when the backend already has it (TASK-106.5 fills them all); signed in, a missing line comes from Claude.
 - The `deploy-web` check fails until the developer adds the DNS record and the Caddy block once (doc-11 section 14); the repo does not manage the Caddyfile.
-- The Mochi sprites are only on the server (`/var/lib/saynata/web-cats`, uploaded by hand). Local dev shows the fallback cat unless you copy them into `web/public/cats/` (git-ignored).
+- The Mochi sprites are only on the server (`/var/lib/saynata/web-cats`, uploaded by hand). Local dev shows the fallback cat (and the plain sign-in panel) unless you copy them into `web/public/cats/` (git-ignored).

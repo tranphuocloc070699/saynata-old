@@ -1,3 +1,5 @@
+#if DEBUG
+// Practice code: Debug builds only, so it never ships in the App Store build.
 //
 //  L5_AsyncState.swift
 //  Lesson 5: async work + an enum state (this is what TranslationStore does)
@@ -92,3 +94,4 @@ struct L5View: View {
 #Preview {
     L5View()
 }
+#endif

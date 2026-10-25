@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-24 16:27'
+updated_date: '2026-10-24 18:29'
 ---
 # Deploy to a VPS
 
@@ -76,8 +76,8 @@ nano .env
 | `SES_FROM_EMAIL` | Optional, for later. The older name of `EMAIL_FROM`, used for AWS SES when `RESEND_API_KEY` is empty (section 11). |
 | `AWS_REGION` | Only for SES. The AWS region where you set up SES, for example `ap-southeast-1`. Must be the same region as the SES identity. |
 | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The access key of the IAM user that may only send email (section 11). Read by the AWS SDK itself. |
-| `GOOGLE_CLIENT_IDS` | Optional. The iOS OAuth client ID from Google Cloud (section 13), comma-separated for more. Empty = the Google button answers "This sign-in option is not set up yet". |
-| `APPLE_CLIENT_IDS` | Optional. The bundle IDs Apple makes ID tokens for. Default `com.luke.EnglishTranslation,com.luke.EnglishTranslation.Mac`. |
+| `GOOGLE_CLIENT_IDS` | Optional. The OAuth client IDs from Google Cloud (section 13), comma-separated: the iOS client and the web client of saynata.com (TASK-102). Empty = the Google button answers "This sign-in option is not set up yet". |
+| `APPLE_CLIENT_IDS` | Optional. The bundle IDs and Services IDs Apple makes ID tokens for. Default `com.luke.EnglishTranslation,com.luke.EnglishTranslation.Mac`. For the web sign-in (TASK-102) add the Services ID: `com.luke.EnglishTranslation,com.luke.EnglishTranslation.Mac,com.saynata.web`. |
 | `PUBLIC_BASE_URL` | Optional. The public HTTPS address of the backend, default `https://api.saynata.com`. The sign-in link email points to `PUBLIC_BASE_URL/auth/link?token=...`. **Change it when the domain moves** (section 13). |
 | `APP_URL_SCHEME` | Optional. The app's URL scheme the link page opens, default `saynata` (`saynata://sign-in?token=...`). |
 | `APPLE_APP_IDS` | Optional, paid Apple account only. `TEAMID.com.luke.EnglishTranslation`. Set = `/.well-known/apple-app-site-association` is served, so iOS opens the emailed link in the app directly (section 13). |
@@ -659,6 +659,11 @@ The app can sign in four ways: the email code (sections 10 and 11), an emailed *
 2. Install with `PAID_ACCOUNT=1 scripts/install-on-phone.sh`. A free Apple ID cannot sign this capability, so on a free build the Apple button shows "Sign in with Apple did not work".
 3. Nothing on the server: `APPLE_CLIENT_IDS` already has the bundle IDs.
 
+**Web (saynata.com, TASK-102):** the website's `/sign-in` and `/sign-up` pages offer Apple, Google and the email code (no emailed link: it opens the app). Google and Apple need their own web clients:
+
+1. **Google:** in the same Google Cloud project, **Create credentials, OAuth client ID, type Web application**. Authorized JavaScript origins: `https://saynata.com` and `http://localhost:3000`. Authorized redirect URIs: `https://saynata.com/sign-in` and `http://localhost:3000/sign-in`. Add its client ID to `GOOGLE_CLIENT_IDS` with a comma (`<ios-id>,<web-id>`), then `./scripts/deploy.sh`. The web build reads it from `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (a default is in `web/src/lib/auth.ts`).
+2. **Apple (paid account):** Identifiers, **Services IDs**, new `com.saynata.web`, turn on Sign in with Apple, primary App ID `com.luke.EnglishTranslation`, domain `saynata.com`, return URL `https://saynata.com/sign-in`. Add `com.saynata.web` to `APPLE_CLIENT_IDS` (see section 2). Apple does not allow `localhost`, so test Apple on the real domain. The web build reads it from `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`).
+
 **The emailed link:** the email has `PUBLIC_BASE_URL/auth/link?token=...`. That page (served by the backend; Caddy already forwards every path) opens `saynata://sign-in?token=...`, so it works with a free Apple ID. Mail apps do not open a custom scheme straight from an email, so the page in between is needed. Later, with the paid account, it can become a **universal link** (iOS opens the app directly, no page and no "Open in Saynata?" question):
 
 1. Set `APPLE_APP_IDS=<TEAMID>.com.luke.EnglishTranslation` on the server. Check `curl https://api.saynata.com/.well-known/apple-app-site-association`.
@@ -672,7 +677,8 @@ The app can sign in four ways: the email code (sections 10 and 11), an emailed *
 | Caddy | a site block for the new host (section 5) |
 | App `Info.plist` | `BackendBaseURL` |
 | Associated Domains (paid only) | `applinks:api.<new domain>`; `APPLE_APP_IDS` stays the same |
-| Google Cloud | nothing for the iOS client. Add the domain to the consent screen's authorized domains only if a web client comes later. |
+| Google Cloud | nothing for the iOS client. The web client (TASK-102): the new origin and `https://<new domain>/sign-in` as a redirect URI; the domain in the consent screen's authorized domains |
+| Apple | the Services ID `com.saynata.web`: the new domain and return URL `https://<new domain>/sign-in` |
 | Admin web app | `VITE_API_URL` at build time, its Caddy block (section 8), and `app.admin.allowed-origins` in `application.properties` (CORS) |
 | Browser extension | the backend address in `extension/src/shared/config.ts` |
 
@@ -737,7 +743,7 @@ www.saynata.com {
    and checks the site.
 4. **Check.** Open `https://saynata.com`, explain "give up", then a sentence.
 
-**The Mochi cat sprites (paid pack, never in git).** The homepage loads `/cats/<file>.png`; without the files it shows its
+**The Mochi cat sprites (paid pack, never in git).** The homepage loads `/cats/<file>.png`, and the sign-in pages load the cat room pictures (`cozy.png`, `playful.png`, `furniture.png`, `running.png`, `sleeping.png`, TASK-102) from the same folder; without the files it shows its
 own pixel cat. Copy them from the Mac with `scripts/upload-web-cats.sh [path-to-CatMegaBundle]` (ssh host `vps_sieutoc`,
 folder `/var/lib/saynata/web-cats`), then add this `handle_path` block inside the `saynata.com` block above, before
 `handle /api/*`, and reload Caddy. The files never change under the same name, so the cache can be one year:
