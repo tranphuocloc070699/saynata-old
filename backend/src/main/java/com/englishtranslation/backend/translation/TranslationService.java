@@ -8,6 +8,7 @@ import com.englishtranslation.backend.limits.ClaudeGate;
 import com.englishtranslation.backend.lines.LineTranslationService;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,6 +26,8 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * There is no @Transactional here on purpose: the Claude call can take seconds, and a
  * transaction would hold a DB connection open the whole time.
+ *
+ * Every request logs one {@link SentenceTiming} line with the time of each step (TASK-113).
  */
 @Service
 public class TranslationService {
@@ -58,7 +61,7 @@ public class TranslationService {
 
     /** With {@code cachedOnly} (TASK-83.4) a miss throws {@link NotCachedException} and Claude is never asked. */
     public TranslationResponse translate(String text, TargetLanguage targetLang, boolean cachedOnly) {
-        return translate(text, targetLang, cachedOnly, normalized -> claude.explainSentence(normalized));
+        return translate(text, targetLang, cachedOnly, false, (normalized, timing) -> claude.explainSentence(normalized));
     }
 
     /** Same as the four-argument version, for callers that do not want the word-by-word text. */
@@ -81,82 +84,111 @@ public class TranslationService {
     /** The streaming version with {@code cachedOnly}: a miss throws {@link NotCachedException}. */
     public TranslationResponse translateStreaming(String text, TargetLanguage targetLang, boolean cachedOnly,
             Consumer<String> onMeaningDelta, Consumer<String> onMeaning) {
-        return translate(text, targetLang, cachedOnly, normalized -> {
+        return translate(text, targetLang, cachedOnly, true, (normalized, timing) -> {
             MeaningStream meaningStream = new MeaningStream(onMeaningDelta, onMeaning);
-            return claude.explainSentenceStreaming(normalized, meaningStream::feed);
+            return claude.explainSentenceStreaming(normalized, piece -> {
+                timing.firstToken();
+                meaningStream.feed(piece);
+            });
         });
+    }
+
+    /** Times the request and logs one line, whatever the result. */
+    private TranslationResponse translate(String text, TargetLanguage targetLang, boolean cachedOnly, boolean stream,
+            BiFunction<String, SentenceTiming, Explanation> callClaude) {
+        SentenceTiming timing = new SentenceTiming(targetLang, stream);
+        try {
+            TranslationResponse response = translate(text, targetLang, cachedOnly, callClaude, timing);
+            timing.ok();
+            return response;
+        } catch (RuntimeException e) {
+            timing.failed(e);
+            throw e;
+        } finally {
+            timing.log();
+        }
     }
 
     /** The cache rules, shared by both ways in. {@code askClaude} runs only when there is no cached answer. */
     private TranslationResponse translate(String text, TargetLanguage targetLang, boolean cachedOnly,
-            Function<String, Explanation> callClaude) {
+            BiFunction<String, SentenceTiming, Explanation> callClaude, SentenceTiming timing) {
         // Every way to Claude goes through the gate: signed in? budget left? under the user's limit?
         // It runs only here, after the cache lookup failed, so cache hits stay free for everyone.
         // A cachedOnly request stops before the gate: personal text (never cached) and misses get not_cached.
         Function<String, Explanation> askClaude = normalizedText -> {
             if (cachedOnly) {
+                timing.cache("not-cached");
                 throw new NotCachedException();
             }
-            gate.beforeNewCall();
-            return BetterCheck.apply(normalizedText, callClaude.apply(normalizedText));
+            timing.time("gate", gate::beforeNewCall);
+            return timing.time("llm",
+                    () -> BetterCheck.apply(normalizedText, callClaude.apply(normalizedText, timing)));
         };
         String normalized = CacheKeys.normalizeSentence(text);
 
         // Personal text (email, phone, link, long number) is explained, but never saved to
         // or read from the shared cache. Its language line is not saved either.
         if (personalTextDetector.looksPersonal(normalized)) {
+            timing.cache("personal");
             Explanation explanation = askClaude.apply(normalized);
             return new TranslationResponse(normalized, targetLang,
-                    withLanguageLine(explanation, targetLang, normalized, cachedOnly, false, true), false);
+                    withLanguageLine(explanation, targetLang, normalized, cachedOnly, false, true, timing), false);
         }
 
         String version = properties.sentencePromptVersion();
         String cacheKey = CacheKeys.sentenceKey(version, normalized);
+        timing.key(cacheKey);
 
-        Optional<SentenceTranslation> saved = repository.findByCacheKey(cacheKey);
+        Optional<SentenceTranslation> saved = timing.time("lookup", () -> repository.findByCacheKey(cacheKey));
         if (saved.isPresent()) {
-            return answer(normalized, targetLang, readExplanation(saved.get()), true, cachedOnly);
+            timing.cache("hit");
+            return answer(normalized, targetLang, readExplanation(saved.get()), true, cachedOnly, timing);
         }
 
         // Exact text missed. Try the loose key: "how are you" finds a saved "How are you?".
         // The exact key was tried first, so "US" and "us" stay apart when both are saved.
         if (!CacheKeys.normalizeSentenceLoose(normalized).isEmpty()) {
             String matchKey = CacheKeys.sentenceMatchKey(version, normalized);
-            Optional<SentenceTranslation> similar = repository.findFirstByMatchKeyOrderByCreatedAtAscIdAsc(matchKey);
+            Optional<SentenceTranslation> similar = timing.time("lookup",
+                    () -> repository.findFirstByMatchKeyOrderByCreatedAtAscIdAsc(matchKey));
             if (similar.isPresent()) {
+                timing.cache("loose-hit");
                 // The text in the answer is what the user typed; the explanation is the saved one.
-                return answer(normalized, targetLang, readExplanation(similar.get()), true, cachedOnly);
+                return answer(normalized, targetLang, readExplanation(similar.get()), true, cachedOnly, timing);
             }
         }
 
+        timing.cache("miss");
         Explanation explanation = askClaude.apply(normalized);
         try {
             // The row has no language: "en" is the language of the explanation, and the translation column stays empty.
-            repository.saveAndFlush(new SentenceTranslation(
+            timing.time("save", () -> repository.saveAndFlush(new SentenceTranslation(
                     cacheKey, normalized, "en", explanation.meaning(),
                     jsonMapper.writeValueAsString(explanation.words()), explanation.better(),
-                    explanation.betterWhy(), "", properties.model(), version));
-            return answer(normalized, targetLang, explanation, false, cachedOnly);
+                    explanation.betterWhy(), "", properties.model(), version)));
+            return answer(normalized, targetLang, explanation, false, cachedOnly, timing);
         } catch (DataIntegrityViolationException e) {
             // Another request saved the same key while we waited for Claude. Keep the first answer.
             SentenceTranslation first = repository.findByCacheKey(cacheKey).orElseThrow(() -> e);
-            return answer(normalized, targetLang, readExplanation(first), true, cachedOnly);
+            return answer(normalized, targetLang, readExplanation(first), true, cachedOnly, timing);
         }
     }
 
     /** The English part is ready (cached or new): add the language line. */
     private TranslationResponse answer(String normalized, TargetLanguage targetLang, Explanation english, boolean cached,
-            boolean cachedOnly) {
+            boolean cachedOnly, SentenceTiming timing) {
         // A new English part means this request already passed the gate; the line call then skips the user limit.
         return new TranslationResponse(normalized, targetLang,
-                withLanguageLine(english, targetLang, normalized, cachedOnly, true, !cached), cached);
+                withLanguageLine(english, targetLang, normalized, cachedOnly, true, !cached, timing), cached);
     }
 
     private Explanation withLanguageLine(Explanation english, TargetLanguage targetLang, String normalized,
-            boolean cachedOnly, boolean store, boolean alreadyGated) {
+            boolean cachedOnly, boolean store, boolean alreadyGated, SentenceTiming timing) {
+        // "line" is the saved-line lookup plus, on a miss, the second LLM call.
         String line = targetLang == TargetLanguage.EN
                 ? normalized
-                : lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated).orElse("");
+                : timing.time("line", () -> lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated))
+                        .orElse("");
         return new Explanation(english.meaning(), english.words(), english.better(), english.betterWhy(), line);
     }
 
