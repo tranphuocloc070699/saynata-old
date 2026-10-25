@@ -104,8 +104,8 @@ class TranslationControllerTest {
     void languageCodeIsReadAndReturned() throws Exception {
         when(claude.explainSentence("hello"))
                 .thenReturn(new Explanation("A greeting.", List.of(), ""));
-        when(claude.translateLines(com.englishtranslation.backend.translation.TargetLanguage.JA, List.of("hello")))
-                .thenReturn(List.of("こんにちは"));
+        when(claude.translateLinesAllLanguages(List.of("hello")))
+                .thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("こんにちは"));
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -140,7 +140,7 @@ class TranslationControllerTest {
     void noLanguageLineIsAnEmptyStringNeverNull() throws Exception {
         // Old apps decode translation as a String, so a JSON null would break them (TASK-106.6).
         when(claude.explainSentence("hello")).thenReturn(new Explanation("A greeting.", List.of(), ""));
-        when(claude.translateLines(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList()))
+        when(claude.translateLinesAllLanguages(org.mockito.ArgumentMatchers.anyList()))
                 .thenThrow(new IllegalStateException("line call failed"));
 
         mockMvc.perform(post("/api/translations")

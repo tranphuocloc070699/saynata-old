@@ -39,7 +39,7 @@ class TranslationStreamingHttpTest {
     @Test
     void theMeaningArrivesBeforeClaudeHasFinished() throws Exception {
         CountDownLatch clientSawMeaning = new CountDownLatch(1);
-        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList())).thenReturn(List.of("Tiếng Việt"));
+        when(claude.translateLinesAllLanguages(org.mockito.ArgumentMatchers.anyList())).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Tiếng Việt"));
         when(claude.explainSentenceStreaming(eq("Real http streaming test"), any()))
                 .thenAnswer(call -> {
                     Consumer<String> onText = call.getArgument(1);
