@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, type TranslationResponse, type WordResponse } from "../src/lib/api";
-import { fetchResult, SIGN_IN_MESSAGE, startState, type Result } from "../src/lib/explain";
+import { fetchResult, SIGN_IN_MESSAGE, startState, waitingForMeaning, type Result } from "../src/lib/explain";
 import { sentenceResponse as sentenceJson, wordResponse as wordJson } from "./helpers";
 
 const wordResponse = () => structuredClone(wordJson) as WordResponse;
@@ -224,5 +224,25 @@ describe("fetchResult with non-English input (TASK-114)", () => {
       );
       expect(seen.at(-1)).toMatchObject({ kind: "sentence", meaning: null });
     });
+  });
+});
+
+describe("waitingForMeaning", () => {
+  it("is true for a sentence with no meaning piece and no explanation", () => {
+    expect(waitingForMeaning(startState("Hold on a second."))).toBe(true);
+    expect(waitingForMeaning({ kind: "sentence", query: "q", meaning: "", explanation: null })).toBe(true);
+  });
+
+  it("is false once a meaning piece or the explanation is there", () => {
+    expect(waitingForMeaning({ kind: "sentence", query: "q", meaning: "It", explanation: null })).toBe(false);
+    const explanation = sentenceResponse().explanation;
+    expect(waitingForMeaning({ kind: "sentence", query: "q", meaning: null, explanation })).toBe(false);
+  });
+
+  it("is false for the other kinds", () => {
+    expect(waitingForMeaning({ kind: "word", query: "q", word: wordResponse() })).toBe(false);
+    expect(waitingForMeaning({ kind: "loading", query: "q" })).toBe(false);
+    expect(waitingForMeaning({ kind: "error", query: "q", message: "m" })).toBe(false);
+    expect(waitingForMeaning({ kind: "idle" })).toBe(false);
   });
 });

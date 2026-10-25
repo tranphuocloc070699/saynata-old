@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
  *
  * What is checked: every sense's simpleDefinition (no hard word at all), and its examples
  * (easy: no hard word, medium: at most 1, harder: at most 2). Usage items are not checked.
+ * A compound of two listed words ("notebook" = "note" + "book") counts as listed.
  */
 @Component
 public class SimpleWords {
@@ -42,6 +43,9 @@ public class SimpleWords {
     private static final Map<String, String> IRREGULAR_NEGATIVES = Map.of("can't", "can", "won't", "will", "shan't", "shall");
 
     private static final List<String> CONTRACTION_ENDINGS = List.of("'s", "'m", "'re", "'ve", "'ll", "'d", "n't");
+
+    /** The shortest part of a compound: "notebook" splits, "today" (to + day) is in the list anyway. */
+    private static final int MIN_COMPOUND_PART = 3;
 
     /** How many words outside the list an example may have. */
     private static final Map<String, Integer> MAX_OUTSIDE_IN_EXAMPLE = Map.of("easy", 0, "medium", 1, "harder", 2);
@@ -60,7 +64,7 @@ public class SimpleWords {
         for (String word : words(definition)) {
             // "a person's name" checks "person": the possessive 's is not a new word.
             String plain = word.endsWith("'s") ? word.substring(0, word.length() - 2) : word;
-            if (!vocabulary.contains(plain)) {
+            if (!isListed(plain)) {
                 hard.add(plain);
             }
         }
@@ -77,7 +81,7 @@ public class SimpleWords {
             if (plain.startsWith(headword)) {
                 continue;
             }
-            if (!vocabulary.contains(plain) && !EXAMPLE_EXTRA.contains(plain)) {
+            if (!isListed(plain) && !EXAMPLE_EXTRA.contains(plain)) {
                 hard.add(plain);
             }
         }
@@ -110,6 +114,19 @@ public class SimpleWords {
             }
         }
         return problems;
+    }
+
+    /** On the list, or two listed words joined ("notebook", "classroom", "bedroom"). */
+    private boolean isListed(String word) {
+        if (vocabulary.contains(word)) {
+            return true;
+        }
+        for (int split = MIN_COMPOUND_PART; split <= word.length() - MIN_COMPOUND_PART; split++) {
+            if (vocabulary.contains(word.substring(0, split)) && vocabulary.contains(word.substring(split))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public int size() {
