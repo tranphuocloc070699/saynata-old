@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ApiError, type TokenSource } from "../src/lib/api";
-import { ACCOUNT_SIGN_IN_PATH, AccountApi, memberLine, statTiles, type Me } from "../src/lib/account";
+import { ACCOUNT_SIGN_IN_PATH, AccountApi, avatarLetter, memberLine, statTiles, type Me } from "../src/lib/account";
 import { fakeFetch, json } from "./helpers";
 
 const me: Me = {
@@ -72,5 +72,15 @@ describe("AccountApi", () => {
   it("throws an ApiError on a server error", async () => {
     const { fetchImpl } = fakeFetch(() => json({}, 500));
     await expect(new AccountApi("", tokens("t"), fetchImpl).deleteAccount()).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe("avatarLetter", () => {
+  it("is the first letter of the email in upper case", () => {
+    expect(avatarLetter("loc@saynata.com")).toBe("L");
+    expect(avatarLetter("  zoe@x.co")).toBe("Z");
+  });
+  it("falls back to ? for an empty email", () => {
+    expect(avatarLetter("")).toBe("?");
   });
 });

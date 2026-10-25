@@ -89,3 +89,9 @@ export function statTiles(me: Pick<Me, "historyCount" | "likedCount" | "aiUsedTo
 export const ACCOUNT_SIGN_IN_PATH = "/sign-in?next=/account";
 
 export const accountApi = (tokens: TokenSource) => new AccountApi("", tokens);
+
+/** The first letter of the email, upper case: the header avatar. */
+export function avatarLetter(email: string): string {
+  const first = email.trim().charAt(0);
+  return first ? first.toUpperCase() : "?";
+}

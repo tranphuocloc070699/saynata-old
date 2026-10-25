@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-25 09:30'
+updated_date: '2026-10-25 09:26'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -112,7 +112,7 @@ sequenceDiagram
 | Transport | [browserTransport:382](../../../web/src/lib/sync.ts#L382) | Bearer token, one refresh and retry on 401 |
 | Record | [Home.tsx:57](../../../web/src/components/home/Home.tsx#L57) | A finished word or sentence result is a `history_add` (preview = first simple explanation, chip = "pos · level") |
 | Star | [LikeButton.tsx](../../../web/src/components/home/LikeButton.tsx) | On word and sentence results; `liked_add` / `liked_remove` |
-| Page | [HistoryView.tsx](../../../web/src/components/history/HistoryView.tsx) | History \| Liked pill, search, clear all (asks first), day groups, "synced N s ago" |
+| Page | [HistoryView.tsx](../../../web/src/components/history/HistoryView.tsx), [HistoryRows.tsx](../../../web/src/components/history/HistoryRows.tsx) | History \| Liked pill, search, clear all (asks first), day groups, "synced N s ago". **Glass style (TASK-102.8):** the pill, the search box and each day's list use `GLASS` (`border-hairline bg-surface/70 backdrop-blur-xl`, rounded corners, soft shadow); the selected pill segment is `bg-surface/90`; day titles are small bold muted text. Tokens only, so it works in light and dark. A row ([HistoryRow](../../../web/src/components/history/HistoryRows.tsx)) follows iOS `SavedItemRow`: a word is bold with its chip, a sentence is serif and stops at two lines, then the short meaning in two lines at most; star and remove are icon buttons |
 
 ## Deploy (saynata.com, TASK-102.2, moved from loffy.me in TASK-104)
 
@@ -163,8 +163,8 @@ sequenceDiagram
 | Apple | [apple:121](../../../web/src/components/auth/SignInForm.tsx#L121) | AppleID JS in a popup with the Services ID |
 | Client | [auth.ts:52](../../../web/src/lib/auth.ts#L52) | `AuthApi`: email-code, verify, google, apple, refresh, sign-out. Auth errors (`invalid_code` etc.) show the server's text |
 | Session | [auth.ts:121](../../../web/src/lib/auth.ts#L121) | `BrowserTokens`: the session in localStorage (`saynata.session`), refreshed 60 s before it expires, one shared refresh; a 401 on refresh signs out, a network error keeps the session. It is the `TokenSource` of every `SaynataApi` |
-| Header | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx:9](../../../web/src/components/auth/AccountMenu.tsx#L9) | Logo home; a guest sees "Sign in"; a signed-in user sees the email (from 640 px) and icon-only links to History (`/history`), Settings (`/settings`) and Account (`/account`), then a Sign out icon button (TASK-102.8) |
-| Account page (TASK-102.8) | [AccountPage.tsx](../../../web/src/components/auth/AccountPage.tsx), [account.ts](../../../web/src/lib/account.ts) | `/account`: profile card (pixel cat, email, "Member since October 2026 · Google" from `GET /api/me`, Sign out icon), three stat tiles (Words looked up, Liked, AI answers today as "7 / 50") and a Delete account row. A guest is sent to `/sign-in?next=/account`. Delete is two taps: the red trash icon, then it turns into a confirm state (with Cancel); confirm calls `DELETE /api/me`, `browserTokens.signOut()`, then goes home. `AccountApi` sends the Bearer token and retries once after a refresh |
+| Header (option B, TASK-102.8) | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx](../../../web/src/components/auth/AccountMenu.tsx) | Logo home. A guest sees only the "Sign in" pill. A signed-in user sees a History icon button (`/history`) and an avatar circle (`bg-accent`, `text-on-accent`, the first letter of the email, [avatarLetter](../../../web/src/lib/account.ts)). The avatar button (aria-label "Account menu", `aria-expanded`) opens a menu: the email (small, muted) on top, then Settings, Account and Sign out. The email is never in the header itself. The menu closes on Escape (focus returns to the avatar), on a click outside and on Tab; ArrowUp/Down, Home and End move between the items; the first item gets focus when it opens |
+| Account page (TASK-102.8) | [AccountPage.tsx](../../../web/src/components/auth/AccountPage.tsx), [account.ts](../../../web/src/lib/account.ts) | `/account`: profile card (pixel cat, email, "Member since October 2026 · Google" from `GET /api/me`, Sign out icon), three stat tiles (Words looked up, Liked, AI answers today as "7 / 50"), a **History section** (the 5 most recent items from the same sync store as `/history`, in the same glass rows, with a "See all" link to `/history`; a short empty state when there are none) and a Delete account row. A guest is sent to `/sign-in?next=/account`. Delete is two taps: the red trash icon, then it turns into a confirm state (with Cancel); confirm calls `DELETE /api/me`, `browserTokens.signOut()`, then goes home. `AccountApi` sends the Bearer token and retries once after a refresh |
 | After sign-in | [safeNextPath:257](../../../web/src/lib/auth.ts#L257) | Goes to `?next=` only when it is a path on this site, else `/` |
 
 Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
@@ -204,7 +204,7 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 | `web/test/textKind.test.ts` | Word or sentence |
 | `web/test/mochi.test.ts` | The five choices have equal shares, Box picks one of three, the visit keeps its cat, a missing file means fallback, `steps()` and frame 1 with reduced motion in `globals.css` |
 | `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
-| `web/test/account.test.ts` | `AccountApi` (Bearer, DELETE, one refresh, no token, errors), `memberLine`, `statTiles`, the guest redirect path |
+| `web/test/account.test.ts` | `AccountApi` (Bearer, DELETE, one refresh, no token, errors), `memberLine`, `statTiles`, `avatarLetter`, the guest redirect path |
 | `web/test/settings.test.ts` | Account load and save (Bearer, PUT body, one retry after 401, unknown values), a guest keeps localStorage and sends nothing, a signed-in change applies at once, a failed load keeps the local settings, `translationRowOpen` |
 | `web/test/summaryMarkup.test.ts` | Bullets, bold, an unclosed `**` while streaming, `plainSummary` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
