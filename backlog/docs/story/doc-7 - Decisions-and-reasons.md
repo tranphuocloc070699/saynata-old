@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-24 14:55'
+updated_date: '2026-10-25 02:00'
 ---
 # Decisions and reasons
 
@@ -202,6 +202,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-24 | **The pipeline also calls the STEYG gateway, not the Anthropic API** (TASK-111): one shared client (`pipeline/src/pipeline/llm.py`) uses `CLAUDE_BASE_URL` + `CLAUDE_AUTH_TOKEN` when they are set; model = the step's own env, then `CLAUDE_MODEL`, then `deepseek-v4.1-flash`; the JSON Schema goes in the prompt and the JSON is read from the text, with one more try; the Message Batches API is blocked through the gateway | The developer does not want to use an Anthropic API key any more (2026-10-24) | Keep the Anthropic API key for the pipeline; write everything with the Codex CLI only | Developer |
 | 10-24 | **Every deploy prunes Docker build cache down to 1 GB and old dangling images after a healthy start, and stops before building when under 2 GB is free** (`backend/scripts/disk.sh`, used by `deploy.sh` and `deploy-web.sh`); journald capped at 100 MB and an optional weekly prune timer on the server (doc-11 section 18). Volumes are never pruned | Production went down on 2026-10-24: the 16 GB disk was full of build cache from every deploy (5.9 GB) and journald logs, the backend could not start (502) and release #177 failed. After the hand clean-up one deploy brought the disk back to 82%. Keeping 1 GB of cache keeps builds fast; stopping early keeps the old backend running instead of breaking it halfway | `docker builder prune -af` every deploy (every build downloads Maven again); prune only by hand; build images in GitHub Actions and pull them (a registry login on the server, a bigger change); a bigger disk only (the cache grows again) | Orchestrator, built by Claude |
 | 10-24 | **Web homepage uses two columns on a wide screen** (TASK-102.3): max width 1224px; with a result, the composer and chips stay on the left (sticky) and the result is on the right; before a result the composer stays centred at 680px; phones keep one column | The developer wants a PC user to see the whole screen without scrolling; picked option A in the mockup. Centring the idle composer was Claude's choice (an empty right column looked lopsided) | B: composer on top, the result card split into two columns | Developer (Claude proposed A) |
+| 10-25 | **The backend jar is built in GitHub Actions and copied to the VPS with rsync; the Dockerfile is only the JRE runtime stage. The three deploy jobs run in parallel after a `prepare` job, and unchanged parts are skipped** (`fix/deploy-speed`) | Deploys failed twice on 2026-10-24: the prune of build cache (1 GB kept) also deleted the JDK stage and the Maven layer, so the VPS pulled the 348 s JDK image again at 0.4 MB/s and passed the 360 s limit. Deploys went from 2-3 minutes to 7-13. Building on GitHub (Maven cache) leaves only a ~10 s `COPY` on the server | Push the image to GHCR and pull it on the server (needs a registry login on the VPS, and the pull is still slow); keep more build cache (the disk filled up on 2026-10-24); a bigger disk | Reason: not recorded in the developer's words (plan approved by the developer) |
 
 ## Questions answered
 
