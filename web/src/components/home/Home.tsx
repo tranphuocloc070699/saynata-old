@@ -3,11 +3,11 @@
  * The homepage tool (TASK-102.1). The query lives in the address (/?q=...), so a result can be shared, reloaded
  * and reached with Back. The search itself is in lib/explain.ts; this file holds the state and the motion.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SaynataApi, type Suggestion } from "@/lib/api";
 import { browserTokens } from "@/lib/auth";
-import { fetchResult, startState, type Result } from "@/lib/explain";
+import { fetchResult, fetchTranslation, startState, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
 import { useTargetLanguage } from "@/lib/targetLanguage";
 import { Alert } from "../icons";
@@ -38,8 +38,9 @@ export function Home() {
   const [suggested, setSuggested] = useState<{ prefix: string; list: Suggestion[] }>({ prefix: "", list: [] });
   const root = useRef<HTMLDivElement>(null);
 
-  // A new search (address, language or retry): show its first state now, during render, not in an effect.
-  const runKey = `${query}|${targetLang}|${attempt}`;
+  // A new search (address or retry): show its first state now, during render, not in an effect. A language
+  // change is not a new search: the result stays and only its language row loads again (below).
+  const runKey = `${query}|${attempt}`;
   const [shownKey, setShownKey] = useState(runKey);
   const [shownQuery, setShownQuery] = useState(query);
   if (shownKey !== runKey) {
@@ -52,11 +53,32 @@ export function Home() {
   }
 
   // ...and fetch it. Every state from here on comes from a network callback.
+  // The language is read when the search starts, so changing it does not start the search again.
+  const startSearch = useEffectEvent((signal: AbortSignal) => fetchResult(api, query, targetLang, setResult, signal));
   useEffect(() => {
     const controller = new AbortController();
-    void fetchResult(api, query, targetLang, setResult, controller.signal);
+    void startSearch(controller.signal);
     return () => controller.abort();
-  }, [query, targetLang, attempt]);
+  }, [query, attempt]);
+
+  // A sentence shown in another language: fetch only its language line. A word's row loads by itself (WordCard).
+  const lineQuery =
+    result.kind === "sentence" && result.explanation && result.lang !== targetLang && targetLang !== "en"
+      ? result.query
+      : null;
+  useEffect(() => {
+    if (lineQuery === null) return;
+    const controller = new AbortController();
+    void fetchTranslation(api, lineQuery, targetLang, controller.signal).then((translation) => {
+      if (controller.signal.aborted) return;
+      setResult((current) =>
+        current.kind === "sentence" && current.query === lineQuery && current.explanation
+          ? { ...current, lang: targetLang, explanation: { ...current.explanation, translation } }
+          : current,
+      );
+    });
+    return () => controller.abort();
+  }, [lineQuery, targetLang]);
 
   const submit = (value: string) => {
     const clean = value.trim();
@@ -183,6 +205,7 @@ export function Home() {
             meaning={result.meaning}
             explanation={result.explanation}
             targetLang={targetLang}
+            translating={lineQuery !== null}
             onWord={setSheetWord}
           />
         )}

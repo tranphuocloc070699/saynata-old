@@ -10,6 +10,7 @@ import type { Explanation } from "@/lib/api";
 import { betterPieces } from "@/lib/betterDiff";
 import { languageName, type LanguageCode } from "@/lib/languages";
 import { useSpeech } from "@/lib/speech";
+import { plainSummary, summaryLines, type SummaryLine } from "@/lib/summaryMarkup";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
 import { Check, Copy, Speaker, Stop } from "../icons";
@@ -21,10 +22,12 @@ type Props = {
   /** The full answer, once the stream is done. */
   explanation: Explanation | null;
   targetLang: LanguageCode;
+  /** The language changed and its line is loading: only the language row waits, the rest stays. */
+  translating?: boolean;
   onWord: (word: string) => void;
 };
 
-export function SentenceCard({ text, meaning, explanation, targetLang, onWord }: Props) {
+export function SentenceCard({ text, meaning, explanation, targetLang, translating = false, onWord }: Props) {
   const speech = useSpeech();
   const [copied, setCopied] = useState(false);
   const streaming = explanation === null;
@@ -66,16 +69,14 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
         <div data-reveal className="flex flex-col gap-1" aria-live="polite" aria-busy={streaming}>
           <div className="flex items-start gap-2">
             {summary ? (
-              <p className={`flex-1 font-serif text-[1.0625rem] leading-relaxed ${streaming ? "stream-caret" : ""}`}>
-                {summary}
-              </p>
+              <Summary text={summary} streaming={streaming} />
             ) : (
               <div className="flex flex-1 flex-col gap-2 py-1.5" aria-label="Writing the explanation">
                 <span className="h-3 w-11/12 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
                 <span className="h-3 w-2/3 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
               </div>
             )}
-            {explanation && <ListenButton text={explanation.meaning} speech={speech} />}
+            {explanation && <ListenButton text={plainSummary(explanation.meaning)} speech={speech} />}
           </div>
           <span className="text-xs text-muted">In simple words</span>
         </div>
@@ -106,10 +107,17 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
             </FoldedRow>
           </div>
         )}
-        {explanation && targetLang !== "en" && explanation.translation && (
+        {explanation && targetLang !== "en" && (translating || explanation.translation) && (
           <div data-reveal>
             <FoldedRow title={languageName(targetLang)}>
-              <p className="font-serif">{explanation.translation}</p>
+              {translating ? (
+                <div className="flex flex-col gap-2 py-1.5" aria-label="Loading the language line">
+                  <span className="h-3 w-11/12 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
+                  <span className="h-3 w-1/2 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
+                </div>
+              ) : (
+                <p className="font-serif">{explanation.translation}</p>
+              )}
             </FoldedRow>
           </div>
         )}
@@ -123,6 +131,48 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
           onClick={copy}
         />
       </div>
+    </div>
+  );
+}
+
+/** The summary's small Markdown (bullets and bold) without its markers, like iOS SummaryMarkup. */
+function Summary({ text, streaming }: { text: string; streaming: boolean }) {
+  // Lines in order; bullets next to each other share one list.
+  const blocks: SummaryLine[][] = [];
+  for (const line of summaryLines(text)) {
+    if (!line.bullet && line.pieces.length === 0) continue;
+    const last = blocks.at(-1);
+    if (line.bullet && last?.[0].bullet) last.push(line);
+    else blocks.push([line]);
+  }
+  const pieces = (line: SummaryLine) =>
+    line.pieces.map((piece, i) =>
+      piece.bold ? (
+        <b key={i} className="font-semibold">
+          {piece.text}
+        </b>
+      ) : (
+        <span key={i}>{piece.text}</span>
+      ),
+    );
+  return (
+    <div className="flex flex-1 flex-col gap-1.5 font-serif text-[1.0625rem] leading-relaxed">
+      {blocks.map((block, b) => {
+        const caret = streaming && b === blocks.length - 1;
+        return block[0].bullet ? (
+          <ul key={b} className="flex list-disc flex-col gap-1 pl-5">
+            {block.map((line, i) => (
+              <li key={i} className={caret && i === block.length - 1 ? "stream-caret" : ""}>
+                {pieces(line)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={b} className={caret ? "stream-caret" : ""}>
+            {pieces(block[0])}
+          </p>
+        );
+      })}
     </div>
   );
 }
