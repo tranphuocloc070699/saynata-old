@@ -12,6 +12,7 @@ import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
 import com.englishtranslation.backend.media.BackendWordMediaService;
 import com.englishtranslation.backend.media.SenseMedia;
 import com.englishtranslation.backend.media.SenseMediaReader;
+import com.englishtranslation.backend.translation.SentenceSourceAliasRepository;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,12 +41,15 @@ public class WordService {
     private final DictionaryWordRepository bundled;
     private final BundledEntryReader bundledReader;
     private final ClaudeGate gate;
+    private final SentenceSourceAliasRepository aliases;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
             BackendWordMediaService mediaService, SenseMediaReader mediaReader,
-            DictionaryWordRepository bundled, BundledEntryReader bundledReader, ClaudeGate gate) {
+            DictionaryWordRepository bundled, BundledEntryReader bundledReader, ClaudeGate gate,
+            SentenceSourceAliasRepository aliases) {
+        this.aliases = aliases;
         this.gate = gate;
         this.bundled = bundled;
         this.bundledReader = bundledReader;
@@ -78,16 +82,20 @@ public class WordService {
             return new WordAnswer(bundledResponse(normalized, bundledWord.get()), WordAnswer.Origin.BUNDLED);
         }
 
+        // TASK-114.5: the backend (not the client) decides when Claude may describe a phrase or a word that is not on
+        // the word list: only when the sentence endpoint returned it as a wordMatch for the current prompt version.
+        boolean fromWordMatch = aliases.existsWordMatch(normalized, properties.sentencePromptVersion());
+
         // A phrase ("give up", "a piece of cake") is answered only from the cache, filled by the local collection
-        // (TASK-83.9). It never calls Claude and is never "not a word": a miss is 404 not_cached, and the app then
-        // explains the text as a sentence.
-        if (normalized.contains(" ")) {
+        // (TASK-83.9), unless it is a wordMatch. Otherwise it never calls Claude and is never "not a word": a miss is
+        // 404 not_cached, and the app then explains the text as a sentence.
+        if (normalized.contains(" ") && !fromWordMatch) {
             return cachedPhrase(normalized);
         }
 
         // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
         // Nothing is saved, so a later update of the word list can fix a missing word.
-        if (!englishWords.contains(normalized)) {
+        if (!fromWordMatch && !englishWords.contains(normalized)) {
             log.debug("'{}' is not on the English word list, Claude not called", normalized);
             return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
                     WordAnswer.Origin.NOT_A_WORD);
