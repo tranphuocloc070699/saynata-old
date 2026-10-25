@@ -4,6 +4,7 @@ title: 'Stop new Pixabay pictures: empty key, hide Pick another, decide for new 
 status: To Do
 assignee: []
 created_date: '2026-10-25 15:11'
+updated_date: '2026-10-25 15:23'
 labels:
   - media
   - backend
@@ -33,3 +34,9 @@ New words still get Pixabay pictures from the background job, and the admin can 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Admin: Pick another button and Pixabay panel removed from MediaRow (tests updated, 50 admin tests pass). PIXABAY_API_KEY is already empty-by-default (NoPixabayKeyTest passes); the developer must confirm it is empty in the production .env. Decision for new words (no picture) added to doc-7 as 'agent default', needs developer OK. doc-14/15/24 and .env.example updated.
+<!-- SECTION:NOTES:END -->

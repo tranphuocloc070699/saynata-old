@@ -22,6 +22,7 @@
     uv run pipeline media-ai --dry-run --limit 3   # TASK-82: 3 scenes and Codex prompts, draws nothing
     uv run pipeline media-ai --limit 20          # Claude writes, Codex draws, Claude guesses blind; data/out/media-ai.html
     uv run pipeline media-ai --recheck-failed    # meaning check on failed senses' pictures, no new drawing
+    uv run pipeline media-ai --backend --limit 20   # TASK-115.2: the same for backend words (add --link, --recheck-failed)
     uv run pipeline media-ai --link              # after rsync: the passed AI pictures replace the sense pictures
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
@@ -305,7 +306,7 @@ def generate_media_ai(args) -> None:
     if not args.link and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
         raise SystemExit("media-ai: ANTHROPIC_API_KEY is not set in pipeline/.env")
     pg = postgres.connect(postgres.database_url(args.database_url))
-    store_ = media_ai.PostgresStore(pg)
+    store_ = (media_ai.BackendStore if args.backend else media_ai.PostgresStore)(pg)
     if args.link:
         base_url = args.media_base_url or os.environ.get("MEDIA_BASE_URL") or DEFAULT_MEDIA_BASE_URL
         media_ai.link_passed(store_, media_dir, is_on_server(base_url))
@@ -934,6 +935,8 @@ def main() -> None:
     ai_parser.add_argument("--link", action="store_true", help="after rsync: link the passed pictures whose files are on the server")
     ai_parser.add_argument("--recheck-failed", action="store_true", help="run the meaning check on the pictures of "
                            "senses that failed every try, without drawing again")
+    ai_parser.add_argument("--backend", action="store_true", help="the senses of backend words (word_lookup_media) "
+                           "instead of the bundled dictionary senses; works with every other option (TASK-115.2)")
     ai_parser.add_argument("--workers", type=int, default=4, help="senses in parallel, one Codex each (default 4)")
     ai_parser.add_argument("--max-cost", type=float, default=5.0, help="Claude budget cap in US dollars (default 5)")
     ai_parser.add_argument("--scene-effort", choices=["low", "medium", "high", "xhigh", "max"],

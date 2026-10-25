@@ -91,22 +91,20 @@ describe("media row per word (TASK-64)", () => {
     });
   });
 
-  it("closes the Pick another panel and shows the new word's media when another word is selected", async () => {
+  it("shows the new word's media when another word is selected", async () => {
     renderWords([photoWord, clipWord]);
 
     await userEvent.click(await row("apple"));
     const entry = screen.getByRole("region", { name: "Entry" });
     expect(within(entry).getByRole("img", { name: "apple, sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/apple.webp");
 
-    await userEvent.click(within(entry).getByRole("button", { name: "Pick another image" }));
-    expect(await within(entry).findByRole("region", { name: "Pick another image (sense 1)" })).toBeInTheDocument();
+    expect(within(entry).queryByRole("button", { name: "Pick another image" })).not.toBeInTheDocument();
 
     // The word is in a drawer: close it, then open the next word.
     await userEvent.keyboard("{Escape}");
     await userEvent.click(await row("run"));
 
     const next = screen.getByRole("region", { name: "Entry" });
-    expect(within(next).queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument();
     expect(within(next).queryByRole("img", { name: "apple, sense 1" })).not.toBeInTheDocument();
     const clip = within(next).getByLabelText("run, sense 1");
     expect(clip.tagName).toBe("VIDEO");

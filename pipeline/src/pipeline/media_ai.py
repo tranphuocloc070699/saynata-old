@@ -832,13 +832,17 @@ class PostgresStore:
 
     def save_result(self, result: SenseResult) -> None:
         """One row per complete try. cost_usd is the Claude spend of that try only (Codex is in the plan)."""
+        self._save(result, "sense_id")
+
+    def _save(self, result: SenseResult, owner: str) -> None:
+        """owner is the media_generation column that points at the sense: sense_id, or lookup_media_id (backend words)."""
         now = datetime.now(timezone.utc)
         with self.pg.cursor() as cursor:
             for attempt in result.attempts:
                 if not attempt.complete:
                     continue
                 cursor.execute(
-                    """INSERT INTO media_generation (sense_id, file_name, provider, model, prompt, input_tokens,
+                    f"""INSERT INTO media_generation ({owner}, file_name, provider, model, prompt, input_tokens,
                        output_tokens, cost_usd, created_at, old_media_id, prompt_version, method, scene_json,
                        guess_json, passed, attempt)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
@@ -852,15 +856,19 @@ class PostgresStore:
 
     def unlinked_passed(self) -> list[dict]:
         """The newest try of each sense for PROMPT_VERSION, when it passed and is not linked yet."""
+        return self._unlinked("sense_id", "JOIN dictionary_sense s ON s.id = g.sense_id "
+                                          "JOIN dictionary_word w ON w.id = s.word_id", "w.lemma", "s.position")
+
+    def _unlinked(self, owner: str, joins: str, lemma: str, position: str) -> list[dict]:
+        """The owner column (sense_id, or lookup_media_id) comes back as "sense_id" in both stores."""
         with self.pg.cursor() as cursor:
             cursor.execute(
-                """SELECT * FROM (
-                       SELECT DISTINCT ON (g.sense_id) g.id, g.sense_id, g.file_name, g.passed, g.media_id, w.lemma, s.position
-                       FROM media_generation g
-                       JOIN dictionary_sense s ON s.id = g.sense_id
-                       JOIN dictionary_word w ON w.id = s.word_id
+                f"""SELECT * FROM (
+                       SELECT DISTINCT ON (g.{owner}) g.id, g.{owner} AS sense_id, g.file_name, g.passed, g.media_id,
+                              {lemma} AS lemma, {position} AS position
+                       FROM media_generation g {joins}
                        WHERE g.prompt_version = %s
-                       ORDER BY g.sense_id, g.created_at DESC, g.attempt DESC, g.id DESC) newest
+                       ORDER BY g.{owner}, g.created_at DESC, g.attempt DESC, g.id DESC) newest
                    WHERE passed AND media_id IS NULL AND file_name IS NOT NULL
                    ORDER BY sense_id""",
                 (PROMPT_VERSION,),
@@ -908,19 +916,22 @@ class PostgresStore:
     def failed_tries(self) -> list[dict]:
         """Drawn tries of senses that are finished as failed (no passed try, no "none") and not rechecked yet,
         newest try first per sense."""
+        return self._failed("sense_id", "JOIN dictionary_sense s ON s.id = g.sense_id "
+                                        "JOIN dictionary_word w ON w.id = s.word_id", "w.lemma", "s.position",
+                            "s.pos, s.simple_definition", "w.word_rank, s.position")
+
+    def _failed(self, owner: str, joins: str, lemma: str, position: str, text: str, order: str) -> list[dict]:
         with self.pg.cursor() as cursor:
             cursor.execute(
-                """SELECT g.id, g.sense_id, g.attempt, g.file_name, g.guess_json, w.lemma, s.position, s.pos,
-                          s.simple_definition
-                   FROM media_generation g
-                   JOIN dictionary_sense s ON s.id = g.sense_id
-                   JOIN dictionary_word w ON w.id = s.word_id
+                f"""SELECT g.id, g.{owner} AS sense_id, g.attempt, g.file_name, g.guess_json, {lemma} AS lemma,
+                          {position} AS position, {text}
+                   FROM media_generation g {joins}
                    WHERE g.prompt_version = %s AND g.file_name IS NOT NULL
-                     AND NOT EXISTS (SELECT 1 FROM media_generation o WHERE o.sense_id = g.sense_id
+                     AND NOT EXISTS (SELECT 1 FROM media_generation o WHERE o.{owner} = g.{owner}
                                      AND o.prompt_version = g.prompt_version AND (o.passed OR o.method = 'none'))
-                     AND NOT EXISTS (SELECT 1 FROM media_generation o WHERE o.sense_id = g.sense_id
+                     AND NOT EXISTS (SELECT 1 FROM media_generation o WHERE o.{owner} = g.{owner}
                                      AND o.prompt_version = g.prompt_version AND o.guess_json::jsonb ? 'meaning')
-                   ORDER BY w.word_rank, s.position, g.attempt DESC""",
+                   ORDER BY {order}, g.attempt DESC""",
                 (PROMPT_VERSION,),
             )
             columns = [column.name for column in cursor.description]
@@ -963,6 +974,131 @@ class PostgresStore:
             rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
         self.pg.commit()
         return rows
+
+
+class BackendStore(PostgresStore):
+    """The same flow for backend words (TASK-115.2): the senses Claude wrote after launch, kept in word_lookup (entry_json)
+    and word_lookup_media (one row per sense that has or had a picture). The tries are saved with lookup_media_id
+    instead of sense_id (Flyway V35), so the bundled store and this one never see each other's tries.
+    Only rows that have a picture (or wait for an AI picture) are drawn: new backend words get no picture."""
+
+    _FROM = """FROM word_lookup_media m JOIN word_lookup l ON l.id = m.word_lookup_id
+               WHERE (m.media_status IS NULL OR m.media_status <> 'removed')
+                 AND (m.media_id IS NOT NULL OR m.media_status = 'needs_ai')"""
+    _NOT_FINISHED = _NOT_FINISHED.replace("g.sense_id = s.id", "g.lookup_media_id = m.id")
+    _JOINS = "JOIN word_lookup_media s ON s.id = g.lookup_media_id JOIN word_lookup l ON l.id = s.word_lookup_id"
+
+    def _rows(self, words: list[str] | None, redo: bool) -> list[dict]:
+        sql, params = f"SELECT m.id, l.word AS lemma, m.sense_position AS position, m.media_id, l.entry_json {self._FROM}", []
+        if not redo:
+            sql += " " + self._NOT_FINISHED
+            params += [PROMPT_VERSION, MAX_TRIES]
+        if words:
+            sql += " AND lower(l.word) = ANY(%s)"
+            params.append([word.lower() for word in words])
+        with self.pg.cursor() as cursor:
+            cursor.execute(sql + " ORDER BY l.created_at, l.id, m.sense_position", params)
+            columns = [column.name for column in cursor.description]
+            rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        self.pg.commit()
+        return [sense for sense in map(backend_sense, rows) if sense]
+
+    def pending_senses(self, words: list[str] | None, limit: int, redo: bool) -> list[dict]:
+        return self._rows(words, redo)[:limit]
+
+    def count_pending(self, words: list[str] | None, redo: bool) -> int:
+        return len(self._rows(words, redo))
+
+    def still_wanted(self, sense_id: int) -> bool:
+        with self.pg.cursor() as cursor:
+            cursor.execute("SELECT 1 FROM word_lookup_media WHERE id = %s AND (media_status IS NULL OR media_status <> 'removed')",
+                           (sense_id,))
+            found = cursor.fetchone() is not None
+        self.pg.commit()
+        return found
+
+    def save_result(self, result: SenseResult) -> None:
+        self._save(result, "lookup_media_id")
+
+    def unlinked_passed(self) -> list[dict]:
+        return self._unlinked("lookup_media_id", self._JOINS, "l.word", "s.sense_position")
+
+    def link(self, generation: dict, facts: tuple) -> bool:
+        """Like the bundled link, on word_lookup_media: a new media row (source 'ai'), the sense points at it with
+        media_status ai_generated and its picture review cleared; the old media row stays."""
+        width, height, size = facts
+        now = datetime.now(timezone.utc)
+        self.pg.commit()  # see PostgresStore.link
+        with self.pg.transaction(), self.pg.cursor() as cursor:
+            cursor.execute("SELECT media_id FROM word_lookup_media WHERE id = %s "
+                           "AND (media_status IS NULL OR media_status <> 'removed') FOR UPDATE", (generation["sense_id"],))
+            row = cursor.fetchone()
+            if row is None:
+                return False
+            old_media_id = row[0]
+            cursor.execute(
+                """INSERT INTO media (file_name, kind, width, height, bytes, license_note, source, created_at)
+                   VALUES (%s, 'photo', %s, %s, %s, %s, 'ai', %s) RETURNING id""",
+                (generation["file_name"], width, height, size, f"AI image ({PROVIDER} {MODEL})", now),
+            )
+            media_id = cursor.fetchone()[0]
+            cursor.execute(
+                """UPDATE word_lookup_media SET media_id = %s, media_status = %s, media_reviewed_at = NULL,
+                   media_reviewed_media_id = NULL WHERE id = %s""",
+                (media_id, STATUS_DONE, generation["sense_id"]),
+            )
+            cursor.execute("UPDATE media_generation SET media_id = %s, linked_at = %s, old_media_id = %s WHERE id = %s",
+                           (media_id, now, old_media_id, generation["id"]))
+        return True
+
+    def failed_tries(self) -> list[dict]:
+        rows = self._failed("lookup_media_id", self._JOINS, "l.word", "s.sense_position", "l.entry_json",
+                            "l.created_at, l.id, s.sense_position")
+        return [row for row in map(_with_sense_text, rows) if row["simple_definition"]]
+
+    def report_rows(self) -> list[dict]:
+        with self.pg.cursor() as cursor:
+            cursor.execute(
+                """SELECT g.id, g.lookup_media_id AS sense_id, g.attempt, g.file_name, g.method, g.scene_json, g.guess_json,
+                          g.passed, g.cost_usd, g.created_at, g.linked_at, l.word AS lemma, s.sense_position AS position,
+                          l.entry_json, old.file_name AS old_file_name, old.kind AS old_kind
+                   FROM media_generation g
+                   JOIN word_lookup_media s ON s.id = g.lookup_media_id
+                   JOIN word_lookup l ON l.id = s.word_lookup_id
+                   LEFT JOIN media old ON old.id = g.old_media_id
+                   WHERE g.prompt_version = %s
+                   ORDER BY l.created_at, l.id, s.sense_position, g.created_at, g.attempt, g.id""",
+                (PROMPT_VERSION,),
+            )
+            columns = [column.name for column in cursor.description]
+            rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        self.pg.commit()
+        return list(map(_with_sense_text, rows))
+
+
+def _with_sense_text(row: dict) -> dict:
+    """Adds pos and simple_definition (read from entry_json, which is dropped) to a report or recheck row."""
+    sense = backend_sense({"id": row["sense_id"], "lemma": row["lemma"], "position": row["position"], "media_id": None,
+                           "entry_json": row.pop("entry_json")})
+    row["pos"], row["simple_definition"] = (sense["pos"], sense["simple_definition"]) if sense else ("", "")
+    return row
+
+
+def backend_sense(row: dict) -> dict | None:
+    """A word_lookup_media row plus its word_lookup entry_json -> the dict the flow expects (like pending_senses of
+    the bundled store). None when the entry has no such sense."""
+    try:
+        senses = json.loads(row["entry_json"])["senses"]
+        mine = senses[row["position"]]
+    except (TypeError, ValueError, KeyError, IndexError):
+        return None
+    return {
+        "id": row["id"], "lemma": row["lemma"], "position": row["position"], "media_id": row["media_id"],
+        "pos": mine.get("pos") or "", "simple_definition": mine.get("simpleDefinition") or "",
+        "examples_json": json.dumps(mine.get("examples") or []), "forms": [],
+        "others": [{"pos": other.get("pos"), "meaning": other.get("simpleDefinition")}
+                   for i, other in enumerate(senses) if i != row["position"]],
+    }
 
 
 # --- The report ----------------------------------------------------------------------------------------

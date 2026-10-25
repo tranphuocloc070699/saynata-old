@@ -1,9 +1,10 @@
 ---
 id: TASK-115
 title: Replace all Pixabay pictures with AI pictures on production
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-25 15:11'
+updated_date: '2026-10-25 15:17'
 labels:
   - media
   - pipeline

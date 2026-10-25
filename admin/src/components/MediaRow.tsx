@@ -1,10 +1,9 @@
 import { useApiUrl, useInvalidate } from "@refinedev/core";
-import { Check, ImageOff, Images, Loader2, Maximize2, Search, Sparkles, Upload, X } from "lucide-react";
+import { Check, ImageOff, Loader2, Sparkles, Upload } from "lucide-react";
 import { useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
-import type { AiJob, MediaSearchResponse, MediaSearchResult, SenseMedia, WordItem } from "@/api/types";
+import type { AiJob, SenseMedia, WordItem } from "@/api/types";
 import { AiPictureDialog } from "@/components/AiPictureDialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { MediaLightbox, type LightboxMedia } from "@/components/MediaLightbox";
 import { httpClient } from "@/providers/dataProvider";
 import { cn } from "@/lib/utils";
@@ -21,8 +20,8 @@ interface Props {
   index: number;
 }
 
-// The Media row of one sense: the current photo or clip with its credit, three icon buttons, and (when "Pick another"
-// is on) an inline panel under it with up to 6 Pixabay results (TASK-52, mockup option A).
+// The Media row of one sense: the current photo or clip with its credit and icon buttons. "Pick another image"
+// (Pixabay search, TASK-52) was removed in TASK-115.1: every picture is an AI picture now.
 export function MediaRow({ word, index }: Props) {
   const apiUrl = useApiUrl();
   const invalidate = useInvalidate();
@@ -33,13 +32,9 @@ export function MediaRow({ word, index }: Props) {
   const senseLabel = `${word.word}, sense ${index + 1}`;
   const mediaUrl = `${apiUrl}/words/${word.id}/senses/${index}/media`;
 
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<MediaSearchResult[]>();
-  const [chosen, setChosen] = useState<number>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
-  // The full-size viewer: the photo or clip that was clicked (the current one or a search result).
+  // The full-size viewer: the photo or clip that was clicked.
   const [viewing, setViewing] = useState<LightboxMedia | null>(null);
   // A file is being uploaded, or is being dragged over the row (TASK-79).
   const [uploading, setUploading] = useState(false);
@@ -63,37 +58,11 @@ export function MediaRow({ word, index }: Props) {
   // and Refine's "list" key does not reach it (TASK-57).
   const refresh = () => invalidate({ resource: "words", invalidates: ["all"] });
 
-  // words is the search text; empty means "use the sense's own search words" (the backend answers with them).
-  const search = (words: string) =>
-    run(async () => {
-      const { data } = await httpClient.get<MediaSearchResponse>(`${apiUrl}/media/search`, {
-        params: { sense: `${word.id}:${index}`, ...(words.trim() ? { q: words.trim() } : {}) },
-      });
-      setQuery(data.query);
-      setResults(data.results);
-      setChosen(undefined);
-    });
-
-  function openPanel() {
-    setPanelOpen(true);
-    void search("");
-  }
-
-  const apply = () =>
-    run(
-      async () => {
-        const { previewUrl: _preview, ...body } = results![chosen!];
-        await httpClient.put(mediaUrl, body, { headers: JSON_HEADERS });
-        await refresh();
-      },
-      () => setPanelOpen(false),
-    );
-
   const noImage = () =>
     run(async () => {
       await httpClient.delete(mediaUrl, { data: {}, headers: JSON_HEADERS });
       await refresh();
-    }, () => setPanelOpen(false));
+    });
 
   // The AI picture (TASK-91): the Sparkles button opens a dialog; OK starts a job on the server. The job state is in
   // the database, so a reloaded page finds it again: the word says mediaStatus "ai_drawing" and this row keeps asking.
@@ -139,7 +108,7 @@ export function MediaRow({ word, index }: Props) {
         await httpClient.post(`${mediaUrl}/upload`, form, { headers: { "X-Requested-With": "XMLHttpRequest" } });
         await refresh();
       },
-      () => setPanelOpen(false),
+      undefined,
       uploadErrorText,
     );
     setUploading(false);
@@ -211,17 +180,6 @@ export function MediaRow({ word, index }: Props) {
               <Check className="h-4 w-4" />
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="icon"
-            aria-label="Pick another image"
-            title="Pick another image"
-            aria-expanded={panelOpen}
-            disabled={busy}
-            onClick={openPanel}
-          >
-            <Images className="h-4 w-4" />
-          </Button>
           <Button variant="outline" size="icon" aria-label="No image" title="No image" disabled={busy} onClick={noImage}>
             <ImageOff className="h-4 w-4" />
           </Button>
@@ -297,70 +255,6 @@ export function MediaRow({ word, index }: Props) {
           void refresh(); // the word now says ai_drawing
         }}
       />
-
-      {panelOpen && (
-        <section aria-label={`Pick another image (sense ${index + 1})`} className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void search(query);
-            }}
-          >
-            <Input aria-label="Search words" value={query} onChange={(e) => setQuery(e.target.value)} />
-            <Button type="submit" variant="outline" size="icon" aria-label="Search" title="Search" disabled={busy}>
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="icon" aria-label="Close search" title="Close search" onClick={() => setPanelOpen(false)}>
-              <X className="h-4 w-4" />
-            </Button>
-          </form>
-
-          {results && results.length === 0 && <p className="text-sm text-muted-foreground">Pixabay has nothing for these words.</p>}
-
-          {results && results.length > 0 && (
-            <ul className="grid grid-cols-3 gap-2">
-              {results.map((result, i) => (
-                <li key={`${result.kind}-${result.pixabayId}`} className="relative">
-                  <button
-                    type="button"
-                    aria-label={`Result ${i + 1}, ${result.kind} by ${result.photographer}`}
-                    aria-pressed={chosen === i}
-                    onClick={() => setChosen(i)}
-                    className={cn(
-                      "relative block w-full overflow-hidden rounded-md border-2 bg-card",
-                      chosen === i ? "border-primary" : "border-transparent hover:border-border",
-                    )}
-                  >
-                    <img src={result.previewUrl} alt="" className="aspect-[4/3] w-full object-cover" />
-                    {result.kind === "clip" && (
-                      <span className="absolute left-1 top-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white">clip</span>
-                    )}
-                  </button>
-                  {/* A separate button, so a click on the tile still selects it. */}
-                  <button
-                    type="button"
-                    aria-label={`View result ${i + 1} full size`}
-                    title="View full size"
-                    onClick={() =>
-                      setViewing({ url: result.downloadUrl, kind: result.kind, photographer: result.photographer, pageUrl: result.pageUrl })
-                    }
-                    className="absolute right-1 top-1 inline-flex h-6 w-6 items-center justify-center rounded bg-black/70 text-white hover:bg-black/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <Maximize2 className="h-3 w-3" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <div className="flex justify-end">
-            <Button size="icon" aria-label="Use this image" title="Use this image" disabled={busy || chosen === undefined} onClick={apply}>
-              <Check className="h-4 w-4" />
-            </Button>
-          </div>
-        </section>
-      )}
 
       {error && (
         <p role="alert" className="text-sm text-destructive">

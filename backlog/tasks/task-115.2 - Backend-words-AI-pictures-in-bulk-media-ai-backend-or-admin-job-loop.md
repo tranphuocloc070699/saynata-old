@@ -4,6 +4,7 @@ title: 'Backend words: AI pictures in bulk (media-ai --backend or admin job loop
 status: To Do
 assignee: []
 created_date: '2026-10-25 15:11'
+updated_date: '2026-10-25 15:23'
 labels:
   - media
   - pipeline
@@ -33,3 +34,9 @@ pipeline media-ai (TASK-82) works on bundled senses. Words that Claude wrote aft
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Finding: media-ai did NOT reach word_lookup_media. Added BackendStore + 'media-ai --backend' (also --link, --recheck-failed, --dry-run) and Flyway V35 (media_generation.lookup_media_id, sense_id nullable, one-owner check). Only senses with a picture or needs_ai are drawn. Unit test for backend_sense runs; the 2 Postgres tests are written but NOT run (no local Postgres, set TEST_DATABASE_URL). H2 migration checked via AiPictureApiTest.
+<!-- SECTION:NOTES:END -->

@@ -58,80 +58,19 @@ describe("media row", () => {
   });
   afterEach(() => vi.clearAllMocks());
 
-  it("shows the current photo with its credit and three icon-only buttons", () => {
+  it("shows the current photo with its credit and icon-only buttons and no Pixabay search", () => {
     renderRow();
     expect(screen.getByRole("img", { name: "run, sense 1" })).toHaveAttribute("src", "https://api.saynata.com/media/run_1_ab.webp");
     expect(screen.getByRole("link", { name: "Jane Photo" })).toBeInTheDocument();
-    for (const name of ["Pick another image", "No image", "Draw an AI picture"]) {
+    for (const name of ["No image", "Draw an AI picture"]) {
       const button = screen.getByRole("button", { name });
       // Icon only (CLAUDE.md): the button has no visible text.
       expect(button).toHaveTextContent("");
       expect(button.querySelector("svg")).not.toBeNull();
     }
-    expect(screen.queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pick another image" })).not.toBeInTheDocument();
   });
 
-  it("opens the panel under the row, searches with the sense's own words and fills the search input", async () => {
-    renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
-
-    const panel = await screen.findByRole("region", { name: "Pick another image (sense 1)" });
-    expect(get).toHaveBeenCalledWith(`${API}/media/search`, { params: { sense: "b-5:0" } });
-    expect(await within(panel).findByLabelText("Search words")).toHaveValue("person running");
-    expect(within(panel).getAllByRole("button", { name: /^Result / })).toHaveLength(3);
-    // Only the clip has the "clip" mark.
-    expect(within(panel).getAllByText("clip")).toHaveLength(1);
-    expect(within(panel).getByRole("button", { name: "Use this image" })).toBeDisabled();
-  });
-
-  it("searches again with the words that were typed", async () => {
-    renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
-    const input = await screen.findByLabelText("Search words");
-    await vi.waitFor(() => expect(input).toHaveValue("person running"));
-
-    await userEvent.clear(input);
-    await userEvent.type(input, "jogger");
-    await userEvent.click(screen.getByRole("button", { name: "Search" }));
-
-    await vi.waitFor(() => expect(get).toHaveBeenLastCalledWith(`${API}/media/search`, { params: { sense: "b-5:0", q: "jogger" } }));
-  });
-
-  it("applies the chosen result and closes the panel", async () => {
-    renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Result 2, clip by Person 2" }));
-    expect(screen.getByRole("button", { name: "Result 2, clip by Person 2" })).toHaveAttribute("aria-pressed", "true");
-
-    await userEvent.click(screen.getByRole("button", { name: "Use this image" }));
-
-    await vi.waitFor(() => expect(put).toHaveBeenCalledTimes(1));
-    const [url, body, config] = put.mock.calls[0];
-    expect(url).toBe(`${API}/words/b-5/senses/0/media`);
-    expect(body).toEqual({
-      kind: "clip",
-      pixabayId: 2,
-      downloadUrl: "https://cdn.pixabay.com/x/2",
-      photographer: "Person 2",
-      pageUrl: "https://pixabay.com/x-2/",
-    });
-    expect(config).toEqual({ headers: { "Content-Type": "application/json" } });
-    await vi.waitFor(() => expect(screen.queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument());
-  });
-
-  it("closes the panel with the close button", async () => {
-    renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Close search" }));
-    expect(screen.queryByRole("region", { name: /Pick another image/ })).not.toBeInTheDocument();
-  });
-
-  it("says so when Pixabay has no results", async () => {
-    get.mockResolvedValue({ data: { query: "zzzz", results: [] } });
-    renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
-    expect(await screen.findByText("Pixabay has nothing for these words.")).toBeInTheDocument();
-  });
 
   it("No image sends DELETE for the sense", async () => {
     renderRow();
@@ -155,14 +94,10 @@ describe("media row", () => {
   });
 
   it("shows the message of the backend when a change fails", async () => {
-    put.mockRejectedValue({ response: { data: { detail: "Could not download or convert that file. Try another one." } } });
+    del.mockRejectedValue({ response: { data: { detail: "Could not remove that picture." } } });
     renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
-    await userEvent.click(await screen.findByRole("button", { name: "Result 1, photo by Person 1" }));
-    await userEvent.click(screen.getByRole("button", { name: "Use this image" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Could not download or convert that file.");
-    // The panel stays open so another result can be tried.
-    expect(screen.getByRole("region", { name: "Pick another image (sense 1)" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "No image" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not remove that picture.");
   });
 });
 
@@ -225,26 +160,6 @@ describe("full-size viewer (TASK-77)", () => {
 
     await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
-
-  it("opens a Pick-another result from its own zoom button, and a click on the tile still selects it", async () => {
-    renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "Pick another image" }));
-    await screen.findByRole("button", { name: "Result 2, clip by Person 2" });
-
-    await userEvent.click(screen.getByRole("button", { name: "View result 2 full size" }));
-
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByLabelText("run · sense 1")).toHaveAttribute("src", "https://cdn.pixabay.com/x/2");
-    expect(dialog).toHaveTextContent("run · sense 1 · Clip by Person 2 on Pixabay");
-    // Zooming did not select the tile.
-    expect(screen.getByRole("button", { name: "Result 2, clip by Person 2", hidden: true })).toHaveAttribute("aria-pressed", "false");
-
-    await userEvent.keyboard("{Escape}");
-    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
-    await userEvent.click(screen.getByRole("button", { name: "Result 2, clip by Person 2" }));
-    expect(screen.getByRole("button", { name: "Result 2, clip by Person 2" })).toHaveAttribute("aria-pressed", "true");
-  });
-
 });
 
 describe("picture review (TASK-80)", () => {

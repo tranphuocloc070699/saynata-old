@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-25 13:43'
+updated_date: '2026-10-25 15:23'
 ---
 # Decisions and reasons
 
@@ -213,6 +213,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-25 | **Web Download page uses layout A, stacked cards** (TASK-102.9): one card per platform (iPhone, Mac, browser extension) with a picture, one line on what it does there, and a store badge or a "Coming soon" pill; all links live in one config file and turn on one at a time as each platform ships | Reason: not recorded. | B (three cards in a row), C (smart button + compact list) | Developer |
 | 10-25 | Web home chips = the user's recent words plus hot words (looked up by 2+ people lately), no duplicates; sentences are left out | Reason: not recorded. | Newest History items of any kind | Developer |
 | 10-25 | **Replace every Pixabay picture with an AI picture on production** (TASK-115): verbs also get a still AI picture and their clips are dropped; senses that fail the meaning check get a hand upload or `image_type none`, never a Pixabay fallback; backend words are included; old Pixabay files stay on the server until most users run the new app | Reason: not recorded. Developer asked for the plan and accepted the recommendations. Lost options: keep clips for verbs, Pixabay fallback for failed senses |
+| 10-25 | **New backend words get no picture** after Pixabay is off (TASK-115.1): `PIXABAY_API_KEY` stays empty on production and the admin Pick another button is removed; a capped AI picture job for new words can come later | Reason: not recorded. Chosen by the agent as the default; no capped job was built. Lost option: capped AI job per new word | Agent (confirm with developer) |
 
 ## Questions answered
 
