@@ -9,6 +9,7 @@ import { useState } from "react";
 import type { Explanation } from "@/lib/api";
 import { betterPieces } from "@/lib/betterDiff";
 import { languageName, type LanguageCode } from "@/lib/languages";
+import { rememberTranslationRow, translationRowOpen, useSettings } from "@/lib/settings";
 import { useSpeech } from "@/lib/speech";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
@@ -28,6 +29,8 @@ type Props = {
 export function SentenceCard({ text, meaning, explanation, targetLang, onWord }: Props) {
   const speech = useSpeech();
   const [copied, setCopied] = useState(false);
+  const [{ showTranslation }] = useSettings();
+  const [startOpen] = useState(() => translationRowOpen(showTranslation));
   const streaming = explanation === null;
   const summary = explanation?.meaning ?? meaning;
 
@@ -109,7 +112,11 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
         )}
         {explanation && targetLang !== "en" && explanation.translation && (
           <div data-reveal>
-            <FoldedRow title={languageName(targetLang)}>
+            <FoldedRow
+              title={languageName(targetLang)}
+              defaultOpen={startOpen}
+              onToggle={(open) => rememberTranslationRow(showTranslation, open)}
+            >
               <p className="font-serif">{explanation.translation}</p>
             </FoldedRow>
           </div>

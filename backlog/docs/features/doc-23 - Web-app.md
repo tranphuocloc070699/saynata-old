@@ -169,6 +169,17 @@ sequenceDiagram
 Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
 [auth.ts:266](../../../web/src/lib/auth.ts#L266). The backend must list both in `GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS` (doc-11 section 13, doc-17).
 
+## Settings (TASK-102.7)
+
+`/settings` ([page.tsx](../../../web/src/app/settings/page.tsx), [SettingsForm.tsx](../../../web/src/components/settings/SettingsForm.tsx)) has two cards: **Translation** (Language select from `languages.ts`; Show translation as a pill: Collapsed, Always open, Remember) and **History** (Sync history switch: "Keep your history the same on phone, Mac and web."). Defaults: Remember, sync on.
+
+| Step | File | What happens |
+|---|---|---|
+| Store | [settings.ts:92](../../../web/src/lib/settings.ts#L92) | `SettingsStore`: the snapshot is in localStorage (`saynata.settings`; the language keeps `saynata.targetLang`, so the homepage reads it as before). `update(patch)` applies at once and, when signed in, sends `PUT /api/me/settings` in the background; a failed send keeps the local value |
+| Load | [settings.ts:118](../../../web/src/lib/settings.ts#L118) | `load()` reads `GET /api/me/settings` when signed in (page open, `Home`); a guest or a failed request keeps the local settings. One retry after a 401 |
+| Guest | settings.ts | A guest's settings never leave the browser |
+| Show translation | [translationRowOpen](../../../web/src/lib/settings.ts#L190) | Word and sentence cards start the language row open (Always open), closed (Collapsed) or as the user left the last one (Remember, `saynata.translationOpen`). Values are the backend's: `collapsed`, `alwaysOpen`, `remember` |
+
 ## Errors
 
 | Cause | Where | HTTP | What the user sees |
@@ -192,6 +203,7 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 | `web/test/textKind.test.ts` | Word or sentence |
 | `web/test/mochi.test.ts` | The five choices have equal shares, Box picks one of three, the visit keeps its cat, a missing file means fallback, `steps()` and frame 1 with reduced motion in `globals.css` |
 | `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
+| `web/test/settings.test.ts` | Account load and save (Bearer, PUT body, one retry after 401, unknown values), a guest keeps localStorage and sends nothing, a signed-in change applies at once, a failed load keeps the local settings, `translationRowOpen` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
 
 ## Change checklist
@@ -203,7 +215,7 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 
 ## Known gaps
 
-- Only the homepage and sign-in exist. Word page (`/word/run`), Introduction, History & Liked, Settings, Privacy & Terms and 404 are TASK-102.
+- Only the homepage and sign-in exist. Word page (`/word/run`), Introduction, History & Liked, Privacy & Terms and 404 are TASK-102.
 - A guest's miss ends with a message and a link to `/sign-in`, not a sign-in sheet. No Like star and no History yet.
 - A guest sees a language line only when the backend already has it (TASK-106.5 fills them all); signed in, a missing line comes from Claude.
 - The `deploy-web` check fails until the developer adds the DNS record and the Caddy block once (doc-11 section 14); the repo does not manage the Caddyfile.

@@ -9,6 +9,7 @@ import { SaynataApi, type Suggestion } from "@/lib/api";
 import { browserTokens } from "@/lib/auth";
 import { fetchResult, startState, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
+import { settingsStore } from "@/lib/settings";
 import { useSync } from "@/lib/useSync";
 import { useTargetLanguage } from "@/lib/targetLanguage";
 import { Alert } from "../icons";
@@ -28,7 +29,9 @@ export function Home() {
   const router = useRouter();
   const pathname = usePathname();
   const query = useSearchParams().get("q")?.trim() ?? "";
-  const [targetLang, setTargetLang] = useTargetLanguage();
+  const [targetLang] = useTargetLanguage();
+  // The account's settings load once; a language picked here goes to the account too.
+  useEffect(() => void settingsStore.load(), []);
   /** Bumped by a submit of the same text, so "try again" runs the search again. */
   const [attempt, setAttempt] = useState(0);
   /** A word tapped in the sentence result, shown in the sheet over it; the search itself does not change. */
@@ -160,7 +163,7 @@ export function Home() {
           onChange={setText}
           onSubmit={() => submit(text)}
           targetLang={targetLang}
-          onLanguage={setTargetLang}
+          onLanguage={(code) => settingsStore.update({ targetLanguage: code })}
           mood={mood}
         />
 
