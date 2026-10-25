@@ -147,7 +147,7 @@ class ClaudeServiceTest {
 
         assertThatThrownBy(() -> ClaudeService.toExplanation(notEnglish))
                 .isInstanceOf(NotEnglishException.class)
-                .hasMessage("This doesn't look like English. Type an English word or sentence.");
+                .hasMessage("This does not look like a word or a sentence. Check the spelling.");
     }
 
     @Test
@@ -232,7 +232,24 @@ class ClaudeServiceTest {
     void noneIsRejectedAsCodeOrGibberish() {
         SentenceAnswer answer = new SentenceAnswer("none", "", "", "", "", "");
 
-        assertThatThrownBy(() -> ClaudeService.toExplanation(answer)).isInstanceOf(NotEnglishException.class);
+        assertThatThrownBy(() -> ClaudeService.toExplanation(answer)).isInstanceOf(NotEnglishException.class)
+                .extracting("code").isEqualTo("not_a_word");
+    }
+
+    @Test
+    void nameIsRejectedWithItsOwnCode() {
+        SentenceAnswer answer = new SentenceAnswer("name", "", "", "", "", "");
+
+        assertThatThrownBy(() -> ClaudeService.toExplanation(answer)).isInstanceOf(NotEnglishException.class)
+                .hasMessage("This looks like a person's name, so there is nothing to explain.")
+                .extracting("code").isEqualTo("a_name");
+    }
+
+    @Test
+    void otherLanguageWithBlankEnglishIsNotAWord() {
+        SentenceAnswer answer = new SentenceAnswer("vi", " ", "", "Something.", "", "");
+
+        assertThatThrownBy(() -> ClaudeService.toExplanation(answer)).extracting("code").isEqualTo("not_a_word");
     }
 
     @Test

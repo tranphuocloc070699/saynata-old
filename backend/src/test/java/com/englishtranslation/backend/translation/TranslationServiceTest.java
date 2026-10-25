@@ -127,11 +127,11 @@ class TranslationServiceTest {
     @Test
     void textThatIsNotEnglishIsNotCachedAndAsksClaudeAgainNextTime() {
         when(claude.explainSentence("for (int i = 0; i < n; i++) {}"))
-                .thenThrow(new NotEnglishException());
+                .thenThrow(NotEnglishException.notAWord());
 
         assertThatThrownBy(() -> service.translate("for (int i = 0; i < n; i++) {}", TargetLanguage.VI))
                 .isInstanceOf(NotEnglishException.class)
-                .hasMessage("This doesn't look like English. Type an English word or sentence.");
+                .hasMessage("This does not look like a word or a sentence. Check the spelling.");
         assertThatThrownBy(() -> service.translate("for (int i = 0; i < n; i++) {}", TargetLanguage.VI))
                 .isInstanceOf(NotEnglishException.class);
 

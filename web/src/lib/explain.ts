@@ -11,7 +11,14 @@ export type Result =
   | { kind: "idle" }
   | { kind: "loading"; query: string }
   | { kind: "word"; query: string; word: WordResponse }
-  | { kind: "sentence"; query: string; meaning: string | null; explanation: Explanation | null }
+  | {
+      kind: "sentence";
+      query: string;
+      meaning: string | null;
+      explanation: Explanation | null;
+      /** The language of `explanation.translation`; after a language change only that line is fetched again. */
+      lang?: LanguageCode;
+    }
   | { kind: "error"; query: string; message: string };
 
 export const SIGN_IN_MESSAGE =
@@ -139,7 +146,25 @@ async function explainSentence(
     query: text,
     meaning: response.explanation.meaning,
     explanation: response.explanation,
+    lang: targetLang,
   }));
+}
+
+/**
+ * The language line of a shown sentence in another language, so a language change keeps the result on screen
+ * and only the language row waits. A failure gives "" (no row), like a guest with no cached line.
+ */
+export async function fetchTranslation(
+  api: Pick<SaynataApi, "explainOnce">,
+  text: string,
+  targetLang: LanguageCode,
+  signal: AbortSignal,
+): Promise<string> {
+  try {
+    return (await api.explainOnce(text, targetLang, signal)).explanation.translation;
+  } catch {
+    return "";
+  }
 }
 
 export function errorMessage(error: unknown): string {

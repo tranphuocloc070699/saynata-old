@@ -93,7 +93,9 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(NotEnglishException.class)
     public ProblemDetail handleNotEnglish(NotEnglishException e) {
-        return ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_CONTENT, e.getMessage());
+        problem.setProperty("code", e.code());
+        return problem;
     }
 
     @ExceptionHandler(AnthropicServiceException.class)

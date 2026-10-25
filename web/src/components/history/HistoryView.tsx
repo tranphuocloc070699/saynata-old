@@ -6,10 +6,11 @@
  */
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
-import { groupByDay, itemKey, liveItems, searchItems, syncedAgo, type SyncItem } from "@/lib/sync";
+import { groupByDay, liveItems, searchItems, syncedAgo } from "@/lib/sync";
 import { useSync } from "@/lib/useSync";
 import { IconButton } from "../IconButton";
-import { Close, Search, Star, Trash } from "../icons";
+import { Search, Trash } from "../icons";
+import { GLASS, GlassList, HistoryRow, isLiked } from "./HistoryRows";
 
 type Tab = "history" | "liked";
 
@@ -37,7 +38,7 @@ export function HistoryView() {
     <section className="flex flex-col gap-4">
       <h1 className="sr-only">History and Liked</h1>
       <div className="flex items-center gap-2">
-        <div role="group" aria-label="List" className="flex flex-1 rounded-full bg-tag p-1">
+        <div role="group" aria-label="List" className={`flex flex-1 rounded-full p-1 ${GLASS}`}>
           {(["history", "liked"] as const).map((value) => (
             <button
               key={value}
@@ -45,7 +46,7 @@ export function HistoryView() {
               aria-pressed={tab === value}
               onClick={() => setTab(value)}
               className={`min-h-9 flex-1 cursor-pointer rounded-full text-sm font-medium transition-colors ${
-                tab === value ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink"
+                tab === value ? "bg-surface/90 text-ink shadow-sm" : "text-muted hover:text-ink"
               }`}
             >
               {value === "history" ? "History" : "Liked"}
@@ -60,7 +61,7 @@ export function HistoryView() {
         />
       </div>
 
-      <label className="flex min-h-11 items-center gap-2 rounded-full border border-hairline bg-surface px-4 focus-within:border-accent">
+      <label className={`flex min-h-11 items-center gap-2 rounded-2xl px-4 focus-within:border-accent ${GLASS}`}>
         <Search className="size-4 shrink-0 text-muted" />
         <input
           type="search"
@@ -83,12 +84,12 @@ export function HistoryView() {
       ) : (
         groups.map((group) => (
           <div key={group.title} className="flex flex-col">
-            <h2 className="px-1 pb-1 text-[0.7rem] font-semibold tracking-wider text-muted uppercase">{group.title}</h2>
-            <ul className="flex flex-col divide-y divide-hairline rounded-2xl border border-hairline bg-surface">
+            <h2 className="px-1 pb-1.5 text-[0.8125rem] font-semibold text-muted">{group.title}</h2>
+            <GlassList>
               {group.items.map((item) => (
-                <Row key={itemKey(item.kind, item.text)} item={item} tab={tab} liked={isLiked(state.liked, item)} store={store} />
+                <HistoryRow key={`${item.kind}:${item.text}`} item={item} tab={tab} liked={isLiked(state.liked, item)} store={store} />
               ))}
-            </ul>
+            </GlassList>
           </div>
         ))
       )}
@@ -98,56 +99,6 @@ export function HistoryView() {
         {state.queue.length > 0 && ` · ${state.queue.length} waiting to send`}
       </p>
     </section>
-  );
-}
-
-function isLiked(liked: Record<string, SyncItem>, item: SyncItem): boolean {
-  const row = liked[itemKey(item.kind, item.text)];
-  return !!row && !row.deleted;
-}
-
-function Row({
-  item,
-  tab,
-  liked,
-  store,
-}: {
-  item: SyncItem;
-  tab: Tab;
-  liked: boolean;
-  store: NonNullable<ReturnType<typeof useSync>["store"]>;
-}) {
-  return (
-    <li className="flex items-center gap-1 pr-1 pl-4">
-      <Link
-        href={`/?q=${encodeURIComponent(item.text)}`}
-        className="flex min-w-0 flex-1 flex-col gap-0.5 py-3 hover:text-accent"
-      >
-        <span className="flex items-center gap-2">
-          <span className="truncate font-semibold">{item.text}</span>
-          {item.chip && (
-            <span className="shrink-0 rounded-full bg-tag px-2 py-0.5 text-xs font-medium text-ink-2">{item.chip}</span>
-          )}
-        </span>
-        {item.preview && <span className="truncate font-serif text-sm text-ink-2">{item.preview}</span>}
-      </Link>
-      <IconButton
-        variant="plain"
-        label={liked ? "Remove from Liked" : "Add to Liked"}
-        icon={<Star filled={liked} className="size-5" />}
-        active={liked}
-        aria-pressed={liked}
-        onClick={() => store.toggleLike(item.kind, item.text, item.preview, item.chip)}
-      />
-      {tab === "history" && (
-        <IconButton
-          variant="plain"
-          label="Remove from History"
-          icon={<Close className="size-5" />}
-          onClick={() => store.removeHistory(item.kind, item.text)}
-        />
-      )}
-    </li>
   );
 }
 

@@ -135,8 +135,8 @@ function SenseCard({
   const media = sense.imageUrl && isAllowedMedia(sense.imageUrl) ? sense.imageUrl : null;
   return (
     <section data-reveal className="border-b border-hairline pt-3">
-      <div className="flex items-start gap-3 pb-3">
-        <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-tag text-xs font-bold text-ink-2">
+      <div className="flex items-start gap-4 pb-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-on-accent">
           {number}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
