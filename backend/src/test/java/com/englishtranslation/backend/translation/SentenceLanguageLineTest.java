@@ -91,11 +91,11 @@ class SentenceLanguageLineTest {
 
         service.translate("Hello there", TargetLanguage.VI);
 
-        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey("v11", "Hello there")).orElseThrow();
-        assertThat(row.getPromptVersion()).isEqualTo("v11");
+        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey("v13", "Hello there")).orElseThrow();
+        assertThat(row.getPromptVersion()).isEqualTo("v13");
         assertThat(row.getTargetLang()).isEqualTo("en");
         assertThat(row.getTranslation()).isEmpty();
-        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey("v11", "hello there"));
+        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey("v13", "hello there"));
     }
 
     @Test

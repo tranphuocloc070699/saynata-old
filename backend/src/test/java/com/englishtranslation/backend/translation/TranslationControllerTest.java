@@ -119,14 +119,28 @@ class TranslationControllerTest {
 
     @Test
     void textThatIsNotEnglishGivesA422WithAClearMessage() throws Exception {
-        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(new NotEnglishException());
+        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(NotEnglishException.notAWord());
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\": \"asdkj qwe zzxq\", \"targetLang\": \"vi\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail")
-                        .value("This doesn't look like English. Type an English word or sentence."));
+                        .value("This does not look like a word or a sentence. Check the spelling."))
+                .andExpect(jsonPath("$.code").value("not_a_word"));
+    }
+
+    @Test
+    void aPersonsNameGivesA422WithTheNameCode() throws Exception {
+        when(claude.explainSentence("John Smith")).thenThrow(NotEnglishException.aName());
+
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"John Smith\", \"targetLang\": \"vi\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail")
+                        .value("This looks like a person's name, so there is nothing to explain."))
+                .andExpect(jsonPath("$.code").value("a_name"));
     }
 
     @Test

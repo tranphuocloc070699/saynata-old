@@ -107,7 +107,7 @@ class ClaudeServiceJsonInPromptTest {
         assertThat(explanation.meaning()).isEqualTo("I stopped trying after a week.");
         assertThat(requests.get(0)).doesNotContain("output_config")
                 .contains("Answer with ONLY one JSON object")
-                .contains("isEnglish").contains("summary").doesNotContain("\"translation\"");
+                .contains("sourceLang").contains("wordMatch").contains("summary").doesNotContain("\"translation\"");
         verify(usage).record(Feature.SENTENCE, "gpt-6-luna", 100, 40);
     }
 

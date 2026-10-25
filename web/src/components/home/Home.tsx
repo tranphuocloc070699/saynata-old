@@ -3,13 +3,14 @@
  * The homepage tool (TASK-102.1). The query lives in the address (/?q=...), so a result can be shared, reloaded
  * and reached with Back. The search itself is in lib/explain.ts; this file holds the state and the motion.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SaynataApi, type Suggestion } from "@/lib/api";
 import { browserTokens } from "@/lib/auth";
-import { fetchResult, startState, type Result } from "@/lib/explain";
+import { fetchResult, fetchTranslation, startState, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
 import { settingsStore } from "@/lib/settings";
+import { liveItems } from "@/lib/sync";
 import { useSync } from "@/lib/useSync";
 import { useTargetLanguage } from "@/lib/targetLanguage";
 import { Alert } from "../icons";
@@ -24,6 +25,10 @@ const SUGGEST_DELAY_MS = 250;
 const SUGGEST_MAX_LENGTH = 40;
 /** Cached answers, so a guest can try them (TASK-83.11 prefill). */
 const SAMPLES = ["give up", "run", "Hold on a second.", "Looks good."];
+/** A signed-in learner's empty box offers their latest lookups instead. */
+const RECENT_CHIPS = 10;
+/** How long the box stays empty before the shown result is removed. */
+const RESET_DELAY_MS = 400;
 
 export function Home() {
   const router = useRouter();
@@ -42,8 +47,9 @@ export function Home() {
   const [suggested, setSuggested] = useState<{ prefix: string; list: Suggestion[] }>({ prefix: "", list: [] });
   const root = useRef<HTMLDivElement>(null);
 
-  // A new search (address, language or retry): show its first state now, during render, not in an effect.
-  const runKey = `${query}|${targetLang}|${attempt}`;
+  // A new search (address or retry): show its first state now, during render, not in an effect. A language
+  // change is not a new search: the result stays and only its language row loads again (below).
+  const runKey = `${query}|${attempt}`;
   const [shownKey, setShownKey] = useState(runKey);
   const [shownQuery, setShownQuery] = useState(query);
   if (shownKey !== runKey) {
@@ -56,7 +62,7 @@ export function Home() {
   }
 
   // A finished lookup goes to History (shown at once, sent in a batch; TASK-102.6). A guest has no store.
-  const { store: syncStore } = useSync();
+  const { store: syncStore, state: syncState } = useSync();
   const recorded = useRef<Result | null>(null);
   useEffect(() => {
     if (!syncStore || recorded.current === result) return;
@@ -71,11 +77,32 @@ export function Home() {
   }, [result, syncStore]);
 
   // ...and fetch it. Every state from here on comes from a network callback.
+  // The language is read when the search starts, so changing it does not start the search again.
+  const startSearch = useEffectEvent((signal: AbortSignal) => fetchResult(api, query, targetLang, setResult, signal));
   useEffect(() => {
     const controller = new AbortController();
-    void fetchResult(api, query, targetLang, setResult, controller.signal);
+    void startSearch(controller.signal);
     return () => controller.abort();
-  }, [query, targetLang, attempt]);
+  }, [query, attempt]);
+
+  // A sentence shown in another language: fetch only its language line. A word's row loads by itself (WordCard).
+  const lineQuery =
+    result.kind === "sentence" && result.explanation && result.lang !== targetLang && targetLang !== "en"
+      ? result.query
+      : null;
+  useEffect(() => {
+    if (lineQuery === null) return;
+    const controller = new AbortController();
+    void fetchTranslation(api, lineQuery, targetLang, controller.signal).then((translation) => {
+      if (controller.signal.aborted) return;
+      setResult((current) =>
+        current.kind === "sentence" && current.query === lineQuery && current.explanation
+          ? { ...current, lang: targetLang, explanation: { ...current.explanation, translation } }
+          : current,
+      );
+    });
+    return () => controller.abort();
+  }, [lineQuery, targetLang]);
 
   const submit = (value: string) => {
     const clean = value.trim();
@@ -83,6 +110,14 @@ export function Home() {
     if (clean === query) setAttempt((n) => n + 1);
     else router.push(`${pathname}?q=${encodeURIComponent(clean)}`, { scroll: false });
   };
+
+  // The box was emptied: after a short pause remove the result and go back to the start page.
+  const emptied = text.trim() === "" && query !== "";
+  useEffect(() => {
+    if (!emptied) return;
+    const timer = setTimeout(() => router.push(pathname, { scroll: false }), RESET_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [emptied, pathname, router]);
 
   // Suggestions while typing: only from the bundle and the cache, so they cost nothing (GET /api/suggest).
   const prefix = text.trim();
@@ -134,7 +169,11 @@ export function Home() {
     { scope: root, dependencies: [result] },
   );
 
-  const chips = suggestions.length > 0 ? suggestions.map((s) => s.text) : result.kind === "idle" && !text ? SAMPLES : [];
+  const recent = liveItems(syncState.history)
+    .slice(0, RECENT_CHIPS)
+    .map((item) => item.text);
+  const startChips = recent.length > 0 ? recent : SAMPLES;
+  const chips = suggestions.length > 0 ? suggestions.map((s) => s.text) : result.kind === "idle" && !text ? startChips : [];
 
   // Motion 3: suggestions and sample chips fan out quickly when the list changes.
   useGSAP(
@@ -168,7 +207,7 @@ export function Home() {
         />
 
         {chips.length > 0 && (
-          <ul aria-label={suggestions.length > 0 ? "Suggestions" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
+          <ul aria-label={suggestions.length > 0 ? "Suggestions" : recent.length > 0 ? "Recent" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
             {chips.map((chip) => (
               <li key={chip} className="chip-item">
                 <button
@@ -202,6 +241,7 @@ export function Home() {
             meaning={result.meaning}
             explanation={result.explanation}
             targetLang={targetLang}
+            translating={lineQuery !== null}
             onWord={setSheetWord}
           />
         )}
