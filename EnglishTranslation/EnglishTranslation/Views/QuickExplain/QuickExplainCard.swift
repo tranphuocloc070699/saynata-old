@@ -61,7 +61,7 @@ struct QuickExplainCard: View {
             }
 
         case let .sentence(sentence, explanation):
-            header { QuotedSentence(text: sentence) }
+            header { QuotedSentence(text: explanation.englishHeadline ?? sentence) }
             Meaning(text: explanation.meaning)
             targetLanguageLine(language.title, text: explanation.translation)
 

@@ -18,6 +18,26 @@ struct Explanation: Codable, Equatable, Sendable {
     var betterWhy: String? = nil
     /// The whole sentence in the target language.
     let translation: String
+    /// The natural English version of text typed in another language (TASK-114). Nil for English text, and for
+    /// answers saved before prompt v12. It takes the place of the typed text at the top of the result.
+    var english: String? = nil
+    /// The language the text was typed in, a lowercase ISO code such as "vi". Nil for English text.
+    var sourceLang: String? = nil
+    /// For one non-English word, phrasal verb or idiom: the English headword to open as a word card ("buồn" gives "sad").
+    /// Nil when there is none.
+    var wordMatch: String? = nil
+
+    /// The English version to show at the top, or nil when the typed text should show (English input, or an empty field).
+    var englishHeadline: String? {
+        guard let english = english?.trimmingCharacters(in: .whitespacesAndNewlines), !english.isEmpty else { return nil }
+        return english
+    }
+
+    /// The word or phrase to open as a word card, or nil when the sentence result should show.
+    var wordMatchQuery: String? {
+        guard let match = wordMatch?.trimmingCharacters(in: .whitespacesAndNewlines), !match.isEmpty else { return nil }
+        return match
+    }
 
     /// One difficult word or phrase from the sentence.
     struct Word: Codable, Equatable, Sendable, Identifiable {
