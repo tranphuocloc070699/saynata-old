@@ -4,6 +4,7 @@
  * the cat on its top edge. Enter sends, Shift+Enter adds a line.
  */
 import { useId, useState, type KeyboardEvent, type SyntheticEvent } from "react";
+import { chipKeyAction, type ChipKeyAction } from "@/lib/chipKeys";
 import { MAX_SENTENCE_LENGTH } from "@/lib/textKind";
 import { LANGUAGES, type LanguageCode } from "@/lib/languages";
 import { IconButton } from "../IconButton";
@@ -20,9 +21,16 @@ type Props = {
   mood: CatMood;
   /** The rest of the top suggestion, shown grey after the typed text. Tab accepts it. Empty = none. */
   ghost?: string;
+  /** The chip list under the box: how many chips, the highlighted one (-1 none), and the ARIA ids. */
+  chipCount?: number;
+  highlight?: number;
+  listboxId?: string;
+  activeId?: string;
+  /** Arrow, Enter or Esc on the chips. Alt+digit is handled by the page, not here. */
+  onChipKey?: (action: ChipKeyAction) => void;
 };
 
-export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mood, ghost = "" }: Props) {
+export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mood, ghost = "", chipCount = 0, highlight = -1, listboxId, activeId, onChipKey }: Props) {
   const inputId = useId();
   const tooLong = value.length > MAX_SENTENCE_LENGTH;
   const canSend = value.trim().length > 0 && !tooLong;
@@ -36,10 +44,15 @@ export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mo
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Tab is taken only when there is a grey completion. Otherwise it moves the focus as usual.
-    if (event.key === "Tab" && !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && showGhost) {
+    const action = chipKeyAction(event.nativeEvent, { chipCount, highlight, ghost, caretAtEnd });
+    if (action.type === "acceptGhost") {
       event.preventDefault();
       onChange(value + ghost);
+      return;
+    }
+    if (action.type !== "none" && action.type !== "pick") {
+      event.preventDefault();
+      onChipKey?.(action);
       return;
     }
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
@@ -89,6 +102,11 @@ export function Composer({ value, onChange, onSubmit, targetLang, onLanguage, mo
             }}
             onSelect={readCaret}
             onKeyDown={onKeyDown}
+            role="combobox"
+            aria-expanded={chipCount > 0}
+            aria-controls={listboxId}
+            aria-activedescendant={highlight >= 0 ? activeId : undefined}
+            aria-autocomplete="list"
             rows={2}
             placeholder="Type or paste text to get something interesting"
             autoComplete="off"
