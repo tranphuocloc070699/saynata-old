@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-25 09:23'
-updated_date: '2026-10-25 11:57'
+updated_date: '2026-10-25 12:39'
 labels: []
 dependencies:
   - TASK-114.1
@@ -40,5 +40,5 @@ iOS and Mac part of TASK-114. Today a single non-English token goes to the word 
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Developer decision 2026-10-25: NO new UI. Keep the current sentence card and word card exactly as they are. The headline slot (where the typed sentence shows today) shows the English version (explanation.english) when present; the rest is unchanged: simple summary, then the target-language row. No 'From <language>' note or chip, so the mockup step is not needed. wordMatch opens the normal word card. English input unchanged.
+Checked, no change needed: a 422 shows the server text ('<detail> (status 422)', BackendError.badStatus), and TranslationStore.lookUpWord already falls back to the sentence API on WordLookupError.notAnEnglishWord (also the 200-empty case). Only PromptVersions.sentence moved to v13, done in TASK-114.6.
 <!-- SECTION:NOTES:END -->

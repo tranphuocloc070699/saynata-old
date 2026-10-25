@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-25 07:47'
+updated_date: '2026-10-25 12:39'
 ---
 # Decisions and reasons
 
@@ -207,6 +207,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-25 | **Headword in the word language row, translated per sense** (TASK-106.8, doc-5): the open row shows the headword in the user's language in bold above the definition line. Technical choice (Claude's, per the brief): headword rows stay apart in `line_translation` with `prompt_version` `headword-v1` (`app.claude.headword-prompt-version`); one call still fills lines and headwords for all 7 languages | The developer chose the mockup (bold headword above the definition line). "The learner sees the word itself in their language, and bank must be 銀行 or 土手 by meaning." Separate rows keep the v1 lines and the Codex backfill reachable, and need no migration | One headword per word (wrong for *bank*); bump `line-prompt-version` to v2 (the v1 lines and the Codex backfill would become unreachable); a new table or column (more code and a migration) | Developer (design), Claude (storage) |
 | 10-25 | **Web header option B (History icon + avatar menu)** (TASK-102.8): signed in, the header has a History icon button and an avatar circle with the first letter of the email; the avatar opens a menu with the email, Settings, Account and Sign out; the email is never in the header; a guest sees only "Sign in" | Reason: not recorded. | Option A and option C of the header mockup | Developer |
 | 10-25 | **Non-English input is no longer rejected** (TASK-114): the app detects the language and shows the natural English version first, then the simple explanation and the target-language line; code and gibberish still get 422. A single non-English word, phrasal verb or idiom opens the English word card ("buồn" → "sad") | Learners type what they want to say in their own language when they do not know the English yet. Single item: "open the English word card if the single non-English word, the same with phrasal verb, idiom". | Keep the 422 for every non-English text (TASK-21); treat a single non-English word as a sentence | Developer |
+| 10-25 | **A person's name alone gets its own message** (TASK-114.6): text that is only a person's name is a 422 with code `a_name` ("This looks like a person's name, so there is nothing to explain."); code and gibberish are a 422 with code `not_a_word`. Everything else is explained in any language | The developer asked for it: say clearly when the text is not a word, and when it is only a name. | One shared message for names and gibberish | Developer |
 
 ## Questions answered
 
