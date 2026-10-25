@@ -125,6 +125,27 @@ class TranslationServiceTest {
     }
 
     @Test
+    void realWordsCalledNoneAreAskedAgainWithANote() {
+        when(claude.explainSentence("smear unction")).thenThrow(NotEnglishException.notAWord());
+        when(claude.explainSentenceOfRealWords("smear unction")).thenReturn(sample("To rub holy oil on something"));
+
+        TranslationResponse response = service.translate("smear unction", TargetLanguage.VI);
+
+        assertThat(response.explanation().meaning()).isEqualTo("To rub holy oil on something");
+        assertThat(repository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void gibberishIsNotAskedAgainEvenWhenSomeWordsAreReal() {
+        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(NotEnglishException.notAWord());
+
+        assertThatThrownBy(() -> service.translate("asdkj qwe zzxq", TargetLanguage.VI))
+                .isInstanceOf(NotEnglishException.class);
+
+        verify(claude, never()).explainSentenceOfRealWords(anyString());
+    }
+
+    @Test
     void textThatIsNotEnglishIsNotCachedAndAsksClaudeAgainNextTime() {
         when(claude.explainSentence("for (int i = 0; i < n; i++) {}"))
                 .thenThrow(NotEnglishException.notAWord());

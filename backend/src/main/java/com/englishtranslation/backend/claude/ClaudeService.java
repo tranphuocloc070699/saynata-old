@@ -247,6 +247,20 @@ public class ClaudeService {
         }
 
         /**
+         * The second try for a text the model called "none" although every word in it is a real English word
+         * (a rare word in an odd phrase, like "smear unction"). The note tells the model to explain it anyway.
+         * Not streamed: the first answer was empty, so the user has seen nothing yet.
+         */
+        public Explanation explainSentenceOfRealWords(String text) {
+                String message = sentenceMessage(text) + "\n<note>Every word in this text is a real English word, so"
+                                + " it is not random letters. Set sourceLang to \"en\" and explain what the words"
+                                + " mean together, even if the phrase is rare or unusual.</note>";
+                MessageCreateParams params = withSentenceTemperature(
+                                jsonInPromptParams(SENTENCE_PROMPT, SentenceAnswer.class, message, 4000L));
+                return toExplanation(askForJson(Feature.SENTENCE, params, SentenceAnswer.class));
+        }
+
+        /**
          * Same request as {@link #explainSentence}, but Claude's answer is streamed. Every piece of JSON text is
          * given to {@code onText} as soon as it arrives. When the stream ends, the whole answer is read and
          * checked exactly as in {@link #explainSentence}. Throws {@link NotEnglishException} too.
