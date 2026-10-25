@@ -43,6 +43,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -53,9 +54,13 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      # ffmpeg is for the converter test (it is skipped without ffmpeg).
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      # ffmpeg is for the converter test (it is skipped without ffmpeg). On 2026-10-24 this step took 18 minutes
+      # because the Ubuntu mirror was slow (the tests themselves took 2.5). So it has a time limit, and a failed
+      # install only skips that test.
+      - run: sudo apt-get install -y --no-install-recommends ffmpeg
         working-directory: .
+        timeout-minutes: 4
+        continue-on-error: true
       # Tests use H2, a mocked ClaudeService and a fake Pixabay: no Docker or API key needed.
       - run: ./mvnw -B test
 
