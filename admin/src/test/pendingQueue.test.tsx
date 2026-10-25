@@ -49,7 +49,22 @@ function renderWords(schedule: PrefillSchedule = { on: true, cron: "0 0 20 * * *
     queue = [];
     return { data: { ...lantern, status: "skipped" } };
   });
-  const custom = vi.fn().mockImplementation(async () => ({ data: { running: false, maxUsdPerRun: 0.5, spentTodayUsd: 0, schedule } }));
+  let running = false;
+  const post = vi.spyOn(httpClient, "post").mockImplementation(async () => {
+    running = true;
+    return { data: { started: true } };
+  });
+  const bySource = [
+    { source: "sentence-words", byStatus: { pending: 1, done: 4 } },
+    { source: "scowl-70", byStatus: { pending: 1200 } },
+    { source: "oewn-2025", byStatus: { pending: 0, done: 9 } },
+  ];
+  const lastRuns = [
+    { trigger: "schedule", startedAt: "2026-10-24T20:00:00Z", finishedAt: "2026-10-24T20:05:00Z", spentUsd: 0.04, done: 12, failed: 0, stoppedBecause: "queue-empty" },
+  ];
+  const custom = vi.fn().mockImplementation(async () => ({
+    data: { running, maxUsdPerRun: 0.5, spentTodayUsd: 0, bySource, lastRuns, schedule },
+  }));
   const dataProvider = { getList, custom, getApiUrl: () => API } as unknown as DataProvider;
   render(
     <MemoryRouter>
@@ -58,7 +73,7 @@ function renderWords(schedule: PrefillSchedule = { on: true, cron: "0 0 20 * * *
       </Refine>
     </MemoryRouter>,
   );
-  return { getList, del };
+  return { getList, del, post };
 }
 
 async function choose(label: string) {
@@ -143,6 +158,61 @@ describe("Pending (TASK-101)", () => {
     await choose("Pending");
     const note = await screen.findByLabelText("Night job");
     await within(note).findByText(/The night job is off \(PREFILL_CRON is empty\)/);
+  });
+});
+
+describe("Run now (TASK-83.17)", () => {
+  async function openPending() {
+    await screen.findByText("house");
+    await choose("Pending");
+    return screen.findByLabelText("Night job");
+  }
+
+  it("lists only sources with pending items and shows the last run", async () => {
+    renderWords();
+    const note = await openPending();
+    const picker = within(note).getByRole("combobox", { name: "Source to run" });
+    await vi.waitFor(() => expect(within(picker).getAllByRole("option")).toHaveLength(3));
+    expect(within(picker).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "All pending sources (2)",
+      "In a sentence (1)",
+      "Common words (1,200)",
+    ]);
+    expect(within(note).getByRole("spinbutton", { name: "Cap in US dollars" })).toHaveAttribute("placeholder", "$0.50");
+    expect(note).toHaveTextContent("Last run (schedule, 2026-10-24 20:05 UTC): 12 done, 0 failed, $0.04 · stopped: queue empty");
+  });
+
+  it("starts a run with the picked source and cap, then shows it is running", async () => {
+    const { post } = renderWords();
+    const note = await openPending();
+    const picker = within(note).getByRole("combobox", { name: "Source to run" });
+    await vi.waitFor(() => expect(within(picker).getAllByRole("option")).toHaveLength(3));
+    await userEvent.selectOptions(picker, "scowl-70");
+    await userEvent.type(within(note).getByRole("spinbutton", { name: "Cap in US dollars" }), "2");
+    await userEvent.click(within(note).getByRole("button", { name: "Run prefill now" }));
+
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0][0]).toBe(`${API}/prefill/run?source=scowl-70&maxUsd=2`);
+    expect(post.mock.calls[0][2]).toMatchObject({ headers: { "Content-Type": "application/json" } });
+    expect(await within(note).findByRole("status")).toHaveTextContent("Running…");
+    expect(within(note).getByRole("button", { name: "Run prefill now" })).toBeDisabled();
+  });
+
+  it("runs every source with the server cap when nothing is picked", async () => {
+    const { post } = renderWords();
+    const note = await openPending();
+    await userEvent.click(within(note).getByRole("button", { name: "Run prefill now" }));
+    await vi.waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0][0]).toBe(`${API}/prefill/run`);
+  });
+
+  it("refuses a cap over $10 without calling the server", async () => {
+    const { post } = renderWords();
+    const note = await openPending();
+    await userEvent.type(within(note).getByRole("spinbutton", { name: "Cap in US dollars" }), "20");
+    await userEvent.click(within(note).getByRole("button", { name: "Run prefill now" }));
+    expect(await within(note).findByRole("alert")).toHaveTextContent("The cap must be more than $0 and at most $10.");
+    expect(post).not.toHaveBeenCalled();
   });
 });
 
