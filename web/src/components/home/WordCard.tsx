@@ -23,6 +23,7 @@ import { useState } from "react";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
 import { Speaker, Stop } from "../icons";
+import { LikeButton } from "./LikeButton";
 
 const LEVEL_COLOR: Record<string, string> = {
   easy: "text-level-easy bg-level-easy/15",
@@ -72,6 +73,14 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
           active={speech.speaking === word.word}
           onClick={() => speech.toggle(word.word)}
         />
+        {word.entry.senses[0] && (
+          <LikeButton
+            kind="word"
+            text={word.word}
+            preview={word.entry.senses[0].simpleDefinition}
+            chip={`${word.entry.senses[0].pos} · ${word.entry.senses[0].cefr}`}
+          />
+        )}
       </header>
       {word.entry.senses.map((sense, index) => (
         <SenseCard
