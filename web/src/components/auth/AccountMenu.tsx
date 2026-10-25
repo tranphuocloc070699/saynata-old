@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { avatarLetter } from "@/lib/account";
 import { browserTokens } from "@/lib/auth";
-import { Clock, Gear, SignOut, User } from "../icons";
+import { Clock, Download, Gear, SignOut, User } from "../icons";
 
 export function AccountMenu() {
   // The server and the first client render show nothing, so the HTML matches; the session is in localStorage.
@@ -26,12 +26,22 @@ export function AccountMenu() {
   if (!hydrated) return <div className="ml-auto h-11" />;
   if (!session) {
     return (
-      <Link
-        href="/sign-in"
-        className="ml-auto inline-flex min-h-9 items-center rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 hover:border-accent/50 hover:text-accent"
-      >
-        Sign in
-      </Link>
+      <div className="ml-auto flex items-center gap-1">
+        <Link
+          href="/download"
+          aria-label="Get the app"
+          title="Get the app"
+          className="grid size-11 shrink-0 place-items-center rounded-full text-muted hover:text-ink"
+        >
+          <Download className="size-[18px]" />
+        </Link>
+        <Link
+          href="/sign-in"
+          className="inline-flex min-h-9 items-center rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 hover:border-accent/50 hover:text-accent"
+        >
+          Sign in
+        </Link>
+      </div>
     );
   }
   return (
@@ -133,6 +143,9 @@ function AvatarMenu({ email }: { email: string }) {
           </MenuLink>
           <MenuLink href="/account" icon={<User />} onPick={() => close(false)}>
             Account
+          </MenuLink>
+          <MenuLink href="/download" icon={<Download />} onPick={() => close(false)}>
+            Get the app
           </MenuLink>
           <button
             type="button"

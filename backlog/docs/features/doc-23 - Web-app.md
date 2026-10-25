@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-25 09:29'
+updated_date: '2026-10-25 12:04'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (Download page, TASK-102.9; before that header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -171,6 +171,20 @@ sequenceDiagram
 Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
 [auth.ts:266](../../../web/src/lib/auth.ts#L266). The backend must list both in `GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS` (doc-11 section 13, doc-17).
 
+## Download (TASK-102.9)
+
+`/download` ([page.tsx](../../../web/src/app/download/page.tsx)) tells a learner Saynata is also on iPhone, Mac and as a browser extension. Heading "Take Saynata everywhere", then three stacked cards ([DownloadCards.tsx](../../../web/src/components/download/DownloadCards.tsx)): a picture tile on `bg-meaning`, the platform name, one line on what it does there, the requirement, and either a "Coming soon" pill (`bg-chip`, `text-accent`) or a store button.
+
+| Step | File | What happens |
+|---|---|---|
+| Config | [downloads.ts](../../../web/src/lib/downloads.ts) | `DOWNLOADS`: per platform `{ status: "soon" \| "live", url?, requirement }`. All three start as `soon`. **To turn one on: set `status: "live"` and `url`** (one edit). `liveUrl()` gives the link only when live and a url is set, so a "soon" platform never renders a link |
+| Device | [detectDevice](../../../web/src/lib/downloads.ts), [orderPlatforms](../../../web/src/lib/downloads.ts) | Pure functions from the User-Agent: iPhone first for an iPhone, Mac first for a Mac, the extension first for Chromium on Windows or Linux; Android, iPad and unknown keep iPhone, Mac, extension. The page reads the header on the server inside `Suspense` (Cache Components), so the heading is static and the cards stream in already ordered |
+| QR code | [page.tsx](../../../web/src/app/download/page.tsx) | Made on the server with the small `qrcode` package (SVG string, on a white tile so it scans in dark mode). Only when the iPhone card is live and the visitor is not on an iPhone; hidden below 640 px |
+| Live button | DownloadCards.tsx | `<a target="_blank" rel="noopener noreferrer">` with the store text (store buttons keep their words); a Live card shows the button, a Soon card the pill |
+| Entry points | [AccountMenu.tsx](../../../web/src/components/auth/AccountMenu.tsx) | A guest gets an icon-only download button (aria-label "Get the app") beside "Sign in"; a signed-in user gets "Get the app" in the avatar menu |
+
+Tests: `web/test/downloads.test.ts` (device detection and order, soon renders no link, live renders the url with `_blank` and `noopener`, QR only for a non-iPhone visitor). `vitest.config.ts` got the `@/` alias for it.
+
 ## Settings (TASK-102.7)
 
 `/settings` ([page.tsx](../../../web/src/app/settings/page.tsx), [SettingsForm.tsx](../../../web/src/components/settings/SettingsForm.tsx)) has two cards: **Translation** (Language select from `languages.ts`; Show translation as a pill: Collapsed, Always open, Remember) and **History** (Sync history switch: "Keep your history the same on phone, Mac and web."). Defaults: Remember, sync on.
@@ -207,6 +221,7 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 | `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
 | `web/test/account.test.ts` | `AccountApi` (Bearer, DELETE, one refresh, no token, errors), `memberLine`, `statTiles`, `avatarLetter`, the guest redirect path |
 | `web/test/settings.test.ts` | Account load and save (Bearer, PUT body, one retry after 401, unknown values), a guest keeps localStorage and sends nothing, a signed-in change applies at once, a failed load keeps the local settings, `translationRowOpen` |
+| `web/test/downloads.test.ts` | Device detection and card order, soon has no link, live opens the store url in a new tab, QR only for a non-iPhone visitor |
 | `web/test/summaryMarkup.test.ts` | Bullets, bold, an unclosed `**` while streaming, `plainSummary` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
 
