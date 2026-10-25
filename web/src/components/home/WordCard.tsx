@@ -61,7 +61,7 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
   const speech = useSpeech();
   const lines = useLanguageLines(word, targetLang);
   return (
-    <article className="flex flex-col gap-3 rounded-[20px] border border-hairline bg-surface p-4 sm:p-5">
+    <article className="flex flex-col gap-3">
       <header data-reveal className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 className="text-[2rem] leading-tight font-semibold tracking-tight">{word.word}</h2>
         {word.ipa && <span className="text-muted">/{word.ipa.replace(/^\/|\/$/g, "")}/</span>}
@@ -108,14 +108,14 @@ function SenseCard({
 }) {
   const media = sense.imageUrl && isAllowedMedia(sense.imageUrl) ? sense.imageUrl : null;
   return (
-    <section data-reveal className="rounded-2xl border border-hairline px-4 pt-3">
+    <section data-reveal className="border-b border-hairline pt-3">
       <div className="flex items-start gap-3 pb-3">
-        <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-chip text-xs font-bold text-accent">
+        <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-tag text-xs font-bold text-ink-2">
           {number}
         </span>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <p className="font-serif text-[1.0625rem] leading-snug">{sense.simpleDefinition}</p>
-          <span className="self-start rounded-full bg-chip px-2.5 py-0.5 text-xs font-medium text-accent">
+          <span className="self-start rounded-full bg-tag px-2.5 py-0.5 text-xs font-medium text-ink-2">
             {sense.pos} · {sense.cefr}
           </span>
           {media && <SenseMedia url={media} />}
