@@ -212,6 +212,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-25 | Website gets History and Liked, Settings and Account pages, as in the stacked mockup (TASK-102.6 to 102.8) | Reason not recorded. | Admin users list as the "users page" | Developer |
 | 10-25 | **Web Download page uses layout A, stacked cards** (TASK-102.9): one card per platform (iPhone, Mac, browser extension) with a picture, one line on what it does there, and a store badge or a "Coming soon" pill; all links live in one config file and turn on one at a time as each platform ships | Reason: not recorded. | B (three cards in a row), C (smart button + compact list) | Developer |
 | 10-25 | Web home chips = the user's recent words plus hot words (looked up by 2+ people lately), no duplicates; sentences are left out | Reason: not recorded. | Newest History items of any kind | Developer |
+| 10-25 | **Replace every Pixabay picture with an AI picture on production** (TASK-115): verbs also get a still AI picture and their clips are dropped; senses that fail the meaning check get a hand upload or `image_type none`, never a Pixabay fallback; backend words are included; old Pixabay files stay on the server until most users run the new app | Reason: not recorded. Developer asked for the plan and accepted the recommendations. Lost options: keep clips for verbs, Pixabay fallback for failed senses |
 
 ## Questions answered
 
@@ -241,3 +242,4 @@ go here as questions.
 - 10-22: Is ignoring the final `?` in the loose sentence match OK (TASK-83.3, Claude's call)? Developer's view not recorded.
 - 10-24: Why copy the web build to the VPS (like the admin) instead of pushing an image to GHCR, and is the web app on the root domain loffy.me for good? Reason not recorded (TASK-102.2).
 - 10-25: Why web header option B (History icon + avatar menu) over A and C (TASK-102.8)? Reason not recorded.
+- 10-25: Why replace all Pixabay pictures with AI pictures, and why drop verb clips (TASK-115)? Reason not recorded.
