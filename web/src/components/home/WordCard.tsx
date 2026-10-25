@@ -47,7 +47,7 @@ function useLanguageLines(word: WordResponse, targetLang: LanguageCode) {
   function load() {
     if (!hasLanguageRow(targetLang) || state.status === "loading" || state.status === "done") return;
     setSaved({ id, state: { status: "loading" } });
-    loadLines(api, lineCache, targetLang, lineTexts(definitions))
+    loadLines(api, lineCache, targetLang, lineTexts(definitions), undefined, word.word)
       .then((result) => setSaved({ id, state: { status: "done", ...result } }))
       .catch((error: unknown) => setSaved({ id, state: { status: "error", message: lineErrorMessage(error) } }));
   }
@@ -82,6 +82,7 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
           speak={speech.toggle}
           row={lines.content}
           line={lines.content.kind === "lines" ? lines.content.lines[index] : null}
+          headword={lines.content.kind === "lines" ? lines.content.headwords[index] : null}
           loadLine={lines.load}
         />
       ))}
@@ -96,6 +97,7 @@ function SenseCard({
   speak,
   row,
   line,
+  headword,
   loadLine,
 }: {
   number: number;
@@ -104,6 +106,7 @@ function SenseCard({
   speak: (text: string) => void;
   row: RowContent;
   line: string | null;
+  headword: string | null;
   loadLine: () => void;
 }) {
   const media = sense.imageUrl && isAllowedMedia(sense.imageUrl) ? sense.imageUrl : null;
@@ -160,17 +163,28 @@ function SenseCard({
       )}
       {hasLanguageRow(targetLang) && (row.kind !== "lines" || line) && (
         <FoldedRow title={languageName(targetLang)} onToggle={(open) => open && loadLine()}>
-          <LanguageLine row={row} line={line} />
+          <LanguageLine row={row} line={line} headword={headword} />
         </FoldedRow>
       )}
     </section>
   );
 }
 
-/** The body of the language row: the line, a small loading bar, a sign-in hint for a guest, or a short error. */
-function LanguageLine({ row, line }: { row: RowContent; line: string | null }) {
+/**
+ * The body of the language row: the line, a small loading bar, a sign-in hint for a guest, or a short error.
+ * With a headword (TASK-106.8): the headword of this sense in bold, then the line in the secondary colour.
+ */
+function LanguageLine({ row, line, headword }: { row: RowContent; line: string | null; headword: string | null }) {
   switch (row.kind) {
     case "lines":
+      if (headword) {
+        return (
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold">{headword}</p>
+            <p className="font-serif text-ink-2">{line}</p>
+          </div>
+        );
+      }
       return <p className="font-serif">{line}</p>;
     case "loading":
       return (

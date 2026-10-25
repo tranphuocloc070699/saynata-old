@@ -162,6 +162,13 @@ describe("word card", () => {
       expect(rowText(state).textContent).toBe("したくない");
     });
 
+    it("with a headword: the headword in bold, then the line (TASK-106.8)", () => {
+      const state = withLines("ja", { status: "done", translations: ["したくない"], headwords: ["気が進まない"], signedIn: true });
+      const row = rowText(state);
+      expect(row.querySelector(".line-headword")?.textContent).toBe("気が進まない");
+      expect(row.querySelector(".line-text")?.textContent).toBe("したくない");
+    });
+
     it("loading: Vietnamese shows the dictionary at once, Japanese a loading bar", () => {
       expect(rowText(withLines("vi", { status: "loading" })).textContent).toBe("miễn cưỡng");
       expect(rowText(withLines("ja", { status: "loading" })).querySelector(".skeleton")).not.toBeNull();

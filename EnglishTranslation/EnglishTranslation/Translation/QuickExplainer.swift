@@ -81,7 +81,8 @@ struct QuickExplainer {
     /// The backend line for the first meaning of a word card, in the picked language. Nil for a sentence (its
     /// explanation already has the line), for English, and when the backend has no line in time: the card then uses
     /// the dictionary text (Vietnamese) or shows no line (no Apple Translation over another app).
-    func languageLine(for result: QuickExplainResult) async -> String? {
+    /// The headword of that meaning comes with it when the backend has one (TASK-106.8).
+    func languageLine(for result: QuickExplainResult) async -> LanguageLine? {
         guard language.hasTargetLanguageRow, case let .word(entry) = result,
               let english = entry.senses.first?.simpleDefinition, !english.isEmpty else { return nil }
         let language = language
@@ -91,7 +92,7 @@ struct QuickExplainer {
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let finish = OnceResumer(continuation)
             Task { @MainActor in
-                await lines.load([english], in: language)
+                await lines.load([english], headword: entry.word, in: language)
                 finish.resume()
             }
             Task { @MainActor in
@@ -99,7 +100,8 @@ struct QuickExplainer {
                 finish.resume()
             }
         }
-        return lines.line(for: english, in: language)
+        guard let line = lines.line(for: english, in: language) else { return nil }
+        return LanguageLine(line: line, headword: lines.headword(entry.word, for: english, in: language))
     }
 
     private func explainWord(_ word: String, lookup: (any WordLooking)?) async -> QuickExplainResult {

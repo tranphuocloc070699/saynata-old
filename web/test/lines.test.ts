@@ -19,7 +19,7 @@ describe("translateLines", () => {
     expect(calls[0].url).toBe(`${BASE}/api/translate-lines`);
     expect(header(calls[0], "Authorization")).toBe("Bearer abc");
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ targetLang: "ko", texts: ["a", "b"] });
-    expect(result).toEqual({ translations: ["하나", "둘"], signedIn: true });
+    expect(result).toEqual({ translations: ["하나", "둘"], headwords: [null, null], signedIn: true });
   });
 
   it("guest: cachedOnly=true and no Authorization; a miss is null", async () => {
@@ -29,13 +29,54 @@ describe("translateLines", () => {
     const result = await new SaynataApi(BASE, undefined, fetchImpl).translateLines(["a"], "ko");
     expect(calls[0].url).toBe(`${BASE}/api/translate-lines?cachedOnly=true`);
     expect(header(calls[0], "Authorization")).toBeUndefined();
-    expect(result).toEqual({ translations: [null], signedIn: false });
+    expect(result).toEqual({ translations: [null], headwords: [null], signedIn: false });
   });
 
   it("an error response throws an ApiError", async () => {
     const { fetchImpl } = fakeFetch(() => json({ code: "rate_limited" }, 429, { "Retry-After": "60" }));
     await expect(new SaynataApi(BASE, signedIn, fetchImpl).translateLines(["a"], "ko")).rejects.toMatchObject({
       kind: "rateLimited",
+    });
+  });
+});
+
+describe("headwords (TASK-106.8)", () => {
+  it("sends the card's word with every text and reads the headword per sense", async () => {
+    const { fetchImpl, calls } = fakeFetch(() =>
+      json({ lines: [{ translation: "お金を預ける所", headword: "銀行" }, { translation: "川のそば", headword: "土手" }] }),
+    );
+    const api = new SaynataApi(BASE, signedIn, fetchImpl);
+    const cache = new LineCache();
+    const result = await loadLines(api, cache, "ja", ["money", "river"], undefined, "bank");
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({
+      targetLang: "ja",
+      texts: ["money", "river"],
+      headwords: ["bank", "bank"],
+    });
+    expect(result.headwords).toEqual(["銀行", "土手"]);
+    await loadLines(api, cache, "ja", ["money", "river"], undefined, "bank");
+    expect(calls).toHaveLength(1);
+  });
+
+  it("a cached line without its headword is asked again", async () => {
+    const { fetchImpl, calls } = fakeFetch(
+      () => json({ lines: [{ translation: "하나" }] }),
+      () => json({ lines: [{ translation: "하나", headword: "일" }] }),
+    );
+    const api = new SaynataApi(BASE, signedIn, fetchImpl);
+    const cache = new LineCache();
+    await loadLines(api, cache, "ko", ["a"]);
+    const result = await loadLines(api, cache, "ko", ["a"], undefined, "one");
+    expect(calls).toHaveLength(2);
+    expect(result.headwords).toEqual(["일"]);
+  });
+
+  it("the row shows the headword with a backend line, never with the dictionary text", () => {
+    const state: LineState = { status: "done", translations: ["lười", null], headwords: ["lười biếng", "x"], signedIn: true };
+    expect(rowContent("vi", definitions, dictionary, state)).toEqual({
+      kind: "lines",
+      lines: ["lười", "ngân hàng"],
+      headwords: ["lười biếng", null],
     });
   });
 });
@@ -90,29 +131,29 @@ describe("rowContent", () => {
 
   it("signed in: the lines from the backend", () => {
     const row = rowContent("ko", definitions, dictionary, { status: "done", translations: ["하나", "둘"], signedIn: true });
-    expect(row).toEqual({ kind: "lines", lines: ["하나", "둘"] });
+    expect(row).toEqual({ kind: "lines", lines: ["하나", "둘"], headwords: [null, null] });
     expect(texts).toHaveLength(2);
   });
 
   it("loading: Vietnamese shows the dictionary at once, other languages a loading state", () => {
-    expect(rowContent("vi", definitions, dictionary, { status: "loading" })).toEqual({ kind: "lines", lines: dictionary });
+    expect(rowContent("vi", definitions, dictionary, { status: "loading" })).toEqual({ kind: "lines", lines: dictionary, headwords: [null, null] });
     expect(rowContent("ko", definitions, dictionary, { status: "loading" })).toEqual({ kind: "loading" });
   });
 
   it("guest miss: Vietnamese shows the dictionary text, other languages the sign-in line", () => {
     const miss: LineState = { status: "done", translations: [null, null], signedIn: false };
-    expect(rowContent("vi", definitions, dictionary, miss)).toEqual({ kind: "lines", lines: dictionary });
+    expect(rowContent("vi", definitions, dictionary, miss)).toEqual({ kind: "lines", lines: dictionary, headwords: [null, null] });
     expect(rowContent("ko", definitions, dictionary, miss)).toEqual({ kind: "signIn" });
   });
 
   it("a line from the backend wins over the dictionary", () => {
     const row = rowContent("vi", definitions, dictionary, { status: "done", translations: ["lười", null], signedIn: false });
-    expect(row).toEqual({ kind: "lines", lines: ["lười", "ngân hàng"] });
+    expect(row).toEqual({ kind: "lines", lines: ["lười", "ngân hàng"], headwords: [null, null] });
   });
 
   it("error: Vietnamese falls back to the dictionary, other languages a short error line", () => {
     const error: LineState = { status: "error", message: "Can't reach Saynata." };
-    expect(rowContent("vi", definitions, dictionary, error)).toEqual({ kind: "lines", lines: dictionary });
+    expect(rowContent("vi", definitions, dictionary, error)).toEqual({ kind: "lines", lines: dictionary, headwords: [null, null] });
     expect(rowContent("ko", definitions, dictionary, error)).toEqual({ kind: "error", message: "Can't reach Saynata." });
   });
 
