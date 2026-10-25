@@ -9,11 +9,13 @@ import { useState } from "react";
 import type { Explanation } from "@/lib/api";
 import { betterPieces } from "@/lib/betterDiff";
 import { languageName, type LanguageCode } from "@/lib/languages";
+import { rememberTranslationRow, translationRowOpen, useSettings } from "@/lib/settings";
 import { useSpeech } from "@/lib/speech";
 import { plainSummary, summaryLines, type SummaryLine } from "@/lib/summaryMarkup";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
 import { Check, Copy, Speaker, Stop } from "../icons";
+import { LikeButton } from "./LikeButton";
 
 type Props = {
   text: string;
@@ -30,6 +32,8 @@ type Props = {
 export function SentenceCard({ text, meaning, explanation, targetLang, translating = false, onWord }: Props) {
   const speech = useSpeech();
   const [copied, setCopied] = useState(false);
+  const [{ showTranslation }] = useSettings();
+  const [startOpen] = useState(() => translationRowOpen(showTranslation));
   const streaming = explanation === null;
   const summary = explanation?.meaning ?? meaning;
 
@@ -109,7 +113,11 @@ export function SentenceCard({ text, meaning, explanation, targetLang, translati
         )}
         {explanation && targetLang !== "en" && (translating || explanation.translation) && (
           <div data-reveal>
-            <FoldedRow title={languageName(targetLang)}>
+            <FoldedRow
+              title={languageName(targetLang)}
+              defaultOpen={startOpen}
+              onToggle={(open) => rememberTranslationRow(showTranslation, open)}
+            >
               {translating ? (
                 <div className="flex flex-col gap-2 py-1.5" aria-label="Loading the language line">
                   <span className="h-3 w-11/12 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
@@ -123,6 +131,7 @@ export function SentenceCard({ text, meaning, explanation, targetLang, translati
         )}
       </article>
       <div className="flex justify-end">
+        {explanation && <LikeButton kind="sentence" text={text} preview={explanation.meaning} chip={null} />}
         <IconButton
           variant="plain"
           label={copied ? "Copied" : "Copy"}

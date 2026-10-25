@@ -64,8 +64,8 @@ class TranslationStreamTest {
     /** Makes the fake Claude stream PIECES and return `result`. */
     private void claudeStreams(String text, Explanation result) {
         // The language line comes from a second, small call (TASK-106.6).
-        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList()))
-                .thenReturn(List.of("Anh ấy không muốn đi."));
+        when(claude.translateLinesAllLanguages(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Anh ấy không muốn đi."));
         when(claude.explainSentenceStreaming(eq(text), any())).thenAnswer(call -> {
             Consumer<String> onText = call.getArgument(1);
             PIECES.forEach(onText);
@@ -254,7 +254,7 @@ class TranslationStreamTest {
     @Test
     void doneHasAnEmptyTranslationStringWhenTheLineCallFails() throws Exception {
         claudeStreams("He was reluctant to leave", EXPLANATION);
-        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList()))
+        when(claude.translateLinesAllLanguages(org.mockito.ArgumentMatchers.anyList()))
                 .thenThrow(new IllegalStateException("line call failed"));
 
         String body = streamBody("He was reluctant to leave");

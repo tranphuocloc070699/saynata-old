@@ -7,13 +7,16 @@ export function FoldedRow({
   title,
   children,
   onToggle,
+  defaultOpen = false,
 }: {
   title: string;
   children: ReactNode;
   /** Called with the new state after each tap (the language row loads its line when it opens). */
   onToggle?: (open: boolean) => void;
+  /** Only the language row starts open, when the "Show translation" setting says so. */
+  defaultOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const id = useId();
   return (
     <div className="border-t border-hairline">

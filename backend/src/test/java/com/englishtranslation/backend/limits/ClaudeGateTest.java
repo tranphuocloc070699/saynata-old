@@ -262,7 +262,7 @@ class ClaudeGateTest {
     void cacheHitsDoNotUseUpTheUsersClaudeLimit() throws Exception {
         cacheSentence("Hello there");
         // The first request saves the language line (one small call); the next ones are free hits.
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("Xin chào"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Xin chào"));
         for (int i = 0; i < 6; i++) {
             translate("Hello there", userToken).andExpect(status().isOk());
         }

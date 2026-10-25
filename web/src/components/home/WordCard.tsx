@@ -19,10 +19,12 @@ import {
 import { isAllowedMedia, isClip } from "@/lib/media";
 import { languageName, type LanguageCode } from "@/lib/languages";
 import { useSpeech } from "@/lib/speech";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { rememberTranslationRow, translationRowOpen, useSettings, type ShowTranslation } from "@/lib/settings";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
 import { Speaker, Stop } from "../icons";
+import { LikeButton } from "./LikeButton";
 
 const LEVEL_COLOR: Record<string, string> = {
   easy: "text-level-easy bg-level-easy/15",
@@ -47,7 +49,7 @@ function useLanguageLines(word: WordResponse, targetLang: LanguageCode) {
   function load() {
     if (!hasLanguageRow(targetLang) || state.status === "loading" || state.status === "done") return;
     setSaved({ id, state: { status: "loading" } });
-    loadLines(api, lineCache, targetLang, lineTexts(definitions))
+    loadLines(api, lineCache, targetLang, lineTexts(definitions), undefined, word.word)
       .then((result) => setSaved({ id, state: { status: "done", ...result } }))
       .catch((error: unknown) => setSaved({ id, state: { status: "error", message: lineErrorMessage(error) } }));
   }
@@ -60,6 +62,13 @@ function useLanguageLines(word: WordResponse, targetLang: LanguageCode) {
 export function WordCard({ word, targetLang }: { word: WordResponse; targetLang: LanguageCode }) {
   const speech = useSpeech();
   const lines = useLanguageLines(word, targetLang);
+  const [{ showTranslation }] = useSettings();
+  // The rows start as the "Show translation" setting says; the first card decides for all its senses.
+  const [startOpen] = useState(() => translationRowOpen(showTranslation));
+  const { load } = lines;
+  useEffect(() => {
+    if (startOpen) load();
+  }, [startOpen, load, targetLang]);
   return (
     <article className="flex flex-col gap-3">
       <header data-reveal className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -72,6 +81,14 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
           active={speech.speaking === word.word}
           onClick={() => speech.toggle(word.word)}
         />
+        {word.entry.senses[0] && (
+          <LikeButton
+            kind="word"
+            text={word.word}
+            preview={word.entry.senses[0].simpleDefinition}
+            chip={`${word.entry.senses[0].pos} · ${word.entry.senses[0].cefr}`}
+          />
+        )}
       </header>
       {word.entry.senses.map((sense, index) => (
         <SenseCard
@@ -82,7 +99,10 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
           speak={speech.toggle}
           row={lines.content}
           line={lines.content.kind === "lines" ? lines.content.lines[index] : null}
+          headword={lines.content.kind === "lines" ? lines.content.headwords[index] : null}
           loadLine={lines.load}
+          startOpen={startOpen}
+          showTranslation={showTranslation}
         />
       ))}
     </article>
@@ -96,7 +116,10 @@ function SenseCard({
   speak,
   row,
   line,
+  headword,
   loadLine,
+  startOpen,
+  showTranslation,
 }: {
   number: number;
   sense: Sense;
@@ -104,7 +127,10 @@ function SenseCard({
   speak: (text: string) => void;
   row: RowContent;
   line: string | null;
+  headword: string | null;
   loadLine: () => void;
+  startOpen: boolean;
+  showTranslation: ShowTranslation;
 }) {
   const media = sense.imageUrl && isAllowedMedia(sense.imageUrl) ? sense.imageUrl : null;
   return (
@@ -159,18 +185,36 @@ function SenseCard({
         </FoldedRow>
       )}
       {hasLanguageRow(targetLang) && (row.kind !== "lines" || line) && (
-        <FoldedRow title={languageName(targetLang)} onToggle={(open) => open && loadLine()}>
-          <LanguageLine row={row} line={line} />
+        <FoldedRow
+          title={languageName(targetLang)}
+          defaultOpen={startOpen}
+          onToggle={(open) => {
+            rememberTranslationRow(showTranslation, open);
+            if (open) loadLine();
+          }}
+        >
+          <LanguageLine row={row} line={line} headword={headword} />
         </FoldedRow>
       )}
     </section>
   );
 }
 
-/** The body of the language row: the line, a small loading bar, a sign-in hint for a guest, or a short error. */
-function LanguageLine({ row, line }: { row: RowContent; line: string | null }) {
+/**
+ * The body of the language row: the line, a small loading bar, a sign-in hint for a guest, or a short error.
+ * With a headword (TASK-106.8): the headword of this sense in bold, then the line in the secondary colour.
+ */
+function LanguageLine({ row, line, headword }: { row: RowContent; line: string | null; headword: string | null }) {
   switch (row.kind) {
     case "lines":
+      if (headword) {
+        return (
+          <div className="flex flex-col gap-1">
+            <p className="font-semibold">{headword}</p>
+            <p className="font-serif text-ink-2">{line}</p>
+          </div>
+        );
+      }
       return <p className="font-serif">{line}</p>;
     case "loading":
       return (

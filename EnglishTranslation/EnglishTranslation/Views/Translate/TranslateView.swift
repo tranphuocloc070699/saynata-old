@@ -69,7 +69,13 @@ struct TranslateView: View {
         }
         // Signed in: load the liked list. Signed out: it belongs to the account, so it goes from this phone.
         .task(id: account.user) {
-            if account.isSignedIn { await liked.refresh() } else { liked.clear() }
+            if account.isSignedIn {
+                await SyncEngine.shared.signedIn()
+                if let language = await SettingsSync.shared.syncNow() { store.targetLanguage = language }
+            } else {
+                liked.clear()
+                await SyncEngine.shared.signedOut()
+            }
         }
     }
 
