@@ -16,11 +16,15 @@ import com.englishtranslation.backend.claude.NotEnglishException;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @SpringBootTest(properties = "app.claude.api-key=test-key")
+@ExtendWith(OutputCaptureExtension.class)
 class TranslationServiceTest {
 
     @Autowired
@@ -58,6 +62,24 @@ class TranslationServiceTest {
         assertThat(first.cached()).isFalse();
         assertThat(second.cached()).isTrue();
         verify(claude, times(1)).explainSentence("I love you");
+    }
+
+    @Test
+    void everyRequestLogsOneTimingLineWithoutTheText(CapturedOutput output) {
+        when(claude.explainSentence("I love you")).thenReturn(sample("Anh yêu em"));
+
+        service.translate("I love you", TargetLanguage.VI);
+        service.translate("I love you", TargetLanguage.VI);
+
+        String[] lines = output.getOut().lines().filter(line -> line.contains("sentence key=")).toArray(String[]::new);
+        assertThat(lines).hasSize(2);
+        assertThat(lines[0]).contains("cache=miss", "lang=vi", "stream=false", " lookup=", " gate=", " llm=",
+                " line=", " save=", " total=", "result=ok");
+        assertThat(lines[1]).contains("cache=hit", " lookup=", " line=", "result=ok")
+                .doesNotContain(" gate=", " llm=", " save=");
+        assertThat(output.getOut()).doesNotContain("sentence key=" + CacheKeys.sentenceKey(
+                properties.sentencePromptVersion(), "I love you"));
+        assertThat(lines[0]).doesNotContain("I love you");
     }
 
     @Test

@@ -48,9 +48,16 @@ struct MenuBarContentView: View {
         .onChange(of: store.state.resultKey) { speechPlayer.stop() }
         // The shortcut (or the icon) opened the window: put the cursor in the box (TASK-85.3).
         .onChange(of: focus.request) { isInputFocused = true }
+        .onChange(of: store.targetLanguage) { SettingsSync.shared.settingsChanged() }
         .onAppear { isInputFocused = true }
         .task(id: account.user) {
-            if account.isSignedIn { await liked.refresh() } else { liked.clear() }
+            if account.isSignedIn {
+                await SyncEngine.shared.signedIn()
+                if let language = await SettingsSync.shared.syncNow() { store.targetLanguage = language }
+            } else {
+                liked.clear()
+                await SyncEngine.shared.signedOut()
+            }
         }
         // A guest tapped the star (TASK-93.2): open the sign-in sheet, and send the like after sign-in.
         .onChange(of: liked.signInRequested) { _, isRequested in

@@ -7,7 +7,8 @@ import Foundation
 
 /// Gets the target-language line of a word card from the backend (TASK-106.3, doc-5).
 /// One call asks for every sense of the card, so opening the other senses needs no new request.
-/// Lines are kept in `TranslationCache` per (text, language). A missing line or a failed call is not an error here:
+/// Lines are kept in `TranslationCache` per (text, language); the headword of a sense (TASK-106.8) per
+/// (headword, text, language). A missing line or a failed call is not an error here:
 /// the caller falls back to the dictionary text (Vietnamese) or Apple Translation (other languages).
 @MainActor
 final class LanguageLines {
@@ -15,6 +16,7 @@ final class LanguageLines {
 
     private struct Key: Hashable {
         let text: String
+        var headword: String?
         let language: TargetLanguage
     }
 
@@ -22,6 +24,8 @@ final class LanguageLines {
     private let cache: TranslationCache
     /// Texts that are being asked right now, so two rows that open together send one request.
     private var pending: [Key: Task<Void, Never>] = [:]
+    /// The headword in the target language for one sense text.
+    private var headwords: [Key: String] = [:]
 
     init(backend: @escaping () -> (any LineTranslating)?, cache: TranslationCache = .shared) {
         self.backend = backend
@@ -33,13 +37,20 @@ final class LanguageLines {
         cache.translation(of: text, in: language)
     }
 
+    /// The saved headword of the sense `text` of the word `headword`, in `language`, if there is one.
+    func headword(_ headword: String, for text: String, in language: TargetLanguage) -> String? {
+        headwords[Key(text: text, headword: headword, language: language)]
+    }
+
     /// Makes sure the lines of `texts` are in the cache when the backend has them. Returns when the answer is here.
+    /// With a `headword` (the word of the card) the headword of each sense is asked too.
     /// Texts that are already cached or already being asked are not sent again.
-    func load(_ texts: [String], in language: TargetLanguage) async {
+    func load(_ texts: [String], headword: String? = nil, in language: TargetLanguage) async {
+        let headword = headword.flatMap { $0.isEmpty ? nil : $0 }
         var toAsk: [String] = []
         var waits: [Task<Void, Never>] = []
-        for text in Self.unique(texts) where cache.translation(of: text, in: language) == nil {
-            if let running = pending[Key(text: text, language: language)] {
+        for text in Self.unique(texts) where !isLoaded(text, headword: headword, in: language) {
+            if let running = pending[Key(text: text, headword: headword, language: language)] {
                 waits.append(running)
             } else {
                 toAsk.append(text)
@@ -47,20 +58,30 @@ final class LanguageLines {
         }
 
         if !toAsk.isEmpty {
-            let task = Task { await ask(toAsk, in: language) }
-            for text in toAsk { pending[Key(text: text, language: language)] = task }
+            let task = Task { await ask(toAsk, headword: headword, in: language) }
+            for text in toAsk { pending[Key(text: text, headword: headword, language: language)] = task }
             waits.append(task)
         }
         for task in waits { await task.value }
     }
 
-    private func ask(_ texts: [String], in language: TargetLanguage) async {
-        defer { for text in texts { pending[Key(text: text, language: language)] = nil } }
+    private func isLoaded(_ text: String, headword: String?, in language: TargetLanguage) -> Bool {
+        guard cache.translation(of: text, in: language) != nil else { return false }
+        guard let headword else { return true }
+        return headwords[Key(text: text, headword: headword, language: language)] != nil
+    }
+
+    private func ask(_ texts: [String], headword: String?, in language: TargetLanguage) async {
+        defer { for text in texts { pending[Key(text: text, headword: headword, language: language)] = nil } }
         guard let backend = backend(),
-              let lines = try? await backend.lines(for: texts, in: language),
+              let lines = try? await backend.lines(for: texts, headword: headword, in: language),
               lines.count == texts.count else { return }
         for (text, line) in zip(texts, lines) {
-            if let line { cache.save(line, of: text, in: language) }
+            guard let line else { continue }
+            cache.save(line.line, of: text, in: language)
+            if let headword, let translated = line.headword {
+                headwords[Key(text: text, headword: headword, language: language)] = translated
+            }
         }
     }
 

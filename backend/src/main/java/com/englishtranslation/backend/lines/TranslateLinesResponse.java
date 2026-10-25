@@ -6,7 +6,14 @@ import java.util.List;
 /** The answer: one line per text, in the order of the request. */
 public record TranslateLinesResponse(TargetLanguage targetLang, List<Line> lines) {
 
-    /** {@code translation} is null for a miss on a cachedOnly request. */
-    public record Line(String text, String translation, boolean cached) {
+    /**
+     * {@code translation} is null for a miss on a cachedOnly request. {@code headword} is the headword in the target
+     * language for this sense (TASK-106.8), null when none was asked or none is saved yet.
+     */
+    public record Line(String text, String translation, boolean cached, String headword) {
+
+        public Line(String text, String translation, boolean cached) {
+            this(text, translation, cached, null);
+        }
     }
 }

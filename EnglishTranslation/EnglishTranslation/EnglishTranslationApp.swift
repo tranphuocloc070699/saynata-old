@@ -24,10 +24,25 @@ struct EnglishTranslationApp: App {
                 .environment(liked)
                 // Open the backend connection now, so the first lookup does not pay for it (TASK-83.5).
                 .task { await TranslatorFactory.warmUpConnection() }
-                // Stop reading when the app is sent to the background (TASK-46).
+                // Stop reading when the app is sent to the background (TASK-46). History and Liked go to the account
+                // when the app leaves, and come back from it when the app returns (TASK-93.4).
                 .onChange(of: scenePhase) {
-                    if scenePhase == .background { speechPlayer.stop() }
+                    switch scenePhase {
+                    case .background:
+                        speechPlayer.stop()
+                        Task { await SyncEngine.shared.appDidEnterBackground() }
+                    case .active:
+                        liked.reloadFromCopy()
+                        Task {
+                            await SyncEngine.shared.syncNow()
+                            if let language = await SettingsSync.shared.syncNow() { store.targetLanguage = language }
+                        }
+                    default:
+                        break
+                    }
                 }
+                // A language change goes to the account in the background.
+                .onChange(of: store.targetLanguage) { SettingsSync.shared.settingsChanged() }
                 .onOpenURL { url in
                     // The emailed sign-in link (TASK-92): `saynata://sign-in?token=...`, or later the https link.
                     if let token = DeepLink.signInToken(from: url) {
