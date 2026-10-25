@@ -70,7 +70,7 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
     if (startOpen) load();
   }, [startOpen, load, targetLang]);
   return (
-    <article className="flex flex-col gap-3">
+    <article className="flex flex-col gap-3 rounded-[22px] border border-hairline bg-surface p-4 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_10px_30px_-12px_rgb(31_42_38/0.18)] sm:p-5">
       <header data-reveal className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h2 className="text-[2rem] leading-tight font-semibold tracking-tight">{word.word}</h2>
         {word.ipa && <span className="text-muted">/{word.ipa.replace(/^\/|\/$/g, "")}/</span>}
@@ -134,7 +134,7 @@ function SenseCard({
 }) {
   const media = sense.imageUrl && isAllowedMedia(sense.imageUrl) ? sense.imageUrl : null;
   return (
-    <section data-reveal className="border-b border-hairline pt-3">
+    <section data-reveal className="border-b border-hairline pt-3 last:border-b-0">
       <div className="flex items-start gap-4 pb-3">
         <span className="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-sm font-bold text-on-accent">
           {number}

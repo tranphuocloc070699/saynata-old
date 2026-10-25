@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-25 07:47'
+updated_date: '2026-10-25 13:43'
 ---
 # Decisions and reasons
 
@@ -211,6 +211,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-25 | Settings (language, Show translation, Sync history) follow the account; the default Show translation becomes Remember last choice instead of Collapsed; a change is sent at once (TASK-93.3, 102.7) | "Sync for signed-in, default is remember, and call the API when users change it so it takes effect on other platforms." | Per-device settings; Collapsed as default | Developer |
 | 10-25 | Website gets History and Liked, Settings and Account pages, as in the stacked mockup (TASK-102.6 to 102.8) | Reason not recorded. | Admin users list as the "users page" | Developer |
 | 10-25 | **Web Download page uses layout A, stacked cards** (TASK-102.9): one card per platform (iPhone, Mac, browser extension) with a picture, one line on what it does there, and a store badge or a "Coming soon" pill; all links live in one config file and turn on one at a time as each platform ships | Reason: not recorded. | B (three cards in a row), C (smart button + compact list) | Developer |
+| 10-25 | Web home chips = the user's recent words plus hot words (looked up by 2+ people lately), no duplicates; sentences are left out | Reason: not recorded. | Newest History items of any kind | Developer |
 
 ## Questions answered
 
