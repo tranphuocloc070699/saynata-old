@@ -3,7 +3,7 @@ id: doc-15
 title: Media and images
 type: specification
 created_date: '2026-10-15 04:02'
-updated_date: '2026-10-25 15:23'
+updated_date: '2026-10-25 15:43'
 ---
 # Media and images
 
@@ -129,7 +129,7 @@ sequenceDiagram
 
 | Step | File:line | What happens |
 |---|---|---|
-| Start the job | [WordService.java:105](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L105), [startMediaJob:158](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L158) | Called after the new word is saved. If it fails to start, it is logged and the answer is still sent. |
+| Start the job | [WordService.java:155](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L155), [startMediaJob:218](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L218) | Called after the new word is saved. If it fails to start, it is logged and the answer is still sent. |
 | One worker thread | [MediaConfig.mediaExecutor:21](../../../backend/src/main/java/com/englishtranslation/backend/media/MediaConfig.java#L21) | One thread, queue of 50. A full queue drops the job: the word works, it only has no picture. |
 | The job | [fetchInBackground:46](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L46), [fetch:55](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L55) | Does nothing when `PIXABAY_API_KEY` is empty. Takes the first 3 senses. Every error is caught, so the word answer never breaks. |
 | Photo or clip | [kindFor:75](../../../backend/src/main/java/com/englishtranslation/backend/media/BackendWordMediaService.java#L75) | Verb: clip (photo if there is no clip). Noun or adjective: photo. Other types (adverb, "the") get nothing. |

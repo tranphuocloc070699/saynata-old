@@ -71,26 +71,43 @@ public class WordService {
     /**
      * With {@code cachedOnly} (TASK-83.4) only the bundled and cached answers are given; a miss throws
      * {@link NotCachedException} before ClaudeGate, so the app can ask while the user types.
+     * Every request logs one {@link WordTiming} line with the time of each step.
      */
     public WordAnswer lookUp(String word, boolean cachedOnly) {
+        WordTiming timing = new WordTiming();
+        try {
+            WordAnswer answer = lookUp(word, cachedOnly, timing);
+            timing.ok(answer.origin());
+            return answer;
+        } catch (RuntimeException e) {
+            timing.failed(e);
+            throw e;
+        } finally {
+            timing.log();
+        }
+    }
+
+    private WordAnswer lookUp(String word, boolean cachedOnly, WordTiming timing) {
         String normalized = CacheKeys.normalizeWord(word);
+        timing.word(normalized);
 
         // A bundled word is answered from its own entry. The bundled entry wins (TASK-58): Claude is not
         // called and no word_lookup row is made, so a word is never in both lists.
-        Optional<DictionaryWord> bundledWord = bundled.findWithSensesByLemma(normalized);
+        Optional<DictionaryWord> bundledWord = timing.time("lookup", () -> bundled.findWithSensesByLemma(normalized));
         if (bundledWord.isPresent()) {
             return new WordAnswer(bundledResponse(normalized, bundledWord.get()), WordAnswer.Origin.BUNDLED);
         }
 
         // TASK-114.5: the backend (not the client) decides when Claude may describe a phrase or a word that is not on
         // the word list: only when the sentence endpoint returned it as a wordMatch for the current prompt version.
-        boolean fromWordMatch = aliases.existsWordMatch(normalized, properties.sentencePromptVersion());
+        boolean fromWordMatch = timing.time("lookup",
+                () -> aliases.existsWordMatch(normalized, properties.sentencePromptVersion()));
 
         // A phrase ("give up", "a piece of cake") is answered only from the cache, filled by the local collection
         // (TASK-83.9), unless it is a wordMatch. Otherwise it never calls Claude and is never "not a word": a miss is
         // 404 not_cached, and the app then explains the text as a sentence.
         if (normalized.contains(" ") && !fromWordMatch) {
-            return cachedPhrase(normalized);
+            return timing.time("lookup", () -> cachedPhrase(normalized));
         }
 
         // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
@@ -103,7 +120,7 @@ public class WordService {
 
         String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), normalized);
 
-        Optional<WordLookup> saved = repository.findByCacheKey(cacheKey);
+        Optional<WordLookup> saved = timing.time("lookup", () -> repository.findByCacheKey(cacheKey));
         if (saved.isPresent()) {
             return new WordAnswer(response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId())),
                     WordAnswer.Origin.CACHED);
@@ -113,16 +130,19 @@ public class WordService {
         }
 
         // Only a word that is not bundled and not cached gets here. A guest cannot cause a Claude call.
-        gate.beforeNewCall();
-        WordEntry entry = claude.describeWord(normalized);
+        timing.time("gate", gate::beforeNewCall);
+        WordEntry entry = timing.time("llm", () -> claude.describeWord(normalized));
         boolean needsReview = false;
         List<String> problems = simpleWords.problems(entry, normalized);
         if (!problems.isEmpty()) {
             // One retry with feedback, never more. If it still fails, we save it and mark it (TASK-16).
-            entry = retryWithFeedback(normalized, entry, problems);
+            WordEntry first = entry;
+            List<String> firstProblems = problems;
+            entry = timing.time("retry", () -> retryWithFeedback(normalized, first, firstProblems));
             problems = simpleWords.problems(entry, normalized);
             needsReview = !problems.isEmpty();
             if (needsReview) {
+                timing.needsReview();
                 log.warn("'{}' saved with needsReview, still hard after the retry: {}", normalized, problems);
             }
         }
@@ -131,7 +151,7 @@ public class WordService {
                     cacheKey, normalized, jsonMapper.writeValueAsString(entry), properties.model(),
                     properties.wordPromptVersion(), needsReview);
             row.setCefr(entry.firstCefr());
-            repository.saveAndFlush(row);
+            timing.time("save", () -> repository.saveAndFlush(row));
             startMediaJob(row.getId(), normalized, entry);
             return new WordAnswer(response(normalized, entry, false, Map.of()), WordAnswer.Origin.NEW);
         } catch (DataIntegrityViolationException e) {

@@ -72,6 +72,24 @@ def _plain_word(word: str) -> str:
     return word
 
 
+# The shortest part of a compound: "notebook" splits, "today" (to + day) is in the vocabulary anyway.
+MIN_COMPOUND_PART = 3
+
+
+def is_listed(word: str, vocabulary: set[str]) -> bool:
+    """In the vocabulary, or two vocabulary words joined ("notebook" = "note" + "book")."""
+    if word in vocabulary:
+        return True
+    return any(
+        word[:split] in vocabulary and word[split:] in vocabulary
+        for split in range(MIN_COMPOUND_PART, len(word) - MIN_COMPOUND_PART + 1)
+    )
+
+
+def _unlisted(words: set[str], vocabulary: set[str]) -> set[str]:
+    return {w for w in words if not is_listed(w, vocabulary)}
+
+
 def usage_problems(item: Usage, vocabulary: set[str], headword_forms: frozenset[str] | set[str] = frozenset()) -> list[str]:
     """Checks one usage item. An empty list means it is good enough to keep.
     `headword_forms`: the headword and its forms may always appear (topic words like "giraffe" are not in NGSL)."""
@@ -82,7 +100,7 @@ def usage_problems(item: Usage, vocabulary: set[str], headword_forms: frozenset[
     if pattern_words & BANNED_PLACEHOLDERS:
         problems.append(f"pattern '{item.pattern}' uses sb/sth style placeholders (write someone, something)")
     example = item.example.replace("’", "'")  # curly apostrophe -> straight
-    hard = sorted({_plain_word(w) for w in WORD_RE.findall(example)} - vocabulary - EXAMPLE_EXTRA_WORDS - headword_forms)
+    hard = sorted(_unlisted({_plain_word(w) for w in WORD_RE.findall(example)}, vocabulary) - EXAMPLE_EXTRA_WORDS - headword_forms)
     if hard:
         problems.append(f"example '{item.example}' uses hard words {hard}")
     return problems
@@ -106,7 +124,7 @@ def example_problems(example: Example, headword: str, headword_forms: set[str], 
         return ["example is empty"]
     words = {_plain_word(w) for w in WORD_RE.findall(text.replace("’", "'"))}
     problems: list[str] = []
-    outside = sorted(words - vocabulary - EXAMPLE_EXTRA_WORDS - headword_forms - {headword.lower()})
+    outside = sorted(_unlisted(words, vocabulary) - EXAMPLE_EXTRA_WORDS - headword_forms - {headword.lower()})
     allowed = MAX_OUTSIDE_WORDS[example.level]
     if len(outside) > allowed:
         problems.append(f"{example.level.value} example '{text}' uses hard words {outside}")
@@ -133,7 +151,7 @@ def find_problems(headword: str, entry: WordEntry, vocabulary: set[str], rank: i
     for number, sense in enumerate(entry.senses, start=1):
         # "a person's name" checks "person": the possessive 's is not a new word.
         words = [w.lower().removesuffix("'s") for w in WORD_RE.findall(sense.simple_definition)]
-        hard = sorted({w for w in words if w not in vocabulary})
+        hard = sorted(_unlisted(set(words), vocabulary))
         if hard:
             problems.append(f"sense {number}: definition uses hard words {hard}")
         is_grammar_word = rank is not None and rank <= GRAMMAR_WORD_MAX_RANK
