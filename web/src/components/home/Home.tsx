@@ -7,7 +7,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SaynataApi, type Suggestion } from "@/lib/api";
 import { browserTokens } from "@/lib/auth";
-import { fetchResult, fetchTranslation, startState, type Result } from "@/lib/explain";
+import { fetchResult, fetchTranslation, startState, waitingForMeaning, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
 import { settingsStore } from "@/lib/settings";
 import { startChips } from "@/lib/startChips";
@@ -233,7 +233,7 @@ export function Home() {
 
       <div className="flex flex-col gap-5">
         <div aria-live="polite">
-          {result.kind === "loading" && <WordSkeleton />}
+          {(result.kind === "loading" || waitingForMeaning(result)) && <WordSkeleton />}
           {result.kind === "error" && (
             <p data-reveal key={result.message} role="alert" className="flex items-start gap-2 px-2 text-error">
               <Alert className="mt-0.5 size-4 shrink-0" />
@@ -242,7 +242,7 @@ export function Home() {
           )}
         </div>
         {result.kind === "word" && <WordCard key={result.query} word={result.word} targetLang={targetLang} />}
-        {result.kind === "sentence" && (
+        {result.kind === "sentence" && !waitingForMeaning(result) && (
           <SentenceCard
             key={result.query}
             text={result.query}
