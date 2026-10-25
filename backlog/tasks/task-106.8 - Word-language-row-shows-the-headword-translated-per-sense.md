@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-25 07:31'
-updated_date: '2026-10-25 07:46'
+updated_date: '2026-10-25 07:48'
 labels: []
 dependencies: []
 parent_task_id: TASK-106
@@ -48,4 +48,6 @@ Developer-approved design (mockup chosen 2026-10-25): when the collapsed target-
 
 <!-- SECTION:NOTES:BEGIN -->
 Pipeline: pipeline lines has no headword pass; it is a follow-up task (needs its own collect, prompt, check and push). Until then a backfilled word makes one LLM call (Feature LINE) the first time a signed-in learner opens its row, which also fills the headwords for all 7 languages. Guests (cachedOnly) see only the line.
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/204 (into feature/local). Test it: signed in, Japanese; programmer row -> bold プログラマー above grey line; bank -> 銀行 / 土手 per sense; Postgres line_translation prompt_version headword-v1 has 7 rows per sense, v1 rows untouched; Korean then cached, no new claude_usage; sentence row unchanged; guest without saved headword -> line only; same on web and extension. Focused tests: backend 45, iOS LanguageLinesTests+BackendLinesRequestTests 21, web lines 16, extension all pass; SaynataMac builds.
 <!-- SECTION:NOTES:END -->
