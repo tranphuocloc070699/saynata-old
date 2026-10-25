@@ -116,6 +116,32 @@ export const User = (p: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const Download = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
+  </Icon>
+);
+
+export const Phone = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <rect x="7" y="2.5" width="10" height="19" rx="2.5" />
+    <path d="M11 18.5h2" />
+  </Icon>
+);
+
+export const Laptop = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <rect x="4.5" y="5" width="15" height="10" rx="1.5" />
+    <path d="M2.5 19h19" />
+  </Icon>
+);
+
+export const Puzzle = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M9 4h6v4a2 2 0 1 1 0 4v8H9v-3a2 2 0 1 0 0-4V4z" />
+  </Icon>
+);
+
 export const Search = (p: SVGProps<SVGSVGElement>) => (
   <Icon {...p}>
     <circle cx="11" cy="11" r="7" />
