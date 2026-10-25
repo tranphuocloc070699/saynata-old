@@ -120,3 +120,10 @@ def test_a_tick_by_hand_is_remembered(db):
     row_id = add(db, "vue", bw.NAME)
     bw.save_picks(db, [row_id], [])
     assert db.execute("SELECT picked, picked_by_hand FROM collection").fetchone()[:] == (1, 1)
+
+
+def test_prompt_has_no_null_bytes_but_keeps_the_marks(db):
+    row_id = add(db, "vue", bw.NAME)
+    db.execute("UPDATE collection SET example = ? WHERE id = ?", (f"We\x00 use {M[0]}Vue{M[1]}\x01 here.", row_id))
+    prompt = bj.build_prompt(bj.prefilter(db).keep)
+    assert "\x00" not in prompt and "\x01" not in prompt and "[[Vue]]" in prompt

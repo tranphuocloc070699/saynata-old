@@ -27,6 +27,7 @@ MIN_BOOKS = 2  # seen in one book only: a character or a local variable
 KEEP, DROP = "keep", "drop"
 PRE = "pre-filter: "
 CAMEL = re.compile(r"[a-z][A-Z]")
+CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")  # PDF text has null bytes; an argument cannot
 
 JUDGE_SCHEMA = collection._strict({"verdicts": {"type": "array", "items": collection._strict({
     "id": {"type": "integer"}, "keep": {"type": "boolean"}, "reason": {"type": "string"}})}})
@@ -103,8 +104,8 @@ def save_drops(db: sqlite3.Connection, drops: list[tuple[int, str]]) -> None:
 def build_prompt(rows: list[sqlite3.Row]) -> str:
     parts = [PROMPT, "<words>"]
     for row in rows:
-        example = collection.escape_tags(row["example"] or "").replace(MARK_START, "[[").replace(MARK_END, "]]")
-        parts.append(f'<word id="{row["id"]}" times="{row["times"]}">{collection.escape_tags(row["text"])} | '
+        example = collection.escape_tags(CONTROL.sub("", row["example"] or "")).replace(MARK_START, "[[").replace(MARK_END, "]]")
+        parts.append(f'<word id="{row["id"]}" times="{row["times"]}">{collection.escape_tags(CONTROL.sub("", row["text"]))} | '
                      f'{example}</word>')
     parts.append("</words>")
     return "\n".join(parts)
