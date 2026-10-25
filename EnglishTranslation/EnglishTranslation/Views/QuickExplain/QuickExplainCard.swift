@@ -16,7 +16,8 @@ struct QuickExplainCard: View {
     var language: TargetLanguage = .vietnamese
     /// The backend line for a word's first meaning in `language` (TASK-106.3). Nil: Vietnamese falls back to the
     /// dictionary text; other languages show no line (Apple Translation cannot run inside a Shortcuts card).
-    var wordLine: String?
+    /// Its headword (TASK-106.8) shows in bold before the line.
+    var wordLine: LanguageLine?
 
     /// Bundled words shown while the full answer is not here (signed out or slow).
     static let maxLocalWords = 2
@@ -54,7 +55,8 @@ struct QuickExplainCard: View {
                         .lineLimit(3)
                 }
                 if language.hasTargetLanguageRow {
-                    targetLanguageLine(language.title, text: wordLine ?? sense.dictionaryText(for: language) ?? "")
+                    targetLanguageLine(language.title, text: wordLine?.line ?? sense.dictionaryText(for: language) ?? "",
+                                       headword: wordLine?.headword)
                 }
             }
 
@@ -121,13 +123,17 @@ struct QuickExplainCard: View {
         wordList(words.prefix(Self.maxLocalWords).map { ($0.word, $0.entry?.senses.first?.pos ?? "", $0.explanation) })
     }
 
-    /// The last line, small: "Vietnamese · miễn cưỡng". Hidden when there is no text.
+    /// The last line, small: "Vietnamese · miễn cưỡng", or with a headword "Japanese · **プログラマー** · line".
+    /// One line, because a Shortcuts card is cut at a fixed height. Hidden when there is no text.
     @ViewBuilder
-    private func targetLanguageLine(_ title: String, text: String) -> some View {
+    private func targetLanguageLine(_ title: String, text: String, headword: String? = nil) -> some View {
         if !text.isEmpty {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                 Rectangle().fill(Colors.hairline).frame(height: 1)
-                Text("\(title) · \(text)")
+                (Text("\(title) · ")
+                    + (headword.map { Text($0).fontWeight(.semibold).foregroundColor(Colors.textPrimary) + Text(" · ") }
+                        ?? Text(""))
+                    + Text(text))
                     .font(.footnote)
                     .foregroundStyle(Colors.textSecondary)
                     .lineLimit(2)
