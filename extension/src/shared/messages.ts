@@ -28,8 +28,8 @@ export type RuntimeRequest =
   | { type: "auth/signOut" }
   | { type: "openSignIn" }
   /** The language row of a word card: POST /api/translate-lines (guest: cachedOnly). */
-  | { type: "lines"; texts: string[]; targetLang: LanguageCode };
+  | { type: "lines"; texts: string[]; targetLang: LanguageCode; headword?: string };
 
 export type RuntimeResponse =
-  | { ok: true; email?: string; translations?: (string | null)[]; signedIn?: boolean }
+  | { ok: true; email?: string; translations?: (string | null)[]; headwords?: (string | null)[]; signedIn?: boolean }
   | { ok: false; kind: string; message: string };

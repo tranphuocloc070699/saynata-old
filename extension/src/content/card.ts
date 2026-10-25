@@ -321,7 +321,13 @@ function wordBody(state: CardState, actions: CardActions): HTMLElement[] {
 function languageRowNodes(content: RowContent, numbered: boolean, actions: CardActions): (string | HTMLElement)[] {
   switch (content.kind) {
     case "lines":
-      return content.lines.flatMap((line, index) => (line ? [numbered ? `${index + 1}. ${line}` : line] : []));
+      // TASK-106.8: the headword of the sense in bold, then its line in the secondary colour.
+      return content.lines.map((line, index) => {
+        const text = numbered ? `${index + 1}. ${line}` : line;
+        const headword = content.headwords[index];
+        if (!headword) return text;
+        return h("div", { class: "line-with-headword" }, h("strong", { class: "line-headword" }, headword), h("span", { class: "line-text" }, text));
+      });
     case "loading":
       return [h("div", { class: "skeleton", role: "status", "aria-label": "Loading", style: "width: 60%" })];
     case "signIn": {
