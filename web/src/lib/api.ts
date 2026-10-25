@@ -94,6 +94,8 @@ export class ApiError extends Error {
     readonly kind: ApiErrorKind,
     message: string,
     readonly status?: number,
+    /** The server's `code` (for example `not_a_word`, `a_name`), when the answer had one. */
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -131,7 +133,9 @@ export function errorFrom(status: number, body: ErrorBody | null, retryAfter?: s
   }
   if (status === 401) return new ApiError("signInRequired", MESSAGES.signIn, status);
   if (status === 429) return new ApiError("rateLimited", rateLimitMessage(retryAfter), status);
-  if (status === 422) return new ApiError("notEnglish", serverText ?? "This doesn't look like English.", status);
+  if (status === 422) {
+    return new ApiError("notEnglish", serverText ?? "This does not look like a word or a sentence.", status, body?.code);
+  }
   if (status >= 400 && status < 500) return new ApiError("badRequest", serverText ?? MESSAGES.generic, status);
   return new ApiError("server", serverText ?? MESSAGES.generic, status);
 }

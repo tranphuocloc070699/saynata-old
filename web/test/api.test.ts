@@ -121,6 +121,12 @@ describe("explainSentence (stream)", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("keeps the code of a 422 (not_a_word, a_name)", async () => {
+    const { fetchImpl } = fakeFetch(() => sse(event("error", { status: 422, message: "A name.", code: "a_name" })));
+    const error = await new SaynataApi(BASE, undefined, fetchImpl).explainSentence("John Smith", "vi").catch((e) => e);
+    expect(error).toMatchObject({ kind: "notEnglish", message: "A name.", code: "a_name" });
+  });
+
   it("refreshes on a 401 error event with a token, then streams again", async () => {
     const { source, refreshed } = tokens("old");
     const { fetchImpl, calls } = fakeFetch(

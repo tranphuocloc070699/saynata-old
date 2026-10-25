@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-25 12:10'
+updated_date: '2026-10-25 12:37'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (non-English input, TASK-114.2; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (word the word API cannot answer goes to the sentence API, TASK-114.2; before that non-English input, TASK-114.2; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -57,7 +57,7 @@ sequenceDiagram
 |---|---|---|
 | Page | [page.tsx](../../../web/src/app/page.tsx) | `SiteHeader` (logo and account menu) and intro; `Home` inside `Suspense` because it reads `?q=` |
 | State | [Home.tsx:25](../../../web/src/components/home/Home.tsx#L25) | The address is the source of truth. A new query, language or retry sets the first state during render ([Home.tsx:41](../../../web/src/components/home/Home.tsx#L41)) and an effect fetches the rest ([Home.tsx:54](../../../web/src/components/home/Home.tsx#L54)) |
-| Search | [explain.ts:20](../../../web/src/lib/explain.ts#L20), [explain.ts:35](../../../web/src/lib/explain.ts#L35) | `startState` and `fetchResult`, no React, tested. One word (or a/an/the + word) goes to the word API, the rest to the sentence stream. If the answer has `wordMatch` (non-English text that means one English word or phrase), `fetchResult` looks that word up and shows the word card; a failed or empty lookup keeps the sentence result (TASK-114.2) |
+| Search | [explain.ts:20](../../../web/src/lib/explain.ts#L20), [explain.ts:35](../../../web/src/lib/explain.ts#L35) | `startState` and `fetchResult`, no React, tested. One word (or a/an/the + word) goes to the word API, the rest to the sentence stream. If the answer has `wordMatch` (non-English text that means one English word or phrase), `fetchResult` looks that word up and shows the word card; a failed or empty lookup keeps the sentence result (TASK-114.2). When the word API has nothing (200 without senses, 404 or 422) `explainWord` ([explain.ts:64](../../../web/src/lib/explain.ts#L64)) tries the sentence API too ("buồn" gives "sad"); if that fails the word answer stays, except a 422 with code `not_a_word` or `a_name` (`ApiError.code`), whose server text is shown instead (TASK-114.2 follow-up) |
 | Client | [api.ts:180](../../../web/src/lib/api.ts#L180) | Copied from the extension (`extension/src/shared/api.ts`) plus `suggest()`. Stream first, `POST /api/translations` once as a fallback |
 | Suggestions | [Home.tsx:69](../../../web/src/components/home/Home.tsx#L69) | 1-40 characters, 250 ms after the last key, cached and bundled only, so a guest costs nothing |
 | Word card | [WordCard.tsx](../../../web/src/components/home/WordCard.tsx) | Headword, IPA, Listen; one card per sense with level chip and picture or clip; Examples, How to use it and the target language as closed rows, the language last. **Language row (TASK-106.4, doc-5):** every language except English gets it ([useLanguageLines:41](../../../web/src/components/home/WordCard.tsx#L41)); the first time any row opens, one `POST /api/translate-lines` carries all sense explanations ([translateLines:207](../../../web/src/lib/api.ts#L207), [loadLines:74](../../../web/src/lib/lines.ts#L74)). A guest asks with `?cachedOnly=true` (never a Claude call); a signed-in user (`browserTokens`, see Sign in below) gets a missing line from Claude. Lines are kept in memory per (text, language) (`LineCache`). **Headword (TASK-106.8):** the call also sends the word, and an open row shows its translated headword in bold above the line (`LanguageLine`). While it loads Vietnamese shows the dictionary text and other languages a small loading bar; a guest miss shows the dictionary text (Vietnamese) or "Sign in to see this line in your language." with a link to `/sign-in` ([LanguageLine:177](../../../web/src/components/home/WordCard.tsx#L177)); an error shows a short line (Vietnamese keeps the dictionary text). What the row shows is decided by the pure [rowContent:122](../../../web/src/lib/lines.ts#L122) |
@@ -185,7 +185,7 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 
 | Cause | Where | HTTP | What the user sees |
 |---|---|---|---|
-| Guest asks for something not cached | `errorMessage` in [explain.ts:92](../../../web/src/lib/explain.ts#L92) | 401 `sign_in_required` | "Sign in to explain new text. Dictionary words and common sentences work without an account." with a link to `/sign-in?next=` |
+| Guest asks for something not cached | `errorMessage` in [explain.ts:145](../../../web/src/lib/explain.ts#L145) | 401 `sign_in_required` | "Sign in to explain new text. Dictionary words and common sentences work without an account." with a link to `/sign-in?next=` |
 | Word not on the word list | same | 404 | "This word is not in the dictionary yet. Check the spelling." |
 | Too many requests | `rateLimitMessage` in api.ts | 429 | "Too many requests. Try again in N minutes." |
 | No connection | api.ts | — | "Can't reach Saynata. Check your connection and try again." |
