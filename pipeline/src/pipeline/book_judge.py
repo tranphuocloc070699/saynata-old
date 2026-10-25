@@ -27,7 +27,7 @@ MIN_BOOKS = 2  # seen in one book only: a character or a local variable
 KEEP, DROP = "keep", "drop"
 PRE = "pre-filter: "
 CAMEL = re.compile(r"[a-z][A-Z]")
-CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")  # PDF text has null bytes; an argument cannot
+CONTROL = re.compile(r"[\x00\x01\x04-\x08\x0b\x0c\x0e-\x1f\x7f]")  # PDF text has null bytes; an argument cannot
 
 JUDGE_SCHEMA = collection._strict({"verdicts": {"type": "array", "items": collection._strict({
     "id": {"type": "integer"}, "keep": {"type": "boolean"}, "reason": {"type": "string"}})}})
