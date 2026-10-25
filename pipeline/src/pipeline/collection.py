@@ -34,6 +34,7 @@ from pathlib import Path
 from pydantic import BaseModel, ValidationError
 
 from pipeline import llm, prefill
+from pipeline.validate import is_listed
 
 BACKEND = Path(__file__).resolve().parents[3] / "backend"
 CLAUDE_SERVICE = BACKEND / "src/main/java/com/englishtranslation/backend/claude/ClaudeService.java"
@@ -261,7 +262,7 @@ def _plain(word: str) -> str:
 
 def hard_in_definition(definition: str, vocabulary: set[str]) -> list[str]:
     """SimpleWords.hardWordsInDefinition: every word must be simple; a possessive 's is not a new word."""
-    return sorted({w.removesuffix("'s") for w in _words(definition)} - vocabulary)
+    return sorted(w for w in {w.removesuffix("'s") for w in _words(definition)} if not is_listed(w, vocabulary))
 
 
 def hard_in_example(text: str, headword: str, vocabulary: set[str]) -> list[str]:
@@ -282,7 +283,7 @@ def hard_in_example(text: str, headword: str, vocabulary: set[str]) -> list[str]
         plain = _plain(word)
         if plain in forms or any(plain.startswith(head) for head in heads):
             continue
-        if plain not in vocabulary and plain not in EXAMPLE_EXTRA:
+        if not is_listed(plain, vocabulary) and plain not in EXAMPLE_EXTRA:
             hard.add(plain)
     return sorted(hard)
 
