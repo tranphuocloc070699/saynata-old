@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-25 07:31'
-updated_date: '2026-10-25 07:31'
+updated_date: '2026-10-25 07:46'
 labels: []
 dependencies: []
 parent_task_id: TASK-106
@@ -43,3 +43,9 @@ Developer-approved design (mockup chosen 2026-10-25): when the collapsed target-
 3. Web lines.ts + WordCard, extension lines.ts + card.ts.
 4. Docs, check_docs, PR into feature/local.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Pipeline: pipeline lines has no headword pass; it is a follow-up task (needs its own collect, prompt, check and push). Until then a backfilled word makes one LLM call (Feature LINE) the first time a signed-in learner opens its row, which also fills the headwords for all 7 languages. Guests (cachedOnly) see only the line.
+<!-- SECTION:NOTES:END -->
