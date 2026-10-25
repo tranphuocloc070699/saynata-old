@@ -44,10 +44,14 @@ class SelectionPopover {
   private readonly lineCache = new LineCache();
   private readonly lineApi = {
     // The service worker makes the call (it holds the session); a guest's call is cachedOnly there.
-    translateLines: async (texts: string[], targetLang: CardState["targetLang"]) => {
-      const response = await chrome.runtime.sendMessage<RuntimeRequest, RuntimeResponse>({ type: "lines", texts, targetLang });
+    translateLines: async (texts: string[], targetLang: CardState["targetLang"], _signal?: AbortSignal, headword?: string) => {
+      const response = await chrome.runtime.sendMessage<RuntimeRequest, RuntimeResponse>({ type: "lines", texts, targetLang, headword });
       if (!response?.ok) throw new ApiError((response?.kind ?? "server") as ApiErrorKind, response?.message ?? "Something went wrong. Try again.");
-      return { translations: response.translations ?? texts.map(() => null), signedIn: response.signedIn ?? false };
+      return {
+        translations: response.translations ?? texts.map(() => null),
+        headwords: response.headwords ?? texts.map(() => null),
+        signedIn: response.signedIn ?? false,
+      };
     },
   };
   private readonly speech = new Speech((speaking) => this.update({ speaking }));
@@ -226,7 +230,7 @@ class SelectionPopover {
     if (texts.length === 0) return;
     this.state = withLines(state, { status: "loading" });
     this.render();
-    loadLines(this.lineApi, this.lineCache, state.targetLang, texts)
+    loadLines(this.lineApi, this.lineCache, state.targetLang, texts, undefined, word.word)
       .then((result) => ({ status: "done", ...result }) as const)
       .catch((error: unknown) => ({ status: "error", message: lineErrorMessage(error) }) as const)
       .then((lines) => {

@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-25 07:15'
+updated_date: '2026-10-25 07:47'
 ---
 # Decisions and reasons
 
@@ -204,6 +204,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-24 | **Web homepage uses two columns on a wide screen** (TASK-102.3): max width 1224px; with a result, the composer and chips stay on the left (sticky) and the result is on the right; before a result the composer stays centred at 680px; phones keep one column | The developer wants a PC user to see the whole screen without scrolling; picked option A in the mockup. Centring the idle composer was Claude's choice (an empty right column looked lopsided) | B: composer on top, the result card split into two columns | Developer (Claude proposed A) |
 | 10-25 | **Words from the developer's own books are written by the local Codex collection, not the server night job** (TASK-83.14): `books convert` turns every PDF and EPUB into a .md next to the book (markitdown, on the Mac); the words then go through `collection write` and `collection push` | The developer picked the free way: no per-word cost on the ChatGPT plan. Reason beyond cost not recorded | Upload each .md on the admin Sources page and let the night job answer them (about $0.0015 a word, and the night job did not run `book:` sources yet) | Developer (Claude proposed both) |
 | 10-25 | **A line_translation miss saves the line in all 7 languages with one LLM call** (TASK-106.7); the response still returns the requested language only, and personal text (email, phone, link) still asks only the target language and saves nothing | "every language saved on the first call so later learners in other languages hit the cache": one call for 7 languages costs little more than one language and every later learner in another language pays nothing | Target language only (what it did before); bump the line prompt version (not needed: the rules text is the same, so `app.claude.line-prompt-version` stays v1) | Developer |
+| 10-25 | **Headword in the word language row, translated per sense** (TASK-106.8, doc-5): the open row shows the headword in the user's language in bold above the definition line. Technical choice (Claude's, per the brief): headword rows stay apart in `line_translation` with `prompt_version` `headword-v1` (`app.claude.headword-prompt-version`); one call still fills lines and headwords for all 7 languages | The developer chose the mockup (bold headword above the definition line). "The learner sees the word itself in their language, and bank must be 銀行 or 土手 by meaning." Separate rows keep the v1 lines and the Codex backfill reachable, and need no migration | One headword per word (wrong for *bank*); bump `line-prompt-version` to v2 (the v1 lines and the Codex backfill would become unreachable); a new table or column (more code and a migration) | Developer (design), Claude (storage) |
 
 ## Questions answered
 

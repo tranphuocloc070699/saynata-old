@@ -92,7 +92,8 @@ struct WordCardView: View {
                                 TranslationRowPreference().rowChanged(isOpen: isOpen)
                             })
                     ) {
-                        TargetLanguageRowContent(sense: sense, language: targetLanguage, cardTexts: entry.senseDefinitions)
+                        TargetLanguageRowContent(
+                            sense: sense, language: targetLanguage, headword: entry.word, cardTexts: entry.senseDefinitions)
                     }
                 }
             }
