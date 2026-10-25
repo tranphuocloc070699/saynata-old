@@ -10,6 +10,7 @@ import { browserTokens } from "@/lib/auth";
 import { fetchResult, fetchTranslation, startState, waitingForMeaning, type Result } from "@/lib/explain";
 import { ENTER, gsap, useGSAP, withMotion } from "@/lib/motion";
 import { settingsStore } from "@/lib/settings";
+import { startChips } from "@/lib/startChips";
 import { liveItems } from "@/lib/sync";
 import { useSync } from "@/lib/useSync";
 import { useTargetLanguage } from "@/lib/targetLanguage";
@@ -25,8 +26,6 @@ const SUGGEST_DELAY_MS = 250;
 const SUGGEST_MAX_LENGTH = 40;
 /** Cached answers, so a guest can try them (TASK-83.11 prefill). */
 const SAMPLES = ["give up", "run", "Hold on a second.", "Looks good."];
-/** A signed-in learner's empty box offers their latest lookups instead. */
-const RECENT_CHIPS = 10;
 /** How long the box stays empty before the shown result is removed. */
 const RESET_DELAY_MS = 400;
 
@@ -45,7 +44,17 @@ export function Home() {
   const [text, setText] = useState(query);
   const [result, setResult] = useState<Result>(() => startState(query));
   const [suggested, setSuggested] = useState<{ prefix: string; list: Suggestion[] }>({ prefix: "", list: [] });
+  const [hot, setHot] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
+
+  // Words many people looked up lately, loaded once for the start chips.
+  useEffect(() => {
+    const controller = new AbortController();
+    void api.hotWords(controller.signal).then((words) => {
+      if (!controller.signal.aborted) setHot(words);
+    });
+    return () => controller.abort();
+  }, []);
 
   // A new search (address or retry): show its first state now, during render, not in an effect. A language
   // change is not a new search: the result stays and only its language row loads again (below).
@@ -169,11 +178,10 @@ export function Home() {
     { scope: root, dependencies: [result] },
   );
 
-  const recent = liveItems(syncState.history)
-    .slice(0, RECENT_CHIPS)
-    .map((item) => item.text);
-  const startChips = recent.length > 0 ? recent : SAMPLES;
-  const chips = suggestions.length > 0 ? suggestions.map((s) => s.text) : result.kind === "idle" && !text ? startChips : [];
+  const recentItems = liveItems(syncState.history);
+  const hasRecentWord = recentItems.some((item) => item.kind === "word");
+  const start = startChips(recentItems, hot, SAMPLES);
+  const chips = suggestions.length > 0 ? suggestions.map((s) => s.text) : result.kind === "idle" && !text ? start : [];
 
   // Motion 3: suggestions and sample chips fan out quickly when the list changes.
   useGSAP(
@@ -207,7 +215,7 @@ export function Home() {
         />
 
         {chips.length > 0 && (
-          <ul aria-label={suggestions.length > 0 ? "Suggestions" : recent.length > 0 ? "Recent" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
+          <ul aria-label={suggestions.length > 0 ? "Suggestions" : hasRecentWord ? "Recent" : "Try one"} className="-mt-1 flex flex-wrap justify-center gap-2">
             {chips.map((chip) => (
               <li key={chip} className="chip-item">
                 <button

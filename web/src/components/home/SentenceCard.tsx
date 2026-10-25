@@ -52,7 +52,7 @@ export function SentenceCard({ text: typed, meaning, explanation, targetLang, tr
 
   return (
     <div className="flex flex-col gap-1">
-      <article className="flex flex-col gap-3 rounded-[20px] border border-hairline bg-surface p-4 sm:p-5">
+      <article className="flex flex-col gap-3 rounded-[22px] border border-hairline bg-surface p-4 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_10px_30px_-12px_rgb(31_42_38/0.18)] sm:p-5">
         <div data-reveal className="flex items-start gap-2">
           <p className="flex-1 font-serif text-[1.25rem] leading-snug">
             {tokens(text).map((token, i) =>

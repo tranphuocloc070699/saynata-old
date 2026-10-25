@@ -201,6 +201,20 @@ export class SaynataApi {
     return ((await response.json()) as SuggestResponse).suggestions;
   }
 
+  /** GET /api/words/hot: words many people looked up lately. A failure is an empty list; the chips have samples. */
+  async hotWords(signal?: AbortSignal): Promise<string[]> {
+    try {
+      const response = await this.send(`${this.baseUrl}/api/words/hot?limit=10`, {
+        headers: this.headers(null, false),
+        signal,
+      });
+      if (!response.ok) return [];
+      return ((await response.json()) as { words: { text: string }[] }).words.map((w) => w.text);
+    } catch {
+      return [];
+    }
+  }
+
   async lookUpWord(word: string, signal?: AbortSignal): Promise<WordResponse> {
     const url = `${this.baseUrl}/api/words/${encodeURIComponent(word)}`;
     const response = await this.withAuth((token) =>
