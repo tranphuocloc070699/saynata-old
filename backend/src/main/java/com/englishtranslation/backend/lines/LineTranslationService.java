@@ -148,11 +148,14 @@ public class LineTranslationService {
         }
     }
 
-    /** One call for every miss, then each line is saved. Returns hash -> translation. */
+    /**
+     * One call for every miss, in ALL languages (TASK-106.7): every line is saved, so a later learner in another
+     * language hits the cache. Returns hash -> the line in the requested language.
+     */
     private Map<String, String> askClaude(TargetLanguage lang, Map<String, String> misses, boolean alreadyGated) {
         checkGate(alreadyGated);
         List<String> missTexts = List.copyOf(misses.values());
-        List<String> translated = claude.translateLines(lang, missTexts);
+        List<Map<TargetLanguage, String>> translated = claude.translateLinesAllLanguages(missTexts);
         if (translated.size() != missTexts.size()) {
             throw new IllegalStateException("Claude returned " + translated.size() + " lines for "
                     + missTexts.size() + " texts.");
@@ -160,12 +163,17 @@ public class LineTranslationService {
         Map<String, String> result = new HashMap<>();
         int i = 0;
         for (Map.Entry<String, String> miss : misses.entrySet()) {
-            String line = translated.get(i++).strip();
-            if (line.isEmpty()) {
-                continue; // an empty line is not saved; the app shows its fallback
+            // An empty or missing line is not saved; the app shows its fallback.
+            for (Map.Entry<TargetLanguage, String> line : translated.get(i++).entrySet()) {
+                String text = line.getValue() == null ? "" : line.getValue().strip();
+                if (text.isEmpty() || line.getKey() == TargetLanguage.EN) {
+                    continue;
+                }
+                if (line.getKey() == lang) {
+                    result.put(miss.getKey(), text);
+                }
+                save(line.getKey(), miss.getKey(), miss.getValue(), text);
             }
-            result.put(miss.getKey(), line);
-            save(lang, miss.getKey(), miss.getValue(), line);
         }
         return result;
     }
