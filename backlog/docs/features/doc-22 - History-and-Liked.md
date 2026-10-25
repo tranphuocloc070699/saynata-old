@@ -3,7 +3,7 @@ id: doc-22
 title: History and Liked
 type: other
 created_date: '2026-10-19 13:12'
-updated_date: '2026-10-23 08:15'
+updated_date: '2026-10-25 07:48'
 ---
 # History and Liked
 
@@ -61,6 +61,29 @@ flowchart TD
 | 6 | [LikedStore.swift:24](../../../EnglishTranslation/EnglishTranslation/History/LikedStore.swift#L24) | `LikedCopyFile`: the liked list as JSON in the App Group folder. The server keeps no label ("noun · A1"), so `refresh` keeps it from the copy. |
 
 Extensions have no sign-in sheet: a guest who taps the star sees "Sign in from the Saynata app to like". The Mac app opens its sign-in sheet; it has no History button yet.
+
+## Sync API (TASK-93.3, backend; the apps use it in TASK-93.4 and TASK-102.6-102.8)
+
+History and Liked now live on the server too, so every device and the website show the same lists. A client shows a change at once and sends changes in batches in the background, with one call. Code: `backend/.../history/` (`SyncController`, `SyncService`, `SettingsService`, `MeSummaryService`), Flyway V32, tests in `SyncApiTest`.
+
+```mermaid
+flowchart LR
+    DEV["Device: outbox of ops"] -- "POST /api/sync {since, ops}" --> SVC["SyncService (user row locked)"]
+    SVC --> H[("history_item + tombstones")]
+    SVC --> L[("liked_item + tombstones")]
+    SVC -- "{changes, cursor}" --> DEV
+```
+
+- **`POST /api/sync`**: body `{ "since": 0, "ops": [ { "type": "history_add", "kind": "word", "text": "Apple", "preview": "a round fruit", "chip": "noun · A1", "at": "2026-10-25T08:00:00Z" } ] }`. `type` is `history_add`, `history_remove`, `history_clear`, `liked_add` or `liked_remove`. `kind` is `word` or `sentence`; `text` is 1-500 characters, `preview` at most 300, `chip` at most 40. `history_clear` needs only `at`. `at` is the device time; missing or in the future means now. At most 200 ops (else 400 `too_many_ops`); a bad op is 400 (`invalid_op`, `invalid_kind`, `invalid_text`, ...) and **nothing** from the batch is applied. A guest gets 401 `sign_in_required`.
+- **Answer**: `{ "changes": { "history": [item], "liked": [item] }, "cursor": 57 }`, where `item = { kind, text, preview, chip, at, deleted }`. It holds every row changed after `since` (the client's own ops included), and `deleted: true` is a tombstone: delete it on this device. Send `cursor` back as `since` next time. A first sync uses `since: 0`.
+- **Last write wins by `at`**: ops are applied oldest `at` first; an op older than the row's `at` is ignored. A remove with no row still leaves a tombstone, so an older add that arrives later loses. `history_clear` at time T turns every item with `at` <= T into a tombstone and ignores later-arriving adds with `at` <= T.
+- **Keys**: same as `SavedItem.key`: a word is trimmed, spaces squeezed and lowercased; a sentence is only trimmed (case kept).
+- **Cap**: 1000 live history items per user; the oldest become tombstones. Liked: 5000 (a new like over the cap is skipped in a sync, 400 `liked_limit_reached` on `PUT /api/liked`).
+- **Old builds**: `GET/PUT/DELETE /api/liked` still work on the same table; a delete there now leaves a tombstone, so the sync sees it.
+- **`GET` / `PUT /api/me/settings`**: `{ "targetLanguage": "vi", "showTranslation": "remember", "syncHistory": true }`. `showTranslation` is `collapsed`, `alwaysOpen` or `remember` (default). In a PUT a missing field stays as it is. `syncHistory: false` deletes all server history; while it is off, history ops are ignored and `changes.history` is empty (liked still syncs).
+- **`GET /api/me`**: `{ id, email, signInMethod ("email"|"google"|"apple"), memberSince, historyCount, likedCount, aiUsedToday, aiLimitToday }`. `aiUsedToday` counts the user's new Claude calls in the last 24 hours (`claude_usage.user_id`), the same window as the daily limit `app.limits.claude-per-user-day`.
+
+Known gaps: tombstones are never deleted; the cursor can miss a change only if two syncs of one account commit out of order (the user row lock prevents it).
 
 ## Errors
 
