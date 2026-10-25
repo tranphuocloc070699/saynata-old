@@ -153,11 +153,11 @@ class OtherLanguageSentenceTest {
 
     @Test
     void codeAndGibberishAreRejectedAndNothingIsCached() {
-        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(new NotEnglishException());
+        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(NotEnglishException.notAWord());
 
         assertThatThrownBy(() -> service.translate("asdkj qwe zzxq", TargetLanguage.VI))
                 .isInstanceOf(NotEnglishException.class)
-                .hasMessage("This doesn't look like English. Type an English word or sentence.");
+                .hasMessage("This does not look like a word or a sentence. Check the spelling.");
 
         assertThat(sentences.count()).isZero();
         assertThat(aliases.count()).isZero();

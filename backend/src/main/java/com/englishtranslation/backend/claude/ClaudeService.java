@@ -53,8 +53,12 @@ public class ClaudeService {
                            (names, numbers, emoji and links inside an English sentence are fine), "vi" for Vietnamese,
                            "ja" for Japanese, and so on. "none" if the text is program code or random letters
                            (like "asdkj qwe zzxq"). When it is "none", write "" for english, wordMatch, summary,
-                           better and betterWhy. Do not explain it.
-                        1. english: when sourceLang is not "en" or "none": the natural English a native speaker would
+                           better and betterWhy. Do not explain it. "name" if the whole text is only the name of a
+                           person (like "Nguyễn Văn An" or "John Smith") with no other words. A place, a brand or a
+                           common word that is also a name (like "Rose" or "Hanoi") is not "name": explain it
+                           normally. When it is "name", write "" for english, wordMatch, summary, better and
+                           betterWhy.
+                        1. english: when sourceLang is not "en", "none" or "name": the natural English a native speaker would
                            say for the text, not a word-for-word copy. Keep the tone (casual stays casual). Keep names
                            and numbers. Write "" when the text is English.
                         2. wordMatch: only when the text is ONE word, phrasal verb or idiom in another language
@@ -579,10 +583,13 @@ public class ClaudeService {
                 return message.append("</texts>").toString();
         }
 
-        /** The 422 rule: a "not English" flag from the model becomes an exception. */
+        /** The 422 rule: a "none" or "name" flag from the model becomes an exception. */
         static Explanation toExplanation(SentenceAnswer answer) {
+                if (answer.isName()) {
+                        throw NotEnglishException.aName();
+                }
                 if (answer.hasNoLanguage()) {
-                        throw new NotEnglishException();
+                        throw NotEnglishException.notAWord();
                 }
                 return answer.toExplanation();
         }

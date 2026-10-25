@@ -185,19 +185,31 @@ class TranslationStreamTest {
     }
 
     @Test
+    void aPersonsNameGivesAnErrorEventWithTheNameCodeAndIsNotCached() throws Exception {
+        when(claude.explainSentenceStreaming(eq("Nguyễn Văn An"), any())).thenThrow(NotEnglishException.aName());
+
+        String body = streamBody("Nguyễn Văn An");
+
+        assertThat(eventNames(body)).containsExactly("error");
+        assertThat(body).contains("\"status\":422").contains("\"code\":\"a_name\"")
+                .contains("This looks like a person's name, so there is nothing to explain.");
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
     void textThatIsNotEnglishGivesAnErrorEventAndIsNotCached() throws Exception {
         // A not-English answer has an empty meaning, so no meaning event is sent.
         when(claude.explainSentenceStreaming(eq("asdkj qwe zzxq"), any())).thenAnswer(call -> {
             Consumer<String> onText = call.getArgument(1);
             onText.accept("{\"isEnglish\":false,\"meaning\":\"\",\"words\":[],\"translation\":\"\"}");
-            throw new NotEnglishException();
+            throw NotEnglishException.notAWord();
         });
 
         String body = streamBody("asdkj qwe zzxq");
 
         assertThat(eventNames(body)).containsExactly("error");
-        assertThat(body).contains("data:{\"status\":422,\"message\":\"This doesn't look like English. "
-                + "Type an English word or sentence.\"}");
+        assertThat(body).contains("data:{\"status\":422,\"message\":\"This does not look like a word or a sentence. "
+                + "Check the spelling.\",\"code\":\"not_a_word\"}");
         assertThat(repository.count()).isZero();
     }
 
