@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { startChips } from "../src/lib/startChips";
+import { ghostCompletion, startChips, suggestionChips } from "../src/lib/startChips";
 import type { SyncItem } from "../src/lib/sync";
 
 const item = (kind: "word" | "sentence", text: string): SyncItem => ({ kind, text, preview: "", chip: null, at: 0, deleted: false });
@@ -28,5 +28,36 @@ describe("startChips", () => {
   });
   it("uses samples when everything is empty", () => {
     expect(startChips([], [], SAMPLES)).toEqual(SAMPLES);
+  });
+});
+
+describe("suggestionChips", () => {
+  it("puts matching recent words before the server's, no duplicates", () => {
+    const recent = [item("word", "Give up"), item("word", "swim"), item("sentence", "give me a hand")];
+    expect(suggestionChips("gi", recent, ["give", "give up", "given"])).toEqual(["Give up", "give", "given"]);
+  });
+  it("matches a recent phrase from any of its words", () => {
+    expect(suggestionChips("up", [item("word", "give up")], ["upset"])).toEqual(["give up", "upset"]);
+  });
+  it("drops the chip equal to the typed text, in any case and spacing", () => {
+    expect(suggestionChips(" Run ", [item("word", "run")], ["RUN", "runway"])).toEqual(["runway"]);
+  });
+  it("holds at most max chips and nothing for an empty box", () => {
+    const server = Array.from({ length: 12 }, (_, i) => `a${i}`);
+    expect(suggestionChips("a", [], server)).toHaveLength(9);
+    expect(suggestionChips("  ", [item("word", "run")], ["run"])).toEqual([]);
+  });
+});
+
+describe("ghostCompletion", () => {
+  it("returns the rest of the top suggestion, in its own letters", () => {
+    expect(ghostCompletion("gi", "give up")).toBe("ve up");
+    expect(ghostCompletion("GI", "give up")).toBe("ve up");
+  });
+  it("is empty when the suggestion does not start with the typed text", () => {
+    expect(ghostCompletion("up", "give up")).toBe("");
+    expect(ghostCompletion("give up", "give up")).toBe("");
+    expect(ghostCompletion("run", undefined)).toBe("");
+    expect(ghostCompletion("", "run")).toBe("");
   });
 });

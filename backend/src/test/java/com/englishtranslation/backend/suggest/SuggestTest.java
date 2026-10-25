@@ -12,9 +12,14 @@ import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.dictionary.DictionaryWord;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
+import com.englishtranslation.backend.history.HistoryItem;
+import com.englishtranslation.backend.history.HistoryItemRepository;
 import com.englishtranslation.backend.limits.RateLimiter;
 import com.englishtranslation.backend.translation.SentenceTranslation;
 import com.englishtranslation.backend.translation.SentenceTranslationRepository;
+import com.englishtranslation.backend.user.User;
+import com.englishtranslation.backend.user.UserRepository;
+import java.time.Instant;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
 import java.util.List;
@@ -56,6 +61,11 @@ class SuggestTest {
     JdbcTemplate jdbc;
     @Autowired
     RateLimiter rateLimiter;
+    @Autowired
+    HistoryItemRepository history;
+    @Autowired
+    UserRepository users;
+    private long seq;
 
     @MockitoBean
     ClaudeService claude;
@@ -63,6 +73,8 @@ class SuggestTest {
     @BeforeEach
     @AfterEach
     void cleanUp() {
+        history.deleteAll();
+        users.deleteAll();
         jdbc.update("delete from word_lookup_media");
         lookups.deleteAll();
         bundled.deleteAll();
@@ -143,6 +155,45 @@ class SuggestTest {
 
         assertThat(texts("50%", null)).containsExactly("50% off today");
         assertThat(texts("a_", null)).containsExactly("a_b test");
+    }
+
+    private void looked(Long user, String key) {
+        HistoryItem item = new HistoryItem(user, "word", key);
+        item.apply(key, "p", null, Instant.now(), false, ++seq);
+        history.save(item);
+    }
+
+    @Test
+    void wordsMostLookedUpComeFirstAfterTheExactMatch() {
+        bundledWord("apple", 100);
+        bundledWord("apply", 200);
+        bundledWord("appeal", 300);
+        Long a = users.save(User.appUser("sg-a@example.com")).getId();
+        Long b = users.save(User.appUser("sg-b@example.com")).getId();
+        looked(a, "appeal");
+        looked(b, "appeal");
+        looked(a, "apply");
+
+        assertThat(texts("app", null)).containsExactly("appeal", "apply", "apple");
+    }
+
+    @Test
+    void aPhraseMatchesFromAnyWordAndStartsWithComesFirst() {
+        phrase("upset stomach", "vi");
+        phrase("give up", "vi");
+        phrase("never give up hope", "vi");
+
+        assertThat(texts("up", null)).containsExactly("upset stomach", "give up", "never give up hope");
+    }
+
+    @Test
+    void aMorePopularPhraseComesFirst() {
+        phrase("give up", "vi");
+        phrase("go up", "vi");
+        Long a = users.save(User.appUser("sg-c@example.com")).getId();
+        looked(a, "go up");
+
+        assertThat(texts("up", null)).containsExactly("go up", "give up");
     }
 
     @Test
