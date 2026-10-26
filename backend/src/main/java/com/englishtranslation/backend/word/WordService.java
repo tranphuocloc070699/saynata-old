@@ -110,20 +110,22 @@ public class WordService {
             return timing.time("lookup", () -> cachedPhrase(normalized));
         }
 
-        // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
-        // Nothing is saved, so a later update of the word list can fix a missing word.
-        if (!fromWordMatch && !englishWords.contains(normalized)) {
-            log.debug("'{}' is not on the English word list, Claude not called", normalized);
-            return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
-                    WordAnswer.Origin.NOT_A_WORD);
-        }
-
+        // The cache is read before the word list (TASK-83.16): the local collection pushes tech terms such as "vue"
+        // that are not on the list, and they must be answered. Claude is still never called for such a word.
         String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), normalized);
 
         Optional<WordLookup> saved = timing.time("lookup", () -> repository.findByCacheKey(cacheKey));
         if (saved.isPresent()) {
             return new WordAnswer(response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId())),
                     WordAnswer.Origin.CACHED);
+        }
+
+        // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
+        // Nothing is saved, so a later update of the word list can fix a missing word.
+        if (!fromWordMatch && !englishWords.contains(normalized)) {
+            log.debug("'{}' is not on the English word list and not cached, Claude not called", normalized);
+            return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
+                    WordAnswer.Origin.NOT_A_WORD);
         }
         if (cachedOnly) {
             throw new NotCachedException();

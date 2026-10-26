@@ -30,7 +30,7 @@ flowchart TD
     L -- no --> API["GET /api/words/{word}"]
     API --> BW{"In Postgres dictionary_word? (TASK-58)"}
     BW -- yes --> BUNDLED["Answer with the bundled entry + media; no Claude, nothing saved"]
-    BW -- no --> WL{"On the English word list? (TASK-38)"}
+    BW -- no --> WL{"On the English word list? (TASK-38; the cache is read first, TASK-83.16)"}
     WL -- no --> EMPTY
     WL -- yes --> PG{"In Postgres word_lookup?"}
     PG -- yes --> SAVE[Save in local cache]
@@ -58,7 +58,7 @@ sequenceDiagram
     WC->>WS: lookUp("Reluctant")
     WS->>WS: normalizeWord gives "reluctant"
     WS->>DB: bundled? dictionary_word with lemma "reluctant" (TASK-58); if yes: its entry + media, cached: true, stop
-    WS->>WS: word list check (SCOWL + NGSL); not on it: empty senses, no Claude, no save
+    WS->>WS: cache read first (TASK-83.16: a pushed tech term such as vue is answered); then the word list (SCOWL + NGSL); not cached and not on it: empty senses, no Claude, no save
     WS->>WS: key = sha256 of word, v7, reluctant
     WS->>DB: findByCacheKey(key)
     alt hit

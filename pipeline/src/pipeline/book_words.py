@@ -469,11 +469,13 @@ def report_lines(db: sqlite3.Connection) -> list[str]:
 
 
 def items_of_group(db: sqlite3.Connection, group: str) -> list[dict]:
-    rows = db.execute("SELECT id, text, kind, times, books, example, picked, status, pushed_at IS NOT NULL AS pushed "
+    rows = db.execute("SELECT id, text, kind, times, books, example, picked, status, judge, judge_reason, "
+                      "pushed_at IS NOT NULL AS pushed "
                       "FROM collection WHERE source = 'book' AND book_group = ? ORDER BY times DESC, text", (group,))
     return [{"id": r["id"], "text": r["text"], "kind": r["kind"], "times": r["times"],
              "books": json.loads(r["books"] or "[]"), "example": r["example"] or "", "picked": r["picked"],
-             "status": r["status"], "pushed": r["pushed"]} for r in rows]
+             "status": r["status"], "pushed": r["pushed"], "judge": r["judge"] or "",
+             "reason": r["judge_reason"] or ""} for r in rows]
 
 
 def save_picks(db: sqlite3.Connection, picked: list[int], unpicked: list[int]) -> int:
@@ -481,7 +483,7 @@ def save_picks(db: sqlite3.Connection, picked: list[int], unpicked: list[int]) -
     changed = 0
     for value, ids in ((1, picked), (0, unpicked)):
         for row_id in ids:
-            changed += db.execute("UPDATE collection SET picked = ? WHERE id = ? AND source = 'book' "
+            changed += db.execute("UPDATE collection SET picked = ?, picked_by_hand = 1 WHERE id = ? AND source = 'book' "
                                   "AND pushed_at IS NULL AND picked != ?", (value, int(row_id), value)).rowcount
     db.commit()
     return changed
@@ -512,6 +514,8 @@ margin:0 0 8px} .row input{margin-top:5px} .w{font-weight:600;font-size:16px}
 <p class="intro">Tick what to keep, then Save. Only ticked words are written by Codex and pushed. Nothing leaves this Mac here.</p>
 <div class="tabs" id="tabs"></div>
 <div class="bar"><input type="search" id="q" placeholder="Search">
+<select id="verdict" class="act"><option value="">All verdicts</option><option value="keep">Codex: keep</option>
+<option value="drop">Codex: drop</option><option value="none">Not judged</option></select>
 <button class="act" id="all">Tick all</button><button class="act" id="none">Untick all</button>
 <button class="act save" id="save">Save</button><span id="msg"></span></div>
 <div id="list"></div><button class="act" id="more" hidden>Show more</button></main>
@@ -522,8 +526,9 @@ const changes = new Map();  // id -> 1 or 0, not saved yet
 const $ = id => document.getElementById(id);
 const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const mark = s => esc(s).replace(/\u0002/g, '<mark>').replace(/\u0003/g, '</mark>');
-const matching = () => { const q = $('q').value.trim().toLowerCase();
-  return items.filter(i => !q || i.text.includes(q) || i.example.toLowerCase().includes(q)); };
+const matching = () => { const q = $('q').value.trim().toLowerCase(), v = $('verdict').value;
+  return items.filter(i => (!q || i.text.includes(q) || i.example.toLowerCase().includes(q)) &&
+    (!v || (v === 'none' ? !i.judge : i.judge === v))); };
 const isPicked = i => changes.has(i.id) ? changes.get(i.id) : i.picked;
 function drawTabs() {
   $('tabs').innerHTML = groups.map(g => `<button class="tab ${g.name === current ? 'on' : ''}" data-g="${g.name}">` +
@@ -534,7 +539,7 @@ function draw() {
   $('list').innerHTML = rows.slice(0, shown).map(i => `<label class="row"><input type="checkbox" data-id="${i.id}" ` +
     `${isPicked(i) ? 'checked' : ''} ${i.pushed ? 'disabled' : ''}><div><span class="w">${esc(i.text)}</span> ` +
     `<span class="meta">${i.times}x &middot; ${esc(i.books.slice(0, 3).join(', '))}${i.books.length > 3 ? ' +' + (i.books.length - 3) : ''}` +
-    `</span> ${i.pushed ? '<span class="tag">pushed</span>' : i.status === 'done' ? '<span class="tag">written</span>' : ''}` +
+    `</span> ${i.judge ? `<span class="tag">Codex: ${i.judge}${i.reason ? ' - ' + esc(i.reason) : ''}</span> ` : ''}${i.pushed ? '<span class="tag">pushed</span>' : i.status === 'done' ? '<span class="tag">written</span>' : ''}` +
     `<p class="ex">${mark(i.example)}</p></div></label>`).join('');
   $('more').hidden = rows.length <= shown;
   $('more').textContent = `Show more (${rows.length - shown} left)`;
@@ -546,6 +551,7 @@ async function load(name) {
 }
 async function loadGroups() { groups = await (await fetch('/api/groups')).json(); drawTabs(); }
 $('tabs').onclick = e => { if (e.target.dataset.g) load(e.target.dataset.g); };
+$('verdict').onchange = () => { shown = PAGE_SIZE; draw(); };
 $('q').oninput = () => { shown = PAGE_SIZE; draw(); };
 $('more').onclick = () => { shown += PAGE_SIZE; draw(); };
 $('list').onchange = e => { const id = +e.target.dataset.id; const item = items.find(i => i.id === id);
