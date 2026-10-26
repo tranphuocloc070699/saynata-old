@@ -1,5 +1,7 @@
 package com.englishtranslation.backend.translation;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -54,19 +56,19 @@ class TranslationServiceTest {
 
     @Test
     void secondRequestComesFromCacheWithoutCallingClaude() {
-        when(claude.explainSentence("I love you")).thenReturn(sample("Anh yêu em"));
+        when(claude.explainSentence(eq("I love you"), any())).thenReturn(sample("Anh yêu em"));
 
         TranslationResponse first = service.translate("I love you", TargetLanguage.VI);
         TranslationResponse second = service.translate("  I   love you ", TargetLanguage.VI);
 
         assertThat(first.cached()).isFalse();
         assertThat(second.cached()).isTrue();
-        verify(claude, times(1)).explainSentence("I love you");
+        verify(claude, times(1)).explainSentence(eq("I love you"), any());
     }
 
     @Test
     void everyRequestLogsOneTimingLineWithoutTheText(CapturedOutput output) {
-        when(claude.explainSentence("I love you")).thenReturn(sample("Anh yêu em"));
+        when(claude.explainSentence(eq("I love you"), any())).thenReturn(sample("Anh yêu em"));
 
         service.translate("I love you", TargetLanguage.VI);
         service.translate("I love you", TargetLanguage.VI);
@@ -85,7 +87,7 @@ class TranslationServiceTest {
     @Test
     void cachedExplanationIsReadBackTheSame() {
         Explanation explanation = sample("Anh yêu em");
-        when(claude.explainSentence("I love you")).thenReturn(explanation);
+        when(claude.explainSentence(eq("I love you"), any())).thenReturn(explanation);
 
         service.translate("I love you", TargetLanguage.VI);
         TranslationResponse cached = service.translate("I love you", TargetLanguage.VI);
@@ -99,7 +101,7 @@ class TranslationServiceTest {
     void fixIsSavedAndReadBackFromTheCache() {
         Explanation explanation = new Explanation("You finished it before now.", List.of(), "I've already done it.",
                 "Use \"have done\" for a finished action that matters now.", "");
-        when(claude.explainSentence("I already do it.")).thenReturn(explanation);
+        when(claude.explainSentence(eq("I already do it."), any())).thenReturn(explanation);
 
         TranslationResponse first = service.translate("I already do it.", TargetLanguage.EN);
         TranslationResponse cached = service.translate("i already do it", TargetLanguage.EN);
@@ -113,7 +115,7 @@ class TranslationServiceTest {
     @Test
     void rewriteOfCorrectTextIsDroppedBeforeItIsSaved() {
         String text = "The committee postponed its decision until further evidence was available.";
-        when(claude.explainSentence(text)).thenReturn(new Explanation("They will decide later.", List.of(),
+        when(claude.explainSentence(eq(text), any())).thenReturn(new Explanation("They will decide later.", List.of(),
                 "The group waited to decide until they had more proof.", "It sounds better.", ""));
 
         TranslationResponse first = service.translate(text, TargetLanguage.EN);
@@ -126,7 +128,7 @@ class TranslationServiceTest {
 
     @Test
     void realWordsCalledNoneAreAskedAgainWithANote() {
-        when(claude.explainSentence("smear unction")).thenThrow(NotEnglishException.notAWord());
+        when(claude.explainSentence(eq("smear unction"), any())).thenThrow(NotEnglishException.notAWord());
         when(claude.explainSentenceOfRealWords("smear unction")).thenReturn(sample("To rub holy oil on something"));
 
         TranslationResponse response = service.translate("smear unction", TargetLanguage.VI);
@@ -137,7 +139,7 @@ class TranslationServiceTest {
 
     @Test
     void gibberishIsNotAskedAgainEvenWhenSomeWordsAreReal() {
-        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(NotEnglishException.notAWord());
+        when(claude.explainSentence(eq("asdkj qwe zzxq"), any())).thenThrow(NotEnglishException.notAWord());
 
         assertThatThrownBy(() -> service.translate("asdkj qwe zzxq", TargetLanguage.VI))
                 .isInstanceOf(NotEnglishException.class);
@@ -147,7 +149,7 @@ class TranslationServiceTest {
 
     @Test
     void textThatIsNotEnglishIsNotCachedAndAsksClaudeAgainNextTime() {
-        when(claude.explainSentence("for (int i = 0; i < n; i++) {}"))
+        when(claude.explainSentence(eq("for (int i = 0; i < n; i++) {}"), any()))
                 .thenThrow(NotEnglishException.notAWord());
 
         assertThatThrownBy(() -> service.translate("for (int i = 0; i < n; i++) {}", TargetLanguage.VI))
@@ -157,13 +159,13 @@ class TranslationServiceTest {
                 .isInstanceOf(NotEnglishException.class);
 
         assertThat(repository.count()).isZero();
-        verify(claude, times(2)).explainSentence("for (int i = 0; i < n; i++) {}");
+        verify(claude, times(2)).explainSentence(eq("for (int i = 0; i < n; i++) {}"), any());
     }
 
     @Test
     void personalSentenceIsExplainedButNeverSavedOrReadFromCache() {
         String text = "Email me at john@example.com";
-        when(claude.explainSentence(text)).thenReturn(sample("Gui email cho toi"));
+        when(claude.explainSentence(eq(text), any())).thenReturn(sample("Gui email cho toi"));
 
         TranslationResponse first = service.translate(text, TargetLanguage.VI);
         TranslationResponse second = service.translate(text, TargetLanguage.VI);
@@ -173,7 +175,7 @@ class TranslationServiceTest {
         assertThat(first.explanation().meaning()).isEqualTo("Gui email cho toi");
         assertThat(repository.count()).isZero();
         // Claude was asked both times, so no cache read happened.
-        verify(claude, times(2)).explainSentence(text);
+        verify(claude, times(2)).explainSentence(eq(text), any());
     }
 
     @Test
@@ -182,7 +184,7 @@ class TranslationServiceTest {
         String key = CacheKeys.sentenceKey(properties.sentencePromptVersion(), CacheKeys.normalizeSentence(text));
         repository.saveAndFlush(new SentenceTranslation(key, text, "en", "old meaning", "[]", "",
                 properties.model(), properties.sentencePromptVersion()));
-        when(claude.explainSentence(text)).thenReturn(sample("fresh"));
+        when(claude.explainSentence(eq(text), any())).thenReturn(sample("fresh"));
 
         TranslationResponse response = service.translate(text, TargetLanguage.VI);
 
@@ -192,7 +194,7 @@ class TranslationServiceTest {
 
     @Test
     void sentenceWithSmallNumbersStillCaches() {
-        when(claude.explainSentence("I have 2 cats in 2026")).thenReturn(sample("Toi co 2 meo"));
+        when(claude.explainSentence(eq("I have 2 cats in 2026"), any())).thenReturn(sample("Toi co 2 meo"));
 
         service.translate("I have 2 cats in 2026", TargetLanguage.VI);
         TranslationResponse second = service.translate("I have 2 cats in 2026", TargetLanguage.VI);
@@ -218,7 +220,7 @@ class TranslationServiceTest {
         assertThat(response.cached()).isTrue();
         assertThat(response.text()).isEqualTo("how are you");
         assertThat(response.explanation().meaning()).isEqualTo("Ban khoe khong?");
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
         assertThat(repository.count()).isEqualTo(1);
     }
 
@@ -232,7 +234,7 @@ class TranslationServiceTest {
         // The text shown keeps what the user typed; only the lookup is loose.
         assertThat(response.text()).isEqualTo("Looks good!");
         assertThat(response.explanation().meaning()).isEqualTo("trong on day");
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
     }
 
     @Test
@@ -241,7 +243,7 @@ class TranslationServiceTest {
 
         assertThat(service.translate("I\u2019m fine\u2026", TargetLanguage.VI).cached()).isTrue();
         assertThat(service.translate("i'm fine,", TargetLanguage.VI).cached()).isTrue();
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
     }
 
     @Test
@@ -253,13 +255,13 @@ class TranslationServiceTest {
 
         assertThat(response.cached()).isTrue();
         assertThat(response.text()).isEqualTo("Is it OK");
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
     }
 
     @Test
     void wordsThatDifferAreNotMatched() {
         saveRow("Looks good!", "vi", "x");
-        when(claude.explainSentence("Looks bad!")).thenReturn(sample("y"));
+        when(claude.explainSentence(eq("Looks bad!"), any())).thenReturn(sample("y"));
 
         assertThat(service.translate("Looks bad!", TargetLanguage.VI).cached()).isFalse();
     }
@@ -271,7 +273,7 @@ class TranslationServiceTest {
 
         assertThat(service.translate("us", TargetLanguage.VI).explanation().meaning()).isEqualTo("chung toi");
         assertThat(service.translate("US", TargetLanguage.VI).explanation().meaning()).isEqualTo("My");
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
     }
 
     @Test
@@ -293,13 +295,13 @@ class TranslationServiceTest {
 
         assertThat(response.cached()).isTrue();
         assertThat(response.explanation().meaning()).isEqualTo("A greeting.");
-        verify(claude, never()).explainSentence("how are you");
+        verify(claude, never()).explainSentence(eq("how are you"), any());
     }
 
     @Test
     void personalTextIsNeverMatchedLoosely() {
         saveRow("Email me at john@example.com.", "vi", "old");
-        when(claude.explainSentence("email me at john@example.com")).thenReturn(sample("fresh"));
+        when(claude.explainSentence(eq("email me at john@example.com"), any())).thenReturn(sample("fresh"));
 
         TranslationResponse response = service.translate("email me at john@example.com", TargetLanguage.VI);
 
@@ -311,14 +313,14 @@ class TranslationServiceTest {
     @Test
     void textThatIsOnlyPunctuationDoesNotMatchAnything() {
         saveRow("Really?!", "vi", "that one");
-        when(claude.explainSentence("?!")).thenReturn(sample("none"));
+        when(claude.explainSentence(eq("?!"), any())).thenReturn(sample("none"));
 
         assertThat(service.translate("?!", TargetLanguage.VI).cached()).isFalse();
     }
 
     @Test
     void newRowsSaveTheirMatchKey() {
-        when(claude.explainSentence("How are you?")).thenReturn(sample("x"));
+        when(claude.explainSentence(eq("How are you?"), any())).thenReturn(sample("x"));
 
         service.translate("How are you?", TargetLanguage.VI);
 
@@ -340,12 +342,12 @@ class TranslationServiceTest {
         assertThat(response.cached()).isTrue();
         assertThat(curly.cached()).isTrue();
         assertThat(curly.text()).isEqualTo("Looks \u201Cgood\u201D\u2026");
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
     }
 
     @Test
     void allLanguagesShareOneEnglishRow() {
-        when(claude.explainSentence("I love you")).thenReturn(sample("Love for someone."));
+        when(claude.explainSentence(eq("I love you"), any())).thenReturn(sample("Love for someone."));
 
         TranslationResponse vietnamese = service.translate("I love you", TargetLanguage.VI);
         TranslationResponse japanese = service.translate("I love you", TargetLanguage.JA);
@@ -354,6 +356,6 @@ class TranslationServiceTest {
         assertThat(japanese.explanation().meaning()).isEqualTo("Love for someone.");
         assertThat(japanese.cached()).isTrue();
         assertThat(repository.count()).isEqualTo(1);
-        verify(claude, times(1)).explainSentence("I love you");
+        verify(claude, times(1)).explainSentence(eq("I love you"), any());
     }
 }

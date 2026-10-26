@@ -125,7 +125,7 @@ class PrefillRunnerTest {
     @Test
     void newWordAndPhraseAreAnsweredWithoutAUserAndSavedAsPrefill() {
         claudeAnswersWords(1_000_000); // $0.10
-        when(claude.explainSentence(anyString())).thenAnswer(call -> {
+        when(claude.explainSentence(anyString(), any())).thenAnswer(call -> {
             usage.record(Feature.SENTENCE, properties.model(), 1_000_000, 0);
             return EXPLANATION;
         });
@@ -191,7 +191,7 @@ class PrefillRunnerTest {
 
     @Test
     void aQueuedSentenceThatDiffersOnlyInCaseAndPunctuationIsAlreadyCached() {
-        when(claude.explainSentence("Looks good!")).thenReturn(EXPLANATION);
+        when(claude.explainSentence(eq("Looks good!"), any())).thenReturn(EXPLANATION);
         queue.save(new PrefillItem("sentence", "Looks good!", "vi", "test", 1, Instant.now()));
         queue.save(new PrefillItem("sentence", "looks good", "vi", "test", 0, Instant.now()));
 
@@ -200,7 +200,7 @@ class PrefillRunnerTest {
         // The loose match (TASK-83.3): one Claude call, one saved row, the second item is a cache hit.
         assertThat(summary.cached()).isEqualTo(1);
         assertThat(item("looks good").getStatus()).isEqualTo("done");
-        verify(claude, times(1)).explainSentence(anyString());
+        verify(claude, times(1)).explainSentence(anyString(), any());
         assertThat(sentences.findAll()).hasSize(1);
     }
 
@@ -215,7 +215,7 @@ class PrefillRunnerTest {
         assertThat(item("qwzxv").getStatus()).isEqualTo("skipped");
         assertThat(item("write to me at jane@example.com").getStatus()).isEqualTo("skipped");
         verify(claude, never()).describeWord(anyString());
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
         assertThat(sentences.findAll()).isEmpty(); // personal text is never saved
     }
 
@@ -227,7 +227,7 @@ class PrefillRunnerTest {
 
         assertThat(summary.skipped()).isEqualTo(1);
         assertThat(item("Looks good!").getStatus()).isEqualTo("skipped");
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).explainSentence(anyString(), any());
     }
 
     @Test

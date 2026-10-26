@@ -1,5 +1,7 @@
 package com.englishtranslation.backend.cache;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -48,7 +50,7 @@ class PromptVersionCacheTest {
     void setUp() {
         sentences.deleteAll();
         words.deleteAll();
-        when(claude.explainSentence("hello")).thenReturn(explanation);
+        when(claude.explainSentence(eq("hello"), any())).thenReturn(explanation);
         when(claude.describeWord("hello")).thenReturn(entry);
     }
 
@@ -89,7 +91,7 @@ class PromptVersionCacheTest {
         boolean sentenceStillCached = sentenceService(versions("s1", "w2")).translate("hello", TargetLanguage.VI).cached();
 
         assertThat(sentenceStillCached).isTrue();
-        verify(claude, times(1)).explainSentence("hello");
+        verify(claude, times(1)).explainSentence(eq("hello"), any());
     }
 
     @Test
