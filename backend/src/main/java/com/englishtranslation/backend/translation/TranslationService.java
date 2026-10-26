@@ -2,7 +2,7 @@ package com.englishtranslation.backend.translation;
 
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.cache.NotCachedException;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.limits.ClaudeGate;
@@ -47,7 +47,7 @@ public class TranslationService {
     private final SentenceTranslationRepository repository;
     private final SentenceSourceAliasRepository aliases;
     private final ClaudeService claude;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
     private final JsonMapper jsonMapper;
     private final PersonalTextDetector personalTextDetector;
     private final ClaudeGate gate;
@@ -55,7 +55,7 @@ public class TranslationService {
     private final EnglishWords englishWords;
 
     public TranslationService(SentenceTranslationRepository repository, SentenceSourceAliasRepository aliases,
-            ClaudeService claude, ClaudeProperties properties, JsonMapper jsonMapper,
+            ClaudeService claude, LlmProperties properties, JsonMapper jsonMapper,
             PersonalTextDetector personalTextDetector, ClaudeGate gate, LineTranslationService lines,
             EnglishWords englishWords) {
         this.englishWords = englishWords;

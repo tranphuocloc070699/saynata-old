@@ -1,7 +1,7 @@
 package com.englishtranslation.backend.prefill;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
 import com.englishtranslation.backend.translation.PersonalTextDetector;
 import com.englishtranslation.backend.word.EnglishWords;
@@ -78,7 +78,7 @@ public class SentenceWordQueue {
     private final NamedParameterJdbcTemplate jdbc;
     private final WordLookupRepository lookups;
     private final PrefillItemRepository queue;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
     private final Clock clock;
     private final Executor executor;
     private final ThreadPoolExecutor ownExecutor;
@@ -86,14 +86,14 @@ public class SentenceWordQueue {
     @Autowired
     public SentenceWordQueue(PersonalTextDetector personalText, EnglishWords englishWords,
             DictionaryWordRepository bundled, NamedParameterJdbcTemplate jdbc, WordLookupRepository lookups,
-            PrefillItemRepository queue, ClaudeProperties properties, Clock clock) {
+            PrefillItemRepository queue, LlmProperties properties, Clock clock) {
         this(personalText, englishWords, bundled, jdbc, lookups, queue, properties, clock, null);
     }
 
     /** For tests: {@code executor} null means the real bounded worker thread. */
     SentenceWordQueue(PersonalTextDetector personalText, EnglishWords englishWords, DictionaryWordRepository bundled,
             NamedParameterJdbcTemplate jdbc, WordLookupRepository lookups, PrefillItemRepository queue,
-            ClaudeProperties properties, Clock clock, Executor executor) {
+            LlmProperties properties, Clock clock, Executor executor) {
         this.personalText = personalText;
         this.englishWords = englishWords;
         this.bundled = bundled;

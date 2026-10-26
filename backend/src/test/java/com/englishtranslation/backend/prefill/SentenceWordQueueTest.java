@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.ClaudeUsageRepository;
 import com.englishtranslation.backend.claude.ClaudeUsageService;
@@ -79,7 +79,7 @@ class SentenceWordQueueTest {
     @Autowired
     ClaudeUsageService usage;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
     @Autowired
     EnglishWords englishWords;
     @Autowired

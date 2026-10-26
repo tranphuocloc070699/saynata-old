@@ -5,7 +5,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.word.WordLookup;
 import com.englishtranslation.backend.word.WordLookupRepository;
@@ -35,7 +35,7 @@ class WordImageUrlTest {
     @Autowired
     WordLookupRepository lookups;
     @Autowired
-    ClaudeProperties claudeProperties;
+    LlmProperties claudeProperties;
     @Autowired
     JdbcClient jdbc;
 

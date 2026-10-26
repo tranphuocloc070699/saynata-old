@@ -1,6 +1,6 @@
 # Production compose file: backend + Postgres. The dev file is compose.yaml (Postgres only).
 #
-#   cp .env.example .env     # then fill in CLAUDE_API_KEY, DB_PASSWORD and ADMIN_JWT_SECRET
+#   cp .env.example .env     # then fill in DEEPSEEK_API_KEY, DB_PASSWORD and ADMIN_JWT_SECRET
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
 # Docker Compose reads .env in this folder for the ${...} values below.
@@ -33,12 +33,15 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # CLAUDE_API_KEY for Anthropic, or CLAUDE_BASE_URL + CLAUDE_AUTH_TOKEN for a gateway (the app checks one is set).
-      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
-      CLAUDE_BASE_URL: ${CLAUDE_BASE_URL:-}
-      CLAUDE_AUTH_TOKEN: ${CLAUDE_AUTH_TOKEN:-}
-      CLAUDE_SCENE_MODEL: ${CLAUDE_SCENE_MODEL:-claude-sonnet-5-5}
-      CLAUDE_EFFORT: ${CLAUDE_EFFORT-low}
+      # Main LLM (DeepSeek). The backend does not start without DEEPSEEK_API_KEY (TASK-117).
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-flash}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/anthropic}
+      # Fallback LLM (Gemini). Empty key = no fallback.
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/english_translation
       SPRING_DATASOURCE_USERNAME: app
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
@@ -49,7 +52,7 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:-}
       ADMIN_ENABLED: ${ADMIN_ENABLED:-true}
-      # App user accounts (email code sign-in) and Claude cost limits. See "Resend setup" in the deploy guide.
+      # App user accounts (email code sign-in) and language-model cost limits. See "Resend setup" in the deploy guide.
       # All are optional: with none of them the backend still starts (codes go to the log, not to email).
       USER_JWT_SECRET: ${USER_JWT_SECRET:-}
       # Sign-in emails: RESEND_API_KEY set = Resend (deploy guide, "Resend setup"). Else SES if a from address is set.
@@ -66,11 +69,9 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://api.saynata.com}
       APP_URL_SCHEME: ${APP_URL_SCHEME:-saynata}
       APPLE_APP_IDS: ${APPLE_APP_IDS:-}
-      # true = guests cannot cause new Claude calls. Set false until the app with sign-in is released.
+      # true = guests cannot cause new model calls. Set false until the app with sign-in is released.
       REQUIRE_SIGN_IN: ${REQUIRE_SIGN_IN:-true}
-      CLAUDE_DAILY_BUDGET_USD: ${CLAUDE_DAILY_BUDGET_USD:-1.00}
-      # Optional override for the model in application.properties.
-      APP_CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-haiku-5-5}
+      LLM_DAILY_BUDGET_USD: ${LLM_DAILY_BUDGET_USD:-1.00}
       # Photos and clips for new words. Empty PIXABAY_API_KEY = none are fetched. MEDIA_DIR is /app/media (Dockerfile).
       PIXABAY_API_KEY: ${PIXABAY_API_KEY:-}
       MEDIA_BASE_URL: ${MEDIA_BASE_URL:-https://api.saynata.com/media}
@@ -78,7 +79,6 @@ services:
       # "AI pictures with Codex"). false = the admin gets 503 ai_unavailable and nothing is drawn.
       AI_PICTURES_ENABLED: ${AI_PICTURES_ENABLED:-false}
       AI_PICTURES_PER_DAY: ${AI_PICTURES_PER_DAY:-30}
-      AI_SCENE_DAILY_USD: ${AI_SCENE_DAILY_USD:-1.00}
       # read-only is enough. If drawing fails inside Docker with a sandbox error, try workspace-write (doc-11).
       AI_CODEX_SANDBOX: ${AI_CODEX_SANDBOX:-read-only}
       CODEX_HOME: /app/.codex

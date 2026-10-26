@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.englishtranslation.backend.auth.AccessTokenService;
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.ClaudeUsageRepository;
 import com.englishtranslation.backend.claude.ClaudeUsageService;
@@ -76,7 +76,7 @@ class ClaudeGateTest {
     @Autowired
     AccessTokenService accessTokens;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
     @Autowired
     RateLimiter rateLimiter;
 

@@ -63,9 +63,9 @@ class ClaudeServiceJsonInPromptTest {
 
     private ClaudeService service(String temperature) {
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/api";
-        ClaudeProperties properties = new ClaudeProperties("", "gpt-6-luna", "v1", "v1", url, "sk-test",
-                null, "", temperature);
-        return new ClaudeService(new ClaudeConfig().anthropicClient(properties), properties, usage);
+        LlmProperties properties = new LlmProperties("sk-test", "gpt-6-luna", "v1", "v1", url, temperature,
+                null, null, null);
+        return new ClaudeService(new LlmConfig().anthropicClient(properties), properties, usage);
     }
 
     private static String message(String text) {

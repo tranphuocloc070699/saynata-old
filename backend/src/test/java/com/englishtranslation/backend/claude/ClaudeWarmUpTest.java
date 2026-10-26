@@ -12,7 +12,7 @@ class ClaudeWarmUpTest {
     private final ClaudeService claude = mock(ClaudeService.class);
 
     private ClaudeWarmUp warmUp(String apiKey, boolean enabled) {
-        ClaudeProperties properties = new ClaudeProperties(apiKey, "claude-haiku-5-5", "v6", "v7");
+        LlmProperties properties = new LlmProperties(apiKey, "claude-haiku-5-5", "v6", "v7");
         return new ClaudeWarmUp(claude, properties, enabled, Runnable::run); // runs at once, on this thread
     }
 

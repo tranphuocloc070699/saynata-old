@@ -2,7 +2,7 @@ package com.englishtranslation.backend.word;
 
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.cache.NotCachedException;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.limits.ClaudeGate;
 import com.englishtranslation.backend.limits.PrefillContext;
@@ -30,7 +30,7 @@ public class WordService {
 
     private final WordLookupRepository repository;
     private final ClaudeService claude;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
     private final JsonMapper jsonMapper;
 
     private final EnglishWords englishWords;
@@ -43,7 +43,7 @@ public class WordService {
     private final ClaudeGate gate;
     private final SentenceSourceAliasRepository aliases;
 
-    public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
+    public WordService(WordLookupRepository repository, ClaudeService claude, LlmProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
             BackendWordMediaService mediaService, SenseMediaReader mediaReader,

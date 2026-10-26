@@ -7,7 +7,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.translation.Explanation;
 import com.englishtranslation.backend.translation.SentenceTranslationRepository;
@@ -54,17 +54,17 @@ class PromptVersionCacheTest {
         when(claude.describeWord("hello")).thenReturn(entry);
     }
 
-    private ClaudeProperties versions(String sentence, String word) {
-        return new ClaudeProperties("test-key", "model", sentence, word);
+    private LlmProperties versions(String sentence, String word) {
+        return new LlmProperties("test-key", "model", sentence, word);
     }
 
-    private TranslationService sentenceService(ClaudeProperties properties) {
+    private TranslationService sentenceService(LlmProperties properties) {
         return new TranslationService(sentences, org.mockito.Mockito.mock(com.englishtranslation.backend.translation.SentenceSourceAliasRepository.class), claude, properties, jsonMapper, new com.englishtranslation.backend.translation.PersonalTextDetector(),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.lines.LineTranslationService.class), new EnglishWords());
     }
 
-    private WordService wordService(ClaudeProperties properties) {
+    private WordService wordService(LlmProperties properties) {
         return new WordService(words, claude, properties, jsonMapper, new EnglishWords(), new IpaDictionary(),
                 new SimpleWords(), org.mockito.Mockito.mock(com.englishtranslation.backend.media.BackendWordMediaService.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.media.SenseMediaReader.class),

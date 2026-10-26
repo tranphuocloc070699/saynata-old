@@ -12,7 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.lines.LineTranslation;
 import com.englishtranslation.backend.lines.LineTranslationRepository;
@@ -41,7 +41,7 @@ class SentenceLanguageLineTest {
     @Autowired
     LineTranslationRepository lines;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
 
     @MockitoBean
     ClaudeService claude;

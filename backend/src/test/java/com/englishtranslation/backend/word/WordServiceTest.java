@@ -9,7 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +39,7 @@ class WordServiceTest {
     SimpleWords simpleWords;
 
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
 
     @MockitoBean
     ClaudeService claude;

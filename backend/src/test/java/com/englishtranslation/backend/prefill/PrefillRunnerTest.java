@@ -12,7 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.ClaudeUsageRepository;
 import com.englishtranslation.backend.claude.ClaudeUsageService;
@@ -72,7 +72,7 @@ class PrefillRunnerTest {
     @Autowired
     ClaudeUsageService usage;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
     @MockitoBean
     ClaudeService claude;
     @MockitoBean
