@@ -6,7 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-25 09:23'
-updated_date: '2026-10-25 11:57'
+updated_date: '2026-10-25 12:39'
 labels: []
 dependencies:
   - TASK-114.1
@@ -38,5 +38,5 @@ Web part of TASK-114. Developer decision 2026-10-25: no new UI. Keep the current
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
-Developer decision 2026-10-25: NO new UI. Keep the current sentence card and word card exactly as they are. The headline slot (where the typed sentence shows today) shows the English version (explanation.english) when present; the rest is unchanged: simple summary, then the target-language row. No 'From <language>' note or chip, so the mockup step is not needed. wordMatch opens the normal word card. English input unchanged.
+Follow-up (PR #219): a word the word API cannot answer (200 without senses, 404, 422) now goes to the sentence API (explain.ts explainWord). If that fails the word answer stays, except a 422 with code not_a_word / a_name, whose server text is shown. ApiError.code added. Tests: web explain.test.ts and api.test.ts pass (40).
 <!-- SECTION:NOTES:END -->

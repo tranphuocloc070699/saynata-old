@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-10-25 09:23'
-updated_date: '2026-10-25 12:22'
+updated_date: '2026-10-25 12:39'
 labels: []
 dependencies:
   - TASK-114.1
@@ -50,4 +50,5 @@ Optional english/sourceLang/wordMatch on Explanation; SentenceResult.headline; T
 Developer decision 2026-10-25: NO new UI. Keep the current sentence card and word card exactly as they are. The headline slot (where the typed sentence shows today) shows the English version (explanation.english) when present; the rest is unchanged: simple summary, then the target-language row. No 'From <language>' note or chip, so the mockup step is not needed. wordMatch opens the normal word card. English input unchanged.
 
 PR https://github.com/tranphuocloc070699/saynata/pull/221 (into feature/local). Test it: type 'Hôm nay tôi buồn' -> English headline then summary then closed Vietnamese row; 'buồn' -> word card for sad; 'bỏ cuộc' -> give up card; History/Liked keep typed text; Quick explain same; gibberish -> error. Automated: NonEnglishInputTests, QuickExplainerTests, TranslationStoreTests (83 pass).
+Checked, no change needed: a 422 shows the server text ('<detail> (status 422)', BackendError.badStatus), and TranslationStore.lookUpWord already falls back to the sentence API on WordLookupError.notAnEnglishWord (also the 200-empty case). Only PromptVersions.sentence moved to v13, done in TASK-114.6.
 <!-- SECTION:NOTES:END -->
