@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Rebuild and restart the backend on the VPS, then wait until it is healthy.
+# Rebuild the image around backend/dist/app.jar and restart the backend on the VPS, then wait until it is healthy.
 # Run on the server from anywhere: ~/saynata/backend/scripts/deploy.sh
-# The GitHub "Deploy" workflow calls this after it has pulled the new commit.
+# The GitHub "Deploy" workflow copies the jar and calls this.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."    # the backend/ folder, where .env and the compose file live
@@ -11,8 +11,13 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+if [ ! -f dist/app.jar ]; then
+  echo "backend/dist/app.jar is missing. The GitHub Deploy workflow builds and copies it (doc-11)." >&2
+  exit 1
+fi
+
 compose="docker compose -f docker-compose.prod.yml"
-# A normal build takes 2-3 minutes. A stuck BuildKit session can hang forever with an idle server
+# The build only adds the jar to the cached JRE image (seconds). The time limit is for a cold cache. A stuck BuildKit session can hang forever with an idle server
 # (2026-10-17, "session healthcheck failed fatally"), so every Docker step has a time limit.
 build_timeout="${DEPLOY_BUILD_TIMEOUT:-360}"   # seconds per build try
 

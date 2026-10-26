@@ -178,17 +178,28 @@ The Claude key stays on the server. The app never sends one.
 
 ## 7. Auto deploy (GitHub Actions)
 
-After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml) logs in to the VPS
-over SSH, moves `~/saynata` to the commit CI tested (`git merge --ff-only`), and runs
-[backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh). That script builds the backend image
-(`docker compose build backend`), then runs `docker compose up -d --wait`, so the run turns red if the backend does not
-become healthy, and it prints the last backend logs.
+After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml) runs four jobs:
+
+1. `prepare` logs in to the VPS over SSH and moves `~/saynata` to the commit CI tested (`git merge --ff-only`), once. It also
+   finds which parts changed (`git diff HEAD^1 HEAD`): backend, admin, web. A change in `.github/workflows/` counts for all
+   parts, and a manual run deploys all parts.
+2. `deploy` (backend), `deploy-admin` and `deploy-web` wait only for `prepare`, so they **run at the same time**, and a
+   part that did not change is skipped.
+
+The backend jar is built **on GitHub** (Java 17, Maven cache) with `./mvnw package -DskipTests` and copied with `rsync` to
+`backend/dist/app.jar` on the server. Then [backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh) builds the image
+(`docker compose build backend`): the [Dockerfile](../../../backend/Dockerfile) is only the JRE runtime stage (ffmpeg, Codex)
+plus `COPY dist/app.jar`, so the server never pulls the JDK image or downloads Maven dependencies. Those two steps took 6+
+minutes at 0.4 MB/s after the cache prune of 2026-10-24 and made deploys fail. Then it runs `docker compose up -d --wait`, so
+the run turns red if the backend does not become healthy, and it prints the last backend logs.
 Each build try is stopped after 6 minutes (`DEPLOY_BUILD_TIMEOUT`, in seconds, set it on the server to change it) and
 tried once more; if both tries fail, the old backend keeps running. The GitHub jobs stop after 20 minutes (backend),
-10 minutes (admin) and 15 minutes (web). A normal deploy takes about 3 minutes.
-A third job, `deploy-web`, does the same for the learner web app (section 14). It waits for the backend job but runs even when that job failed (a broken backend build does not hold back a web change); it then moves the server's repo to the commit itself. A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
+10 minutes (admin) and 15 minutes (web). A normal backend deploy takes about 2 minutes.
+`deploy-web` does the same for the learner web app (section 14). `deploy-admin` builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
 `ADMIN_API_URL` repository variable, default `https://api.saynata.com`) and copies `admin/dist` to the server with
-`rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
+`rsync --delete` (section 8). The VPS needs `rsync`, but no Node and no Java.
+A local Docker build needs the jar first: `cd backend && ./mvnw -DskipTests package && mkdir -p dist && mv target/backend-*.jar dist/app.jar`.
+If a part failed and the next push does not touch it, run the workflow by hand (it deploys all parts).
 You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.
 Until the secrets below exist, the workflow does nothing and stays green.
 
@@ -196,7 +207,10 @@ Until the secrets below exist, the workflow does nothing and stays green.
 flowchart LR
     PUSH[push to main] --> CI[CI workflow]
     CI -->|success| DEP[Deploy workflow]
-    DEP -->|SSH, deploy key| VPS[VPS: git merge + deploy.sh]
+    DEP --> PREP[prepare: git merge once]
+    PREP --> BE[backend: jar + rsync + deploy.sh]
+    PREP --> AD[admin: build + rsync]
+    PREP --> WE[web: build + rsync]
 ```
 
 One-time setup (steps 1-3 above must be done first; the repo can live in `~/saynata` or another folder such as `/var/www/saynata`, see `VPS_APP_DIR`):
@@ -1009,6 +1023,8 @@ Put a monthly reminder in your calendar; the script is safe to run again.
 | Deploy hangs (the build log stops, the server is idle) | Seen on 2026-10-17: dockerd logged `session healthcheck failed fatally` and the BuildKit build waited forever. `deploy.sh` now stops a build after 6 minutes and tries once more, and the job stops after 20 minutes. If a run still hangs: 1. Cancel it (Actions tab, the run, **Cancel workflow**). 2. On the server, look for leftover build processes: `pgrep -af 'docker compose\|buildx'`, and stop them: `pkill -f 'buildx.*bake'; pkill -f 'docker compose -f docker-compose.prod.yml'`. 3. If builds still hang, restart Docker: `sudo systemctl restart docker` (the backend and Postgres restart too, a short outage). 4. Re-run the workflow (**Re-run all jobs**). The old backend keeps running until a new build succeeds. |
 | `https://saynata.com` shows Cloudflare 522 or the `deploy-web` check fails | DNS record missing or proxied (orange cloud), or the Caddy block is missing. See section 14, steps 1 and 2. `curl -I http://127.0.0.1:3001` on the server tells if the web container itself is up. |
 | Backend keeps restarting, `api.saynata.com` gives 502, and `docker compose -f docker-compose.prod.yml logs backend` says `No space left on device` (often `Unable to create tempDir`), or a deploy stops with "Not enough disk space to build" | The disk is full, usually Docker build cache (seen on 2026-10-24). 1. `df -h /` and `docker system df`. 2. Free the cache and old images: `docker builder prune -af && docker image prune -f` (**never** `docker volume prune` or `--volumes`: that deletes the database). 3. Old logs: `sudo journalctl --vacuum-size=100M`. 4. Start the backend again: `docker compose -f docker-compose.prod.yml up -d backend`, or re-run the deploy workflow. 5. Still full? `sudo du -xh / --max-depth=2 \| sort -h \| tail -20`. Then do the one-time steps in section 18 (journald cap, weekly prune) so it does not come back. |
+| Deploy fails with `backend/dist/app.jar is missing` | The jar is copied by the `deploy` job. Run the Deploy workflow by hand. On the server never run `deploy.sh` alone without a jar. |
+| Backend deploy build is slow or passes 6 minutes | The server must not pull the JDK: check that the Dockerfile has only the JRE stage and `docker images eclipse-temurin` shows only the `17-jre` image. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
 | AI picture fails (TASK-91) | See section 12, "If something goes wrong": the three usual causes are a missing `AI_PICTURES_ENABLED=true`, an `auth.json` that is not owned by 10001 or has ended, and a sandbox that needs `AI_CODEX_SANDBOX=workspace-write`. |
 
