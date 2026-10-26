@@ -1,6 +1,7 @@
 package com.englishtranslation.backend.claude;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import com.anthropic.client.AnthropicClient;
@@ -14,8 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * An Anthropic-compatible gateway (CLAUDE_BASE_URL + CLAUDE_AUTH_TOKEN): the client calls its URL with a Bearer
- * token, the scene model comes from the settings, and a blank effort is not sent (older models refuse it).
+ * The main model endpoint (DEEPSEEK_BASE_URL + DEEPSEEK_API_KEY): the client calls its URL with the key, and every
+ * call switches thinking off (TASK-117).
  */
 class ClaudeGatewayTest {
 
@@ -51,40 +52,27 @@ class ClaudeGatewayTest {
         server.stop(0);
     }
 
-    private ClaudeProperties gateway(String sceneModel, String effort) {
+    private LlmProperties gateway(String apiKey) {
         String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/api";
-        return new ClaudeProperties("", "claude-haiku-4-5", "v1", "v1", url, "sk-gateway", sceneModel, effort, null);
+        return new LlmProperties(apiKey, "deepseek-flash", "v1", "v1", url, null, null, null, null);
     }
 
     @Test
-    void callsTheGatewayUrlWithABearerToken() {
-        ClaudeProperties properties = gateway("claude-opus-5-5", "");
-        AnthropicClient client = new ClaudeConfig().anthropicClient(properties);
+    void callsTheEndpointUrlWithTheKeyAndSwitchesThinkingOff() {
+        LlmProperties properties = gateway("sk-deepseek");
+        AnthropicClient client = new LlmConfig().anthropicClient(properties);
 
         new ClaudeService(client, properties, mock(ClaudeUsageService.class)).warmUp();
 
         assertThat(path.get()).isEqualTo("/api/v1/messages");
-        assertThat(authorization.get()).isEqualTo("Bearer sk-gateway");
-        assertThat(apiKeyHeader.get()).isNull();
-        assertThat(body.get()).contains("\"model\":\"claude-haiku-4-5\"");
+        assertThat(apiKeyHeader.get()).isEqualTo("sk-deepseek");
+        assertThat(body.get()).contains("\"model\":\"deepseek-flash\"").contains("\"thinking\":{\"type\":\"disabled\"}");
     }
 
     @Test
-    void theSceneModelComesFromTheSettings() {
-        ClaudeProperties properties = gateway("claude-opus-5-5", "");
-        AnthropicClient client = new ClaudeConfig().anthropicClient(properties);
-
-        new ClaudeService(client, properties, mock(ClaudeUsageService.class)).writePictureScene("s", "u");
-
-        assertThat(body.get()).contains("\"model\":\"claude-opus-5-5\"");
-    }
-
-    @Test
-    void aBlankEffortIsNotSentAndADefaultSceneModelIsUsed() {
-        ClaudeProperties properties = gateway(" ", "");
-
-        assertThat(properties.effortLevel()).isEmpty();
-        assertThat(properties.sceneModel()).isEqualTo("claude-sonnet-5-5");
-        assertThat(gateway(null, "low").effortLevel()).isPresent();
+    void startUpFailsWithAClearMessageWhenTheDeepSeekKeyIsEmpty() {
+        assertThatThrownBy(() -> new LlmConfig().anthropicClient(gateway(" ")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("DEEPSEEK_API_KEY");
     }
 }

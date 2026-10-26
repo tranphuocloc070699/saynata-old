@@ -18,6 +18,9 @@ import SwiftUI
 /// the original shows at once, the summary grows word by word, and the target-language row appears at the end.
 struct SentenceCard: View {
     let sentence: String
+    /// The text saved in History and Liked, when it is not `sentence`: the text the user typed, while `sentence`
+    /// shows its English version (TASK-114). Nil: they are the same.
+    var savedText: String?
     /// The simple summary so far. Empty while nothing is written: the card shows a spinner there.
     let summary: String
     /// Nil while the answer is still streaming: the folded row is left out until it is there.
@@ -69,7 +72,7 @@ struct SentenceCard: View {
                     listenButton(text: sentence, id: sentenceSpeechID, label: "Listen to the sentence")
                     // Only for a finished answer: the summary is what the Liked list shows.
                     if translation != nil {
-                        LikeButton(item: SavedItem(kind: .sentence, text: sentence, preview: SummaryMarkup(summary).plainText))
+                        LikeButton(item: SavedItem(kind: .sentence, text: savedText ?? sentence, preview: SummaryMarkup(summary).plainText))
                     }
                 }
             }

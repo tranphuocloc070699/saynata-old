@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface UserIdentityRepository extends JpaRepository<UserIdentity, Long> {
 
     Optional<UserIdentity> findByProviderAndSubject(SocialProvider provider, String subject);
+
+    Optional<UserIdentity> findFirstByUserIdOrderByCreatedAtAsc(Long userId);
 }

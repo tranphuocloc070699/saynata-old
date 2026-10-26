@@ -169,11 +169,24 @@ export interface PrefillSchedule {
   sources: string[]; // the only queue sources the night run answers
 }
 
+// One finished prefill run (GET /prefill, field lastRuns, newest first).
+export interface PrefillRunSummary {
+  trigger: string; // "admin" or "schedule"
+  startedAt: string;
+  finishedAt: string;
+  spentUsd: number;
+  done: number;
+  failed: number;
+  stoppedBecause: string; // queue-empty, cap, limit, failures
+}
+
 // GET /prefill: the queue counts, the run cap and the schedule (only the fields the admin reads).
 export interface PrefillOverview {
   running: boolean;
   maxUsdPerRun: number;
   spentTodayUsd: number;
+  bySource?: { source: string; byStatus: Record<string, number> }[];
+  lastRuns?: PrefillRunSummary[];
   schedule?: PrefillSchedule;
 }
 

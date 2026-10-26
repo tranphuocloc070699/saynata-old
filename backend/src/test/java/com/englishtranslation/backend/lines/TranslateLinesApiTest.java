@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.lines;
 
+import static com.englishtranslation.backend.lines.LinesFixtures.every;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -19,6 +20,7 @@ import com.englishtranslation.backend.user.UserRepository;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -75,7 +77,7 @@ class TranslateLinesApiTest {
 
     @Test
     void aMissAsksClaudeOnceForAllMissesAndKeepsTheOrder() throws Exception {
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi", "hai"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi", "hai"));
 
         send("", body("ko", "one", "two"), true).andExpect(status().isOk())
                 .andExpect(jsonPath("$.targetLang").value("ko"))
@@ -85,13 +87,13 @@ class TranslateLinesApiTest {
                 .andExpect(jsonPath("$.lines[0].cached").value(false))
                 .andExpect(jsonPath("$.lines[1].translation").value("hai"));
 
-        verify(claude, times(1)).translateLines(TargetLanguage.KO, List.of("one", "two"));
-        assertThat(lines.findAll()).hasSize(2).allMatch(line -> line.getSource().equals("llm"));
+        verify(claude, times(1)).translateLinesAllLanguages(List.of("one", "two"));
+        assertThat(lines.findAll()).hasSize(14).allMatch(line -> line.getSource().equals("llm"));
     }
 
     @Test
     void theSecondRequestComesFromTheCacheWithoutAnLlmCall() throws Exception {
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
         send("", body("ko", "one"), true).andExpect(status().isOk());
 
         // Same text with other spaces: the same normalized text.
@@ -99,21 +101,45 @@ class TranslateLinesApiTest {
                 .andExpect(jsonPath("$.lines[0].translation").value("moi"))
                 .andExpect(jsonPath("$.lines[0].cached").value(true));
 
-        verify(claude, times(1)).translateLines(any(), anyList());
+        verify(claude, times(1)).translateLinesAllLanguages(anyList());
     }
 
     @Test
-    void anotherLanguageIsAnotherLine() throws Exception {
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("ko line"), List.of("ja line"));
-        send("", body("ko", "one"), true).andExpect(status().isOk());
+    void oneCallSavesEveryLanguageAndAnotherLanguageIsCached() throws Exception {
+        var item = new java.util.EnumMap<TargetLanguage, String>(TargetLanguage.class);
+        item.put(TargetLanguage.VI, "vi line");
+        item.put(TargetLanguage.JA, "ja line");
+        item.put(TargetLanguage.KO, "ko line");
+        item.put(TargetLanguage.ZH, "zh line");
+        item.put(TargetLanguage.FR, "fr line");
+        item.put(TargetLanguage.ES, "es line");
+        item.put(TargetLanguage.DE, "de line");
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(List.of(item));
+
+        send("", body("ko", "one"), true).andExpect(status().isOk())
+                .andExpect(jsonPath("$.lines[0].translation").value("ko line"));
+        assertThat(lines.findAll()).hasSize(7).allMatch(line -> line.getSource().equals("llm"));
 
         send("", body("ja", "one"), true).andExpect(jsonPath("$.lines[0].translation").value("ja line"))
-                .andExpect(jsonPath("$.lines[0].cached").value(false));
+                .andExpect(jsonPath("$.lines[0].cached").value(true));
+        verify(claude, times(1)).translateLinesAllLanguages(anyList());
+    }
+
+    @Test
+    void aLanguageTheModelLeftOutIsNotSaved() throws Exception {
+        var item = new java.util.EnumMap<TargetLanguage, String>(TargetLanguage.class);
+        item.put(TargetLanguage.KO, "ko line");
+        item.put(TargetLanguage.JA, "  ");
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(List.of(item));
+
+        send("", body("ja", "one"), true).andExpect(status().isOk())
+                .andExpect(jsonPath("$.lines[0].translation").doesNotExist());
+        assertThat(lines.findAll()).hasSize(1);
     }
 
     @Test
     void onlyTheMissesGoToClaude() throws Exception {
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi"), List.of("hai"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"), every("hai"));
         send("", body("vi", "one"), true).andExpect(status().isOk());
 
         send("", body("vi", "one", "two"), true).andExpect(status().isOk())
@@ -121,12 +147,12 @@ class TranslateLinesApiTest {
                 .andExpect(jsonPath("$.lines[1].cached").value(false))
                 .andExpect(jsonPath("$.lines[1].translation").value("hai"));
 
-        verify(claude).translateLines(TargetLanguage.VI, List.of("two"));
+        verify(claude).translateLinesAllLanguages(List.of("two"));
     }
 
     @Test
     void cachedOnlyNeverCallsClaudeAndMissesAreNull() throws Exception {
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
         send("", body("vi", "one"), true).andExpect(status().isOk());
 
         // A guest may use cachedOnly: it never reaches the gate.
@@ -136,7 +162,7 @@ class TranslateLinesApiTest {
                 .andExpect(jsonPath("$.lines[1].translation").doesNotExist())
                 .andExpect(jsonPath("$.lines[1].cached").value(false));
 
-        verify(claude, times(1)).translateLines(any(), anyList());
+        verify(claude, times(1)).translateLinesAllLanguages(anyList());
     }
 
     @Test
@@ -144,12 +170,12 @@ class TranslateLinesApiTest {
         send("", body("vi", "one"), false).andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("sign_in_required"));
 
-        verify(claude, never()).translateLines(any(), anyList());
+        verify(claude, never()).translateLinesAllLanguages(anyList());
     }
 
     @Test
     void aGuestHitNeedsNoSignIn() throws Exception {
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
         send("", body("vi", "one"), true).andExpect(status().isOk());
 
         send("", body("vi", "one"), false).andExpect(status().isOk())
@@ -159,7 +185,7 @@ class TranslateLinesApiTest {
     @Test
     void englishIsRejected() throws Exception {
         send("", body("en", "one"), true).andExpect(status().isBadRequest());
-        verify(claude, never()).translateLines(any(), anyList());
+        verify(claude, never()).translateLinesAllLanguages(anyList());
     }
 
     @Test
@@ -176,18 +202,18 @@ class TranslateLinesApiTest {
         send("", body("vi", "   "), true).andExpect(status().isBadRequest());
         send("", body("vi", "a".repeat(501)), true).andExpect(status().isBadRequest());
         send("", "{\"targetLang\":\"vi\"}", true).andExpect(status().isBadRequest());
-        verify(claude, never()).translateLines(any(), anyList());
+        verify(claude, never()).translateLinesAllLanguages(anyList());
     }
 
     @Test
     void twentyTextsAreFine() throws Exception {
         String[] texts = new String[20];
-        List<String> answers = new ArrayList<>();
+        List<Map<TargetLanguage, String>> answers = new ArrayList<>();
         for (int i = 0; i < 20; i++) {
             texts[i] = "text " + i;
-            answers.add("line " + i);
+            answers.add(LinesFixtures.item("line " + i));
         }
-        when(claude.translateLines(any(), anyList())).thenReturn(answers);
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(answers);
 
         send("", body("vi", texts), true).andExpect(status().isOk())
                 .andExpect(jsonPath("$.lines.length()").value(20))
@@ -196,13 +222,13 @@ class TranslateLinesApiTest {
 
     @Test
     void theSameTextTwiceInOneRequestIsAskedOnce() throws Exception {
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
 
         send("", body("vi", "one", "one"), true).andExpect(status().isOk())
                 .andExpect(jsonPath("$.lines[0].translation").value("moi"))
                 .andExpect(jsonPath("$.lines[1].translation").value("moi"));
 
-        verify(claude).translateLines(TargetLanguage.VI, List.of("one"));
+        verify(claude).translateLinesAllLanguages(List.of("one"));
     }
 
     @Test

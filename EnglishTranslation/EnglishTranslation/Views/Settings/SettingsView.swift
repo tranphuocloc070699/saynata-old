@@ -14,7 +14,8 @@ struct SettingsView<MoreSections: View>: View {
     /// Sections shown after the shared ones. The iPhone app has none.
     @ViewBuilder var moreSections: () -> MoreSections
 
-    @AppStorage(TranslationRowPreference.modeKey) private var modeRaw = TranslationRowMode.collapsed.rawValue
+    @AppStorage(TranslationRowPreference.modeKey) private var modeRaw = TranslationRowMode.rememberLast.rawValue
+    @AppStorage(SyncPreferences.historyKey, store: SyncPreferences.groupDefaults) private var syncHistory = true
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(AccountStore.self) private var account
@@ -29,7 +30,7 @@ struct SettingsView<MoreSections: View>: View {
 
     private static var avatarSize: CGFloat { 52 }
 
-    private var mode: TranslationRowMode { TranslationRowMode(rawValue: modeRaw) ?? .collapsed }
+    private var mode: TranslationRowMode { TranslationRowMode(rawValue: modeRaw) ?? .rememberLast }
 
     var body: some View {
         NavigationStack {
@@ -56,6 +57,11 @@ struct SettingsView<MoreSections: View>: View {
             }
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
+            .onChange(of: modeRaw) { SettingsSync.shared.settingsChanged() }
+            .onChange(of: syncHistory) { _, isOn in
+                SettingsSync.shared.settingsChanged()
+                if isOn { Task { await SyncEngine.shared.historySyncTurnedOn() } }
+            }
             .navigationTitle("Settings")
             .inlineNavigationTitle()
             .toolbar {
@@ -190,8 +196,31 @@ extension SettingsView {
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(option == mode ? .isSelected : [])
             }
+            if account.isSignedIn {
+                HairlineDivider()
+                syncHistoryRow
+            }
         }
         .settingsCard()
+    }
+
+    /// The "Sync history" switch (TASK-93.4): History follows the account to the phone, Mac and website. Off: the
+    /// server History is deleted and this device keeps its own list. Only for a signed-in user.
+    fileprivate var syncHistoryRow: some View {
+        Toggle(isOn: $syncHistory) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                Text("Sync history")
+                    .font(.body)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                Text("Keep History on all your devices")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Colors.textMuted)
+            }
+        }
+        .tint(Theme.Colors.accent)
+        .padding(.horizontal, Theme.Spacing.large)
+        .padding(.vertical, Theme.Spacing.medium)
+        .frame(minHeight: Theme.minTapTarget)
     }
 
     /// "About Saynata" (a page) and "Source code" (the GitHub project).

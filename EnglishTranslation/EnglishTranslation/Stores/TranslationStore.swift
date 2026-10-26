@@ -54,7 +54,7 @@ final class TranslationStore {
     init(
         makeTranslator: @escaping @MainActor () throws -> any Translating = TranslatorFactory.makeTranslator,
         makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup,
-        history: (any HistoryStoring)? = HistoryStore.shared,
+        history: (any HistoryStoring)? = SyncedHistory.shared,
         prefetchDelay: Duration = .milliseconds(400),
         languagePreference: TargetLanguagePreference = .shared
     ) {
@@ -155,6 +155,13 @@ final class TranslationStore {
     private func showWord(_ entry: WordEntry) async {
         state = .loadedWord(entry)
         await history?.record(SavedItem(entry: entry))
+    }
+
+    /// The word card for the English word or phrase the backend matched to non-English text (TASK-114).
+    /// Nil on any error or an empty entry, so the caller shows the sentence result instead.
+    private func wordCard(forMatch match: String) async -> WordEntry? {
+        guard let entry = try? await makeWordLookup().lookUp(match), !entry.senses.isEmpty else { return nil }
+        return entry
     }
 
     /// Close words to show under the error. Only when the backend says it is not an English word,
@@ -274,6 +281,11 @@ final class TranslationStore {
                 onMeaning: { [weak self] meaning in
                     self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
                 })
+            // One non-English word or idiom ("buồn"): open the normal word card. Any failure keeps the sentence result.
+            if let match = explanation.wordMatchQuery, let entry = await wordCard(forMatch: match) {
+                await showWord(entry)
+                return
+            }
             let result = SentenceResult(
                 sentence: sentence, explanation: explanation, language: language, isTyped: sentence != textFromElsewhere)
             state = .loaded(result)

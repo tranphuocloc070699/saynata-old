@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.englishtranslation.backend.auth.AccessTokenService;
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.ClaudeUsageRepository;
 import com.englishtranslation.backend.claude.ClaudeUsageService;
@@ -76,7 +76,7 @@ class ClaudeGateTest {
     @Autowired
     AccessTokenService accessTokens;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
     @Autowired
     RateLimiter rateLimiter;
 
@@ -216,12 +216,12 @@ class ClaudeGateTest {
 
     @Test
     void aSignedInUserGetsANewSentenceFromClaude() throws Exception {
-        when(claude.explainSentence("A brand new sentence")).thenReturn(EXPLANATION);
+        when(claude.explainSentence(eq("A brand new sentence"), any())).thenReturn(EXPLANATION);
 
         translate("A brand new sentence", userToken).andExpect(status().isOk())
                 .andExpect(jsonPath("$.cached").value(false));
 
-        verify(claude).explainSentence("A brand new sentence");
+        verify(claude).explainSentence(eq("A brand new sentence"), any());
     }
 
     @Test
@@ -235,7 +235,7 @@ class ClaudeGateTest {
 
     @Test
     void theStreamKnowsTheUserEvenThoughItRunsOnAnotherThread() throws Exception {
-        when(claude.explainSentenceStreaming(eq("A brand new sentence"), any()))
+        when(claude.explainSentenceStreaming(eq("A brand new sentence"), any(), any()))
                 .thenReturn(EXPLANATION);
 
         String body = stream("A brand new sentence", userToken);
@@ -246,7 +246,7 @@ class ClaudeGateTest {
     @Test
     void aUserOverTheirHourlyLimitGets429WithRetryAfterAndNoClaudeCall() throws Exception {
         // The limit is 2 per hour in this test class.
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
         translate("First new sentence", userToken).andExpect(status().isOk());
         translate("Second new sentence", userToken).andExpect(status().isOk());
 
@@ -255,25 +255,25 @@ class ClaudeGateTest {
                 .andExpect(header().exists("Retry-After"))
                 .andExpect(jsonPath("$.code").value("rate_limited"));
 
-        verify(claude, times(2)).explainSentence(anyString());
+        verify(claude, times(2)).explainSentence(anyString(), any());
     }
 
     @Test
     void cacheHitsDoNotUseUpTheUsersClaudeLimit() throws Exception {
         cacheSentence("Hello there");
         // The first request saves the language line (one small call); the next ones are free hits.
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("Xin chào"));
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Xin chào"));
         for (int i = 0; i < 6; i++) {
             translate("Hello there", userToken).andExpect(status().isOk());
         }
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
 
         translate("A brand new sentence", userToken).andExpect(status().isOk());
     }
 
     @Test
     void theStreamReportsRateLimitedInTheErrorEvent() throws Exception {
-        when(claude.explainSentenceStreaming(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentenceStreaming(anyString(), any(), any())).thenReturn(EXPLANATION);
         stream("First new sentence", userToken);
         stream("Second new sentence", userToken);
 
@@ -331,7 +331,7 @@ class ClaudeGateTest {
     void aCallStillGoesThroughWhenTheSpendIsJustBelowTheCap() throws Exception {
         // Spend just below the cap: a call still goes through.
         usage.record(Feature.WORD, "claude-haiku-5-5", 0, 1_000_000); // $0.50
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
 
         translate("A brand new sentence", userToken).andExpect(status().isOk());
     }

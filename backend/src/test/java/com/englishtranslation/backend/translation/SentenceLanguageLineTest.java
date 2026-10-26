@@ -1,7 +1,9 @@
 package com.englishtranslation.backend.translation;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -10,7 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.lines.LineTranslation;
 import com.englishtranslation.backend.lines.LineTranslationRepository;
@@ -39,7 +41,7 @@ class SentenceLanguageLineTest {
     @Autowired
     LineTranslationRepository lines;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
 
     @MockitoBean
     ClaudeService claude;
@@ -51,10 +53,55 @@ class SentenceLanguageLineTest {
     }
 
     @Test
+    void aLineFromTheSentenceCallNeedsNoLineCallAndIsSavedForLater() {
+        when(claude.explainSentence(eq("Hello there"), eq(TargetLanguage.VI)))
+                .thenReturn(new Explanation("A friendly hello.", List.of(), "Xin chào"));
+
+        TranslationResponse first = service.translate("Hello there", TargetLanguage.VI);
+        TranslationResponse again = service.translate("Hello there", TargetLanguage.VI);
+
+        assertThat(first.explanation().translation()).isEqualTo("Xin chào");
+        assertThat(again.explanation().translation()).isEqualTo("Xin chào");
+        verify(claude, times(1)).explainSentence(anyString(), any());
+        verify(claude, never()).translateLinesAllLanguages(anyList());
+        assertThat(lines.count()).isEqualTo(1);
+    }
+
+    @Test
+    void aMissingLineInTheSentenceAnswerFallsBackToTheLineCall() {
+        when(claude.explainSentence(eq("Hello there"), any())).thenReturn(ENGLISH);
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Xin chào"));
+
+        TranslationResponse response = service.translate("Hello there", TargetLanguage.VI);
+
+        assertThat(response.explanation().translation()).isEqualTo("Xin chào");
+        verify(claude, times(1)).translateLinesAllLanguages(anyList());
+    }
+
+    @Test
+    void aPersonalTextLineFromTheSentenceCallIsNotSaved() {
+        when(claude.explainSentence(eq("Mail me at a@b.com"), any()))
+                .thenReturn(new Explanation("Send an email.", List.of(), "Gửi email cho tôi"));
+
+        TranslationResponse response = service.translate("Mail me at a@b.com", TargetLanguage.VI);
+
+        assertThat(response.explanation().translation()).isEqualTo("Gửi email cho tôi");
+        assertThat(lines.count()).isZero();
+    }
+
+    @Test
+    void englishAsksForNoLineInTheSentenceCall() {
+        when(claude.explainSentence(eq("Hello there"), isNull())).thenReturn(ENGLISH);
+
+        service.translate("Hello there", TargetLanguage.EN);
+
+        verify(claude).explainSentence("Hello there", null);
+    }
+
+    @Test
     void aSecondLanguageForACachedSentenceIsOneLineCallAndNoSentenceCall() {
-        when(claude.explainSentence("Hello there")).thenReturn(ENGLISH);
-        when(claude.translateLines(TargetLanguage.VI, List.of("Hello there"))).thenReturn(List.of("Xin chào"));
-        when(claude.translateLines(TargetLanguage.JA, List.of("Hello there"))).thenReturn(List.of("こんにちは"));
+        when(claude.explainSentence(eq("Hello there"), any())).thenReturn(ENGLISH);
+        when(claude.translateLinesAllLanguages(List.of("Hello there"))).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Xin chào"));
 
         TranslationResponse vi = service.translate("Hello there", TargetLanguage.VI);
         TranslationResponse ja = service.translate("  Hello   there ", TargetLanguage.JA);
@@ -64,70 +111,69 @@ class SentenceLanguageLineTest {
         assertThat(vi.explanation().translation()).isEqualTo("Xin chào");
         assertThat(ja.cached()).isTrue();
         assertThat(ja.explanation().meaning()).isEqualTo("A friendly hello.");
-        assertThat(ja.explanation().translation()).isEqualTo("こんにちは");
-        // One full sentence call for both languages, one small line call per language.
-        verify(claude, times(1)).explainSentence(anyString());
-        verify(claude, times(1)).translateLines(TargetLanguage.VI, List.of("Hello there"));
-        verify(claude, times(1)).translateLines(TargetLanguage.JA, List.of("Hello there"));
+        assertThat(ja.explanation().translation()).isEqualTo("Xin chào");
+        // One sentence call and one line call for both languages: the line call saved all 7 languages.
+        verify(claude, times(1)).explainSentence(anyString(), any());
+        verify(claude, times(1)).translateLinesAllLanguages(List.of("Hello there"));
         assertThat(sentences.count()).isEqualTo(1);
-        assertThat(lines.count()).isEqualTo(2);
+        assertThat(lines.count()).isEqualTo(7);
     }
 
     @Test
     void theSameLanguageAgainCostsNothing() {
-        when(claude.explainSentence("Hello there")).thenReturn(ENGLISH);
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("Xin chào"));
+        when(claude.explainSentence(eq("Hello there"), any())).thenReturn(ENGLISH);
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Xin chào"));
 
         service.translate("Hello there", TargetLanguage.VI);
         TranslationResponse again = service.translate("Hello there", TargetLanguage.VI);
 
         assertThat(again.explanation().translation()).isEqualTo("Xin chào");
-        verify(claude, times(1)).explainSentence(anyString());
-        verify(claude, times(1)).translateLines(any(), anyList());
+        verify(claude, times(1)).explainSentence(anyString(), any());
+        verify(claude, times(1)).translateLinesAllLanguages(anyList());
     }
 
     @Test
     void theEnglishPartIsSavedWithoutALanguageUnderTheCurrentKey() {
-        when(claude.explainSentence("Hello there")).thenReturn(ENGLISH);
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("Xin chào"));
+        when(claude.explainSentence(eq("Hello there"), any())).thenReturn(ENGLISH);
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Xin chào"));
 
         service.translate("Hello there", TargetLanguage.VI);
 
-        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey("v11", "Hello there")).orElseThrow();
-        assertThat(row.getPromptVersion()).isEqualTo("v11");
+        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey("v14", "Hello there")).orElseThrow();
+        assertThat(row.getPromptVersion()).isEqualTo("v14");
         assertThat(row.getTargetLang()).isEqualTo("en");
         assertThat(row.getTranslation()).isEmpty();
-        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey("v11", "hello there"));
+        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey("v14", "hello there"));
     }
 
     @Test
     void theLooseTextFindsTheEnglishPartInAnotherLanguageToo() {
-        when(claude.explainSentence("How are you?")).thenReturn(ENGLISH);
-        when(claude.translateLines(any(), anyList())).thenReturn(List.of("line"));
+        when(claude.explainSentence(eq("How are you?"), any())).thenReturn(ENGLISH);
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("line"));
 
         service.translate("How are you?", TargetLanguage.VI);
         TranslationResponse ko = service.translate("how are you", TargetLanguage.KO);
 
         assertThat(ko.cached()).isTrue();
-        verify(claude, times(1)).explainSentence(anyString());
+        verify(claude, times(1)).explainSentence(anyString(), any());
         // The line is for the text the user typed, so it is a new line.
-        verify(claude).translateLines(TargetLanguage.KO, List.of("how are you"));
+        verify(claude).translateLinesAllLanguages(List.of("how are you"));
     }
 
     @Test
     void englishNeedsNoLineCall() {
-        when(claude.explainSentence("Hello there")).thenReturn(ENGLISH);
+        when(claude.explainSentence(eq("Hello there"), any())).thenReturn(ENGLISH);
 
         TranslationResponse response = service.translate("Hello there", TargetLanguage.EN);
 
         assertThat(response.explanation().translation()).isEqualTo("Hello there");
-        verify(claude, never()).translateLines(any(), anyList());
+        verify(claude, never()).translateLinesAllLanguages(anyList());
     }
 
     @Test
     void aFailedLineCallStillGivesTheEnglishPart() {
-        when(claude.explainSentence("Hello there")).thenReturn(ENGLISH);
-        when(claude.translateLines(any(), anyList())).thenThrow(new IllegalStateException("gateway down"));
+        when(claude.explainSentence(eq("Hello there"), any())).thenReturn(ENGLISH);
+        when(claude.translateLinesAllLanguages(anyList())).thenThrow(new IllegalStateException("gateway down"));
 
         TranslationResponse response = service.translate("Hello there", TargetLanguage.VI);
 
@@ -138,11 +184,11 @@ class SentenceLanguageLineTest {
 
     @Test
     void streamingSendsTheMeaningAndTheLineArrivesInTheFinalAnswer() {
-        when(claude.explainSentenceStreaming(any(), any())).thenAnswer(call -> {
+        when(claude.explainSentenceStreaming(any(), any(), any())).thenAnswer(call -> {
             call.<java.util.function.Consumer<String>>getArgument(1).accept("{\"isEnglish\":true,\"summary\":\"A friendly hello.\"}");
             return ENGLISH;
         });
-        when(claude.translateLines(TargetLanguage.VI, List.of("Hello there"))).thenReturn(List.of("Xin chào"));
+        when(claude.translateLinesAllLanguages(List.of("Hello there"))).thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Xin chào"));
         List<String> meanings = new ArrayList<>();
 
         TranslationResponse response = service.translateStreaming("Hello there", TargetLanguage.VI, meanings::add);
@@ -154,7 +200,7 @@ class SentenceLanguageLineTest {
     @Test
     void aPersonalSentenceGetsALineButItIsNeverSaved() {
         String text = "Email me at john@example.com";
-        when(claude.explainSentence(text)).thenReturn(ENGLISH);
+        when(claude.explainSentence(eq(text), any())).thenReturn(ENGLISH);
         when(claude.translateLines(TargetLanguage.VI, List.of(text))).thenReturn(List.of("Gửi email cho tôi"));
 
         TranslationResponse response = service.translate(text, TargetLanguage.VI);
@@ -162,6 +208,7 @@ class SentenceLanguageLineTest {
         assertThat(response.explanation().translation()).isEqualTo("Gửi email cho tôi");
         assertThat(sentences.count()).isZero();
         assertThat(lines.count()).isZero();
+        verify(claude, never()).translateLinesAllLanguages(anyList());
     }
 
     @Test
@@ -178,7 +225,7 @@ class SentenceLanguageLineTest {
         assertThat(vi.explanation().translation()).isEqualTo("Xin chào");
         assertThat(ko.explanation().meaning()).isEqualTo("A friendly hello.");
         assertThat(ko.explanation().translation()).isEmpty();
-        verify(claude, never()).translateLines(any(), anyList());
-        verify(claude, never()).explainSentence(anyString());
+        verify(claude, never()).translateLinesAllLanguages(anyList());
+        verify(claude, never()).explainSentence(anyString(), any());
     }
 }

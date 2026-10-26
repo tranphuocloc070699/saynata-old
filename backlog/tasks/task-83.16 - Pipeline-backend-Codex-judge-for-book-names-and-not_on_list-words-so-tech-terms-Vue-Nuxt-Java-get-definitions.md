@@ -3,9 +3,10 @@ id: TASK-83.16
 title: >-
   Pipeline + backend: Codex judge for book names and not_on_list words, so tech
   terms (Vue, Nuxt, Java) get definitions
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-10-25 05:05'
+updated_date: '2026-10-25 05:38'
 labels: []
 dependencies:
   - TASK-83.15
@@ -36,3 +37,9 @@ books collect (TASK-83.15) found about 33.8k name and 15.9k not_on_list rows in 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built: books judge (book_judge.py), review page verdict + filter, name group pushed needs_review, backend cache before word list. Tests pass; real Codex run not done (free, developer runs it).
+<!-- SECTION:NOTES:END -->

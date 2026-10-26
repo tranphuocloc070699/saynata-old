@@ -17,7 +17,8 @@ struct SentenceResultView: View {
 
     var body: some View {
         SentenceCard(
-            sentence: result.sentence,
+            sentence: result.headline,
+            savedText: result.sentence,
             summary: result.explanation.meaning,
             translation: result.explanation.translation,
             language: result.language,

@@ -64,9 +64,9 @@ class TranslationStreamTest {
     /** Makes the fake Claude stream PIECES and return `result`. */
     private void claudeStreams(String text, Explanation result) {
         // The language line comes from a second, small call (TASK-106.6).
-        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList()))
-                .thenReturn(List.of("Anh ấy không muốn đi."));
-        when(claude.explainSentenceStreaming(eq(text), any())).thenAnswer(call -> {
+        when(claude.translateLinesAllLanguages(org.mockito.ArgumentMatchers.anyList()))
+                .thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("Anh ấy không muốn đi."));
+        when(claude.explainSentenceStreaming(eq(text), any(), any())).thenAnswer(call -> {
             Consumer<String> onText = call.getArgument(1);
             PIECES.forEach(onText);
             return result;
@@ -160,7 +160,7 @@ class TranslationStreamTest {
     @Test
     void aCacheHitSendsOnlyDoneAndNeverCallsClaude() throws Exception {
         // Fill the cache through the normal (non-streaming) path first.
-        when(claude.explainSentence("I love you")).thenReturn(EXPLANATION);
+        when(claude.explainSentence(eq("I love you"), any())).thenReturn(EXPLANATION);
         mockMvc.perform(post("/api/translations")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"text\": \"I love you\", \"targetLang\": \"vi\"}")).andExpect(status().isOk());
@@ -168,7 +168,7 @@ class TranslationStreamTest {
         String body = streamBody("I love you");
 
         assertThat(eventNames(body)).containsExactly("done");
-        verify(claude, never()).explainSentenceStreaming(any(), any());
+        verify(claude, never()).explainSentenceStreaming(any(), any(), any());
     }
 
     @Test
@@ -185,25 +185,37 @@ class TranslationStreamTest {
     }
 
     @Test
+    void aPersonsNameGivesAnErrorEventWithTheNameCodeAndIsNotCached() throws Exception {
+        when(claude.explainSentenceStreaming(eq("Nguyễn Văn An"), any(), any())).thenThrow(NotEnglishException.aName());
+
+        String body = streamBody("Nguyễn Văn An");
+
+        assertThat(eventNames(body)).containsExactly("error");
+        assertThat(body).contains("\"status\":422").contains("\"code\":\"a_name\"")
+                .contains("This looks like a person's name, so there is nothing to explain.");
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
     void textThatIsNotEnglishGivesAnErrorEventAndIsNotCached() throws Exception {
         // A not-English answer has an empty meaning, so no meaning event is sent.
-        when(claude.explainSentenceStreaming(eq("asdkj qwe zzxq"), any())).thenAnswer(call -> {
+        when(claude.explainSentenceStreaming(eq("asdkj qwe zzxq"), any(), any())).thenAnswer(call -> {
             Consumer<String> onText = call.getArgument(1);
             onText.accept("{\"isEnglish\":false,\"meaning\":\"\",\"words\":[],\"translation\":\"\"}");
-            throw new NotEnglishException();
+            throw NotEnglishException.notAWord();
         });
 
         String body = streamBody("asdkj qwe zzxq");
 
         assertThat(eventNames(body)).containsExactly("error");
-        assertThat(body).contains("data:{\"status\":422,\"message\":\"This doesn't look like English. "
-                + "Type an English word or sentence.\"}");
+        assertThat(body).contains("data:{\"status\":422,\"message\":\"This does not look like a word or a sentence. "
+                + "Check the spelling.\",\"code\":\"not_a_word\"}");
         assertThat(repository.count()).isZero();
     }
 
     @Test
     void aFailureAfterTheMeaningGivesAnErrorEvent() throws Exception {
-        when(claude.explainSentenceStreaming(eq("Hello there"), any())).thenAnswer(call -> {
+        when(claude.explainSentenceStreaming(eq("Hello there"), any(), any())).thenAnswer(call -> {
             Consumer<String> onText = call.getArgument(1);
             PIECES.forEach(onText);
             throw new IllegalStateException("connection lost");
@@ -218,7 +230,7 @@ class TranslationStreamTest {
 
     @Test
     void theErrorEventDoesNotShowInternalDetails() throws Exception {
-        when(claude.explainSentenceStreaming(eq("Hello there"), any()))
+        when(claude.explainSentenceStreaming(eq("Hello there"), any(), any()))
                 .thenThrow(new IllegalStateException("secret internal detail"));
 
         String body = streamBody("Hello there");
@@ -254,7 +266,7 @@ class TranslationStreamTest {
     @Test
     void doneHasAnEmptyTranslationStringWhenTheLineCallFails() throws Exception {
         claudeStreams("He was reluctant to leave", EXPLANATION);
-        when(claude.translateLines(any(), org.mockito.ArgumentMatchers.anyList()))
+        when(claude.translateLinesAllLanguages(org.mockito.ArgumentMatchers.anyList()))
                 .thenThrow(new IllegalStateException("line call failed"));
 
         String body = streamBody("He was reluctant to leave");

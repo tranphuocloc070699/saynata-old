@@ -22,6 +22,7 @@
     uv run pipeline media-ai --dry-run --limit 3   # TASK-82: 3 scenes and Codex prompts, draws nothing
     uv run pipeline media-ai --limit 20          # Claude writes, Codex draws, Claude guesses blind; data/out/media-ai.html
     uv run pipeline media-ai --recheck-failed    # meaning check on failed senses' pictures, no new drawing
+    uv run pipeline media-ai --backend --limit 20   # TASK-115.2: the same for backend words (add --link, --recheck-failed)
     uv run pipeline media-ai --link              # after rsync: the passed AI pictures replace the sense pictures
     uv run pipeline export-local         # old: build dictionary.sqlite from data/pipeline.db
     uv run pipeline topics candidates    # topic words from WordNet + wordfreq into topic_words (no LLM)
@@ -57,6 +58,7 @@
     uv run pipeline books convert ~/Applications/Workspace/Books   # TASK-83.14: every PDF and EPUB to .md (no LLM)
     uv run pipeline books collect ~/Applications/Workspace/Books   # TASK-83.15: new words and phrases of the .md files into the collection (no LLM)
     uv run pipeline books review         # a page on 127.0.0.1 to tick which book words to write and push
+    uv run pipeline books judge          # TASK-83.16: Codex says keep/drop for the name and not_on_list rows (free)
     uv run pipeline books report         # per group: found / picked / written / pushed
 """
 
@@ -305,7 +307,7 @@ def generate_media_ai(args) -> None:
     if not args.link and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
         raise SystemExit("media-ai: ANTHROPIC_API_KEY is not set in pipeline/.env")
     pg = postgres.connect(postgres.database_url(args.database_url))
-    store_ = media_ai.PostgresStore(pg)
+    store_ = (media_ai.BackendStore if args.backend else media_ai.PostgresStore)(pg)
     if args.link:
         base_url = args.media_base_url or os.environ.get("MEDIA_BASE_URL") or DEFAULT_MEDIA_BASE_URL
         media_ai.link_passed(store_, media_dir, is_on_server(base_url))
@@ -831,7 +833,42 @@ def _book_words(args) -> None:
         return
     elif args.books_command == "collect":
         _collect_books(db, args)
+    elif args.books_command == "judge":
+        _judge_books(db, args)
     db.close()
+
+
+def _judge_books(db, args) -> None:
+    from pipeline import book_judge, collection
+
+    plan = book_judge.prefilter(db, tuple(args.fiction), tuple(args.groups))
+    for reason, count in plan.dropped.most_common():
+        print(f"  dropped without Codex: {count:>6}  {reason}")
+    rows = plan.keep[:args.limit] if args.limit else plan.keep
+    calls = sum(-(-n // args.batch) for n in Counter(r["book_group"] for r in rows).values())
+    print(f"{len(plan.keep)} rows left for Codex ({len(plan.drops)} dropped by the pre-filter). "
+          f"This run: {len(rows)} rows, {calls} Codex calls.")
+    if args.dry_run:
+        if rows:
+            print("\nThe first Codex message:\n")
+            print(book_judge.build_prompt(rows[:args.batch]))
+        print("\nDry run: nothing was called or saved.")
+        return
+    book_judge.save_drops(db, plan.drops)
+    if not rows:
+        return
+
+    def progress(done, total, saved) -> None:
+        print(f"[{done}/{total}] {saved} verdicts saved", flush=True)
+
+    try:
+        writer = book_judge.JudgeWriter(args.model or collection.default_codex_model(), args.effort)
+        saved, failed = book_judge.judge_rows(db, rows, writer, args.batch, progress)
+    except collection.ProviderStop as stop:
+        print(f"Stopped: {stop}. What was saved stays; run the same command again to go on.")
+        return
+    print(f"Done: {saved} verdicts saved, {failed} batches failed (tried again next run). "
+          "Next: uv run pipeline books review")
 
 
 def _collect_books(db, args) -> None:
@@ -934,6 +971,8 @@ def main() -> None:
     ai_parser.add_argument("--link", action="store_true", help="after rsync: link the passed pictures whose files are on the server")
     ai_parser.add_argument("--recheck-failed", action="store_true", help="run the meaning check on the pictures of "
                            "senses that failed every try, without drawing again")
+    ai_parser.add_argument("--backend", action="store_true", help="the senses of backend words (word_lookup_media) "
+                           "instead of the bundled dictionary senses; works with every other option (TASK-115.2)")
     ai_parser.add_argument("--workers", type=int, default=4, help="senses in parallel, one Codex each (default 4)")
     ai_parser.add_argument("--max-cost", type=float, default=5.0, help="Claude budget cap in US dollars (default 5)")
     ai_parser.add_argument("--scene-effort", choices=["low", "medium", "high", "xhigh", "max"],
@@ -1085,6 +1124,16 @@ def main() -> None:
     b_review = books_commands.add_parser("review", help="a page on 127.0.0.1 to tick which words to write and push")
     b_review.add_argument("--port", type=int, default=8765)
     b_review.add_argument("--no-open", action="store_true", help="do not open the browser")
+    b_judge = books_commands.add_parser("judge", help="Codex keeps or drops the name and not_on_list rows (free)")
+    b_judge.add_argument("--dry-run", action="store_true", help="show the counts and the first message; call nothing")
+    b_judge.add_argument("--limit", type=int, help="send at most this many rows to Codex in this run")
+    b_judge.add_argument("--batch", type=int, default=200, help="rows per Codex call")
+    b_judge.add_argument("--model", help="default: the model in ~/.codex/config.toml")
+    b_judge.add_argument("--effort", default="low")
+    b_judge.add_argument("--groups", nargs="+", default=["name", "not_on_list"], choices=["name", "not_on_list", "rare"],
+                         help="which book groups to judge (rare: real but uncommon words, keep or drop for a learner)")
+    b_judge.add_argument("--fiction", nargs="*", default=[], metavar="WORD",
+                         help="words in the file names of fiction books; names seen only there are dropped")
     books_commands.add_parser("report", help="per group: found, picked, written, pushed")
     args = parser.parse_args()
     if args.command == "prefill" and args.prefill_command == "collect" and args.all_wordfreq \

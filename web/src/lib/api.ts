@@ -44,6 +44,12 @@ export interface SentenceWord {
 }
 
 export interface Explanation {
+  /** For non-English input (TASK-114): the natural English version of what was typed. Absent for English input. */
+  english?: string | null;
+  /** The language that was typed, as a lowercase code like "vi" or "ja". Absent for English input. */
+  sourceLang?: string | null;
+  /** When the typed text is one English word, idiom or phrasal verb: its dictionary path (open the word card). */
+  wordMatch?: string | null;
   meaning: string;
   words: SentenceWord[];
   /** The text with its real mistakes fixed (TASK-110); null when it is natural or the answer is older. */
@@ -88,6 +94,8 @@ export class ApiError extends Error {
     readonly kind: ApiErrorKind,
     message: string,
     readonly status?: number,
+    /** The server's `code` (for example `not_a_word`, `a_name`), when the answer had one. */
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -125,7 +133,9 @@ export function errorFrom(status: number, body: ErrorBody | null, retryAfter?: s
   }
   if (status === 401) return new ApiError("signInRequired", MESSAGES.signIn, status);
   if (status === 429) return new ApiError("rateLimited", rateLimitMessage(retryAfter), status);
-  if (status === 422) return new ApiError("notEnglish", serverText ?? "This doesn't look like English.", status);
+  if (status === 422) {
+    return new ApiError("notEnglish", serverText ?? "This does not look like a word or a sentence.", status, body?.code);
+  }
   if (status >= 400 && status < 500) return new ApiError("badRequest", serverText ?? MESSAGES.generic, status);
   return new ApiError("server", serverText ?? MESSAGES.generic, status);
 }
@@ -191,6 +201,20 @@ export class SaynataApi {
     return ((await response.json()) as SuggestResponse).suggestions;
   }
 
+  /** GET /api/words/hot: words many people looked up lately. A failure is an empty list; the chips have samples. */
+  async hotWords(signal?: AbortSignal): Promise<string[]> {
+    try {
+      const response = await this.send(`${this.baseUrl}/api/words/hot?limit=10`, {
+        headers: this.headers(null, false),
+        signal,
+      });
+      if (!response.ok) return [];
+      return ((await response.json()) as { words: { text: string }[] }).words.map((w) => w.text);
+    } catch {
+      return [];
+    }
+  }
+
   async lookUpWord(word: string, signal?: AbortSignal): Promise<WordResponse> {
     const url = `${this.baseUrl}/api/words/${encodeURIComponent(word)}`;
     const response = await this.withAuth((token) =>
@@ -208,20 +232,26 @@ export class SaynataApi {
     texts: string[],
     targetLang: LanguageCode,
     signal?: AbortSignal,
-  ): Promise<{ translations: (string | null)[]; signedIn: boolean }> {
+    headword?: string,
+  ): Promise<{ translations: (string | null)[]; headwords: (string | null)[]; signedIn: boolean }> {
     const signedIn = (await this.tokens.accessToken()) !== null;
     const url = `${this.baseUrl}/api/translate-lines${signedIn ? "" : "?cachedOnly=true"}`;
     const response = await this.withAuth((token) =>
       this.send(url, {
         method: "POST",
         headers: this.headers(token, true),
-        body: JSON.stringify({ targetLang, texts }),
+        // TASK-106.8: the card's word with every sense, so the backend translates it per sense.
+        body: JSON.stringify(headword ? { targetLang, texts, headwords: texts.map(() => headword) } : { targetLang, texts }),
         signal,
       }),
     );
     if (!response.ok) throw await errorFromResponse(response);
-    const body = (await response.json()) as { lines?: { translation?: string | null }[] };
-    return { translations: texts.map((_, index) => body.lines?.[index]?.translation ?? null), signedIn };
+    const body = (await response.json()) as { lines?: { translation?: string | null; headword?: string | null }[] };
+    return {
+      translations: texts.map((_, index) => body.lines?.[index]?.translation ?? null),
+      headwords: texts.map((_, index) => body.lines?.[index]?.headword ?? null),
+      signedIn,
+    };
   }
 
   /** The stream first; if it fails with anything but a final 4xx answer or a cancel, the old endpoint once. */

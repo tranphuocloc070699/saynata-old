@@ -182,6 +182,6 @@ class CodexImageDrawerTest {
     }
 
     private static AiPictureProperties properties(String command, String sandbox, String codexHome, Duration timeout) {
-        return new AiPictureProperties(true, 30, BigDecimal.ONE, command, codexHome, sandbox, timeout);
+        return new AiPictureProperties(true, 30, command, codexHome, sandbox, timeout);
     }
 }

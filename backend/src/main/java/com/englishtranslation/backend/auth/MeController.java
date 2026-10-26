@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.auth;
 
+import com.englishtranslation.backend.history.MeSummaryService;
 import com.englishtranslation.backend.user.User;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -14,15 +15,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class MeController {
 
     private final AuthService service;
+    private final MeSummaryService summary;
 
-    public MeController(AuthService service) {
+    public MeController(AuthService service, MeSummaryService summary) {
         this.service = service;
+        this.summary = summary;
     }
 
     @GetMapping
-    public AuthService.UserView me(Authentication authentication) {
+    public MeSummaryService.MeView me(Authentication authentication) {
         User user = service.currentUser(userId(authentication));
-        return new AuthService.UserView(user.getId(), user.getEmail());
+        return summary.summary(user);
     }
 
     /** Deletes the account and all its tokens. The App Store requires this. */

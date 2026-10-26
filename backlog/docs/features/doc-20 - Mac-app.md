@@ -3,11 +3,11 @@ id: doc-20
 title: Mac app
 type: guide
 created_date: '2026-10-16 09:43'
-updated_date: '2026-10-24 06:05'
+updated_date: '2026-10-25 12:22'
 ---
 # Mac app
 
-> Status: built: menu-bar popover (TASK-85.2), global shortcut (TASK-85.3), Services item and launch at login (TASK-85.4). Last traced from code: 2026-10-16 (panel fix).
+> Status: built: menu-bar popover (TASK-85.2), global shortcut (TASK-85.3), Services item and launch at login (TASK-85.4). Last traced from code: 2026-10-25 (TASK-114.3: text in another language shows its English version in the sentence card, and a single word or idiom opens the word card, through the shared `TranslationStore`; before that 2026-10-16, panel fix).
 > Plan: [doc-16](../doc-16%20-%20Plan-Mac-menu-bar-app-and-browser-extension.md) Part 1. Decisions: doc-7, 10-16.
 
 ## What it does
@@ -88,3 +88,7 @@ No Mac-only tests yet: all the logic is the shared code, tested by `EnglishTrans
 - The Mac app has no app icon of its own yet (the generic one shows in Finder).
 - Sharing the iPhone's sign-in needs iCloud Keychain and a paid account.
 - Giving the app to other people needs a paid account (Developer ID signing and notarization).
+
+## Text in another language (TASK-114.3)
+
+The panel and the popover use `TranslateResultView` and `TranslationStore`, so they get the iOS behaviour with no Mac code: the English version replaces the typed text at the top of the sentence card, and a `wordMatch` opens the word card (doc-4, "iOS and Mac: text in another language"). Services items that send selected text use the same store.

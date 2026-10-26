@@ -24,7 +24,8 @@ import org.springframework.stereotype.Component;
  *
  * <ul>
  * <li><b>Names:</b> a word is a name when it is never written in lower case and is capitalised in the middle of a
- * sentence, or is not a real word at all. Names are listed (up to {@link #MAX_NAMES}) but never queued.</li>
+ * sentence, or is not a real word at all. Names are listed (up to {@link #MAX_NAMES}) apart from the words; the admin can still pick one, and it is
+ * queued as a word.</li>
  * <li><b>Base form:</b> a form like "wandering" becomes "wander" with the same endings the prefill code uses
  * ({@link SentenceWordQueue#candidateBases}); the base wins when it is about as common as the form. A word whose
  * form or base is already known (bundled, cached, queued) is counted as known.</li>

@@ -73,7 +73,8 @@ public class TranslationController {
      * <li>{@code meaning}: {@code {"meaning": "..."}} as soon as Claude has written the meaning (cache misses only);</li>
      * <li>{@code done}: the full {@link TranslationResponse}, the same JSON as the old endpoint;</li>
      * <li>{@code error}: {@code {"status": 422, "message": "..."}} when the answer cannot be made. Sign-in, rate
-     * limit and daily budget errors also have a {@code code}: sign_in_required, rate_limited, daily_limit_reached.</li>
+     * limit and daily budget errors also have a {@code code}: sign_in_required, rate_limited, daily_limit_reached.
+     * A 422 for gibberish or code has code not_a_word; for a text that is only a person's name, a_name.</li>
      * </ul>
      * A cache hit sends only {@code done}. The old endpoint stays for old app versions.
      * With {@code cachedOnly=true} a miss sends one {@code error} event with status 404 and code not_cached.
@@ -113,7 +114,10 @@ public class TranslationController {
         if (e instanceof ApiException apiException) {
             return new StreamError(apiException.status().value(), apiException.getMessage(), apiException.code());
         }
-        if (e instanceof NotEnglishException || e instanceof ClaudeRefusedException) {
+        if (e instanceof NotEnglishException notEnglish) {
+            return new StreamError(422, notEnglish.getMessage(), notEnglish.code());
+        }
+        if (e instanceof ClaudeRefusedException) {
             return new StreamError(422, e.getMessage(), null);
         }
         if (e instanceof AnthropicServiceException) {

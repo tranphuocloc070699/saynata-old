@@ -62,6 +62,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .word-row b { font-weight: 600; }
 .icon.small { width: 26px; height: 26px; flex: none; color: var(--accent); }
 .word-row .gloss { color: var(--muted); }
+.line-with-headword { display: flex; flex-direction: column; gap: 2px; }
+.line-headword { font-weight: 600; color: var(--text); }
+.line-with-headword .line-text { color: var(--text2); }
 .chip { font-size: 11px; font-weight: 500; background: var(--chip); color: var(--accent); border-radius: 999px;
   padding: 1px 8px; white-space: nowrap; flex: none; }
 

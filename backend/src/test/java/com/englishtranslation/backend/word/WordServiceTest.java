@@ -9,7 +9,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +39,7 @@ class WordServiceTest {
     SimpleWords simpleWords;
 
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
 
     @MockitoBean
     ClaudeService claude;
@@ -90,6 +90,22 @@ class WordServiceTest {
         assertThat(response.ipa()).isNull();
         verify(claude, never()).describeWord(anyString());
         assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void cachedWordNotOnTheListIsAnsweredButAnUncachedOneStillIsRejected() {
+        String key = CacheKeys.key("word", properties.wordPromptVersion(), "runk");
+        repository.saveAndFlush(new WordLookup(
+                key, "runk", "{\"senses\":[]}", properties.model(), properties.wordPromptVersion()));
+
+        WordResponse cached = service.lookUp("runk");
+        WordResponse uncached = service.lookUp("runq");
+
+        assertThat(cached.cached()).isTrue();
+        assertThat(uncached.cached()).isFalse();
+        assertThat(uncached.entry().senses()).isEmpty();
+        verify(claude, never()).describeWord(anyString());
+        assertThat(repository.count()).isEqualTo(1);
     }
 
     @Test

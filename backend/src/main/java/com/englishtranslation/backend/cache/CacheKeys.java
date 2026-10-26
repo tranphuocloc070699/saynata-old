@@ -88,6 +88,14 @@ public final class CacheKeys {
         return key("sentence", promptVersion, normalizedText);
     }
 
+    /**
+     * The alias key of text typed in another language (TASK-114.1): key("sentence-src", promptVersion, typedText).
+     * The typed text points to the row of its English version; see SentenceSourceAlias.
+     */
+    public static String sentenceSourceKey(String promptVersion, String normalizedTypedText) {
+        return key("sentence-src", promptVersion, normalizedTypedText);
+    }
+
     /** The match_key of a saved sentence (v10): key("sentence-loose", promptVersion, looseText). No language. */
     public static String sentenceMatchKey(String promptVersion, String text) {
         return key("sentence-loose", promptVersion, normalizeSentenceLoose(text));

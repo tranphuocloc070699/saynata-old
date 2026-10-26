@@ -162,6 +162,13 @@ describe("word card", () => {
       expect(rowText(state).textContent).toBe("したくない");
     });
 
+    it("with a headword: the headword in bold, then the line (TASK-106.8)", () => {
+      const state = withLines("ja", { status: "done", translations: ["したくない"], headwords: ["気が進まない"], signedIn: true });
+      const row = rowText(state);
+      expect(row.querySelector(".line-headword")?.textContent).toBe("気が進まない");
+      expect(row.querySelector(".line-text")?.textContent).toBe("したくない");
+    });
+
     it("loading: Vietnamese shows the dictionary at once, Japanese a loading bar", () => {
       expect(rowText(withLines("vi", { status: "loading" })).textContent).toBe("miễn cưỡng");
       expect(rowText(withLines("ja", { status: "loading" })).querySelector(".skeleton")).not.toBeNull();
@@ -313,5 +320,33 @@ describe("pictures in the word card", () => {
     expect(card.querySelectorAll(".media-row")).toHaveLength(1);
     const order = Array.from(card.children).map((e) => e.className.split(" ")[0]);
     expect(order).toEqual(["head", "sense", "media-row", "example", "sense", "example", "fold"]);
+  });
+});
+
+describe("headline of the sentence card (TASK-114.4)", () => {
+  const vietnamese = {
+    ...sentenceResponse,
+    text: "tôi thấy buồn",
+    explanation: { ...sentenceResponse.explanation, english: "I feel sad.", sourceLang: "vi" },
+  } as TranslationResponse;
+
+  it("shows the English version in the headline slot and keeps summary and language row", () => {
+    const state = applyEvent(initialState("tôi thấy buồn", "sentence", "vi", false), { type: "sentence", response: vietnamese });
+    const card = renderCard(state, actions());
+    expect(card.querySelector(".quote")?.textContent).toBe("“I feel sad.”");
+    expect(card.textContent).not.toContain("From");
+    expect(card.querySelector(".meaning")?.textContent).toContain("Not wanting to say yes");
+    expect(card.textContent).toContain("miễn cưỡng");
+  });
+
+  it("English input shows the typed text", () => {
+    expect(renderCard(sentenceDone(), actions()).querySelector(".quote")?.textContent).toBe("“reluctant to approve the plan”");
+  });
+
+  it("a wordMatch event turns a sentence card into a word card, and a sentence event turns a word card back", () => {
+    const asWord = applyEvent(initialState("buồn bã", "sentence", "vi", false), { type: "word", response: wordResponse as WordResponse });
+    expect(asWord.kind).toBe("word");
+    const asSentence = applyEvent(initialState("buồn", "word", "vi", false), { type: "sentence", response: vietnamese });
+    expect(asSentence.kind).toBe("sentence");
   });
 });

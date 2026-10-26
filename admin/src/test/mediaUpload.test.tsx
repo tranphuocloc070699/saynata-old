@@ -54,9 +54,10 @@ describe("upload from my computer", () => {
     expect(button).toHaveTextContent("");
     expect(button.querySelector("svg")).not.toBeNull();
     expect(button).toBeEnabled();
-    for (const name of ["Pick another image", "No image", "Draw an AI picture"]) {
+    for (const name of ["No image", "Draw an AI picture"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
+    expect(screen.queryByRole("button", { name: "Pick another image" })).not.toBeInTheDocument();
   });
 
   it("the Upload button opens the file picker for pictures and videos", async () => {

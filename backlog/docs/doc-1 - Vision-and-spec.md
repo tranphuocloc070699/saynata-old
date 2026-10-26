@@ -3,7 +3,7 @@ id: doc-1
 title: Vision and spec
 type: specification
 created_date: '2026-10-10 04:30'
-updated_date: '2026-10-15 10:08'
+updated_date: '2026-10-25 09:30'
 ---
 # Spec: EnglishTranslation — translator for a Vietnamese English learner
 
@@ -97,6 +97,8 @@ not call the LLM.
 | `POST` | `/api/auth/refresh` | `{ "refreshToken" }` | same as verify; the old refresh token stops working; `401 invalid_refresh_token` |
 | `POST` | `/api/auth/sign-out` | `{ "refreshToken" }` | `204` |
 | `GET`, `DELETE` | `/api/me` | header `Authorization: Bearer <accessToken>` | `{ id, email }` / `204` (deletes the account and its tokens) |
+| `POST` | `/api/sync` | `{ since, ops[≤200] }` (signed in) | `{ changes: { history, liked }, cursor }` (TASK-93.3): History and Liked on every device; last write wins |
+| `GET`, `PUT` | `/api/me/settings` | `{ targetLanguage, showTranslation, syncHistory }` | the same shape: settings that follow the account (TASK-93.3) |
 
 **Who may cause a new Claude call (TASK-68).** The three public endpoints take an optional `Authorization: Bearer <accessToken>`. Cache hits and bundled words work for everyone (guests too).
 A request that needs a **new** Claude call without a signed-in user gets `401` (unless the server runs with `REQUIRE_SIGN_IN=false`; guests are then limited per IP and by the daily cap) with `"code": "sign_in_required"` (the stream sends an `error` event with the same `code`).
@@ -106,6 +108,11 @@ Too many requests give `429` `rate_limited` with a `Retry-After` header. Details
 `explanation` = `{ meaning, words: [{ word, partOfSpeech, meaning }], translation }`. Only
 `translation` is in `targetLang`; `meaning` and `words` are simple English (difficult = above B1).
 The fields always come in this order: `meaning`, `words`, `translation`.
+When the typed text is **not English** (TASK-114.1) three fields come first: `english` (the natural English a native
+speaker would say; `meaning` then explains this English version), `sourceLang` (ISO 639-1 code of the typed text, for
+example `vi`) and `wordMatch` (only for one word, phrasal verb or idiom with a good English match: `"sad"` for
+`"buồn"`; the app opens that word card through `GET /api/words/{wordMatch}`). For English text all three are left out
+of the JSON. `text` stays what the user typed.
 
 `entry` = `{ senses: [{ pos, cefr, simpleDefinition, vietnamese, examples, usage: [{ pattern, example }] }] }`,
 the pipeline shape in camelCase, without the image fields.
@@ -113,7 +120,7 @@ the pipeline shape in camelCase, without the image fields.
 Rules:
 - `text`: 1–500 characters. `word`: 1–64 characters, one token.
 - `targetLang`: required, one of the codes above. Unknown or missing → 400.
-- Not English (code, gibberish like "asdkj qwe zzxq", another language) → **422** with detail "This doesn't look like English. Type an English word or sentence." Nothing is cached (TASK-21). The model returns an `isEnglish` flag; the backend turns `false` into the 422 and never stores or returns the flag.
+- Code or gibberish (like "asdkj qwe zzxq") → **422** with detail "This doesn't look like English. Type an English word or sentence." Nothing is cached (TASK-21). The model returns `sourceLang: "none"`; the backend turns it into the 422 and never stores or returns it. Text in **another language** is not rejected any more (TASK-114.1): it is answered with its natural English version first (`english`, `sourceLang`, optional `wordMatch`, see above) and cached by that English version.
 - `translation` is always a translation of the input, never an explanation. "base form: X" appears only for inflected words.
 - Each language is cached on its own: the same sentence in `vi` and `ja` is two rows and two LLM calls.
 - `cached: true` when the result came from the DB.
@@ -122,6 +129,7 @@ Rules:
 
 ## Decisions
 
+- **History and Liked sync across devices** (TASK-93, chosen 2026-10-25). For a signed-in user the phone, the Mac and the website show the same lists. A device shows a change at once and sends changes in batches in the background with one `/api/sync` call (after 5 s idle, at 20 changes, or when the app goes to the background; the app keeps unsent changes and retries). Settings (language, Show translation, Sync history) follow the account. Show translation defaults to "Remember last choice"; Sync history is on by default and has a switch. Details: [History and Liked](features/doc-22%20-%20History-and-Liked.md). Reason: not recorded.
 - **Model: Claude Haiku 5.5** (`app.claude.model`). It has no server-side refusal fallback, so a
   refusal returns HTTP 422.
 - **Temperature 0 is not possible on current Claude models** (the API rejects sampling parameters with a

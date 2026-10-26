@@ -1,7 +1,7 @@
 """Offline tests for the checker. No network, no LLM."""
 
 from pipeline.models import WordEntry
-from pipeline.validate import find_problems
+from pipeline.validate import find_problems, is_listed
 
 VOCABULARY = {"not", "wanting", "to", "do", "something", "a", "feeling"}
 
@@ -78,3 +78,11 @@ def test_a_topic_word_is_not_an_outside_word_in_its_own_example():
 
     easy = Example(level=ExampleLevel.EASY, text="I see a giraffe.")
     assert example_problems(easy, "giraffe", {"giraffe", "giraffes"}, {"i", "see", "a"}) == []
+
+
+def test_a_compound_of_two_vocabulary_words_is_listed():
+    vocabulary = {"note", "book", "class", "room"}
+    assert is_listed("notebook", vocabulary)
+    assert is_listed("classroom", vocabulary)
+    assert not is_listed("glorpbook", vocabulary)
+    assert not is_listed("abook", {"a", "book"})  # parts shorter than 3 letters do not count

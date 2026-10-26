@@ -5,7 +5,7 @@ import java.util.Locale;
 /**
  * A new word or phrase found in a book.
  *
- * @param kind    "word" or "phrase"
+ * @param kind    "word", "phrase" or "name" (a skipped name, queued as a word when picked)
  * @param text    the base form, lower case ("give up", "ephemeral")
  * @param times   how many times it was seen in the file
  * @param zipf    how common it is, 0 to 8 (wordfreq Zipf scale; 0 = not in the frequency list)

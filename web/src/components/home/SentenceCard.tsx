@@ -3,16 +3,20 @@
  * The sentence result, like the iOS SentenceCard (TASK-89.2): the original with tappable words (a tap opens the
  * word in WordSheet, over the result), the simple summary ("In simple words") that grows while it streams, the key
  * words, "Better way to say it" (closed, TASK-110) when the text has a real mistake, then the target language
- * closed and last.
+ * closed and last. It mounts once the first meaning piece arrives; Home shows a skeleton before that, so a text
+ * that is not English never shows as a result.
  */
 import { useState } from "react";
 import type { Explanation } from "@/lib/api";
 import { betterPieces } from "@/lib/betterDiff";
 import { languageName, type LanguageCode } from "@/lib/languages";
+import { rememberTranslationRow, translationRowOpen, useSettings } from "@/lib/settings";
 import { useSpeech } from "@/lib/speech";
+import { plainSummary, summaryLines, type SummaryLine } from "@/lib/summaryMarkup";
 import { FoldedRow } from "../FoldedRow";
 import { IconButton } from "../IconButton";
 import { Check, Copy, Speaker, Stop } from "../icons";
+import { LikeButton } from "./LikeButton";
 
 type Props = {
   text: string;
@@ -21,14 +25,20 @@ type Props = {
   /** The full answer, once the stream is done. */
   explanation: Explanation | null;
   targetLang: LanguageCode;
+  /** The language changed and its line is loading: only the language row waits, the rest stays. */
+  translating?: boolean;
   onWord: (word: string) => void;
 };
 
-export function SentenceCard({ text, meaning, explanation, targetLang, onWord }: Props) {
+export function SentenceCard({ text: typed, meaning, explanation, targetLang, translating = false, onWord }: Props) {
   const speech = useSpeech();
   const [copied, setCopied] = useState(false);
+  const [{ showTranslation }] = useSettings();
+  const [startOpen] = useState(() => translationRowOpen(showTranslation));
   const streaming = explanation === null;
   const summary = explanation?.meaning ?? meaning;
+  // For non-English input the English version takes the headline slot (TASK-114).
+  const text = explanation?.english?.trim() || typed;
 
   const copy = async () => {
     try {
@@ -42,7 +52,7 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
 
   return (
     <div className="flex flex-col gap-1">
-      <article className="flex flex-col gap-3 rounded-[20px] border border-hairline bg-surface p-4 sm:p-5">
+      <article className="flex flex-col gap-3 rounded-[22px] border border-hairline bg-surface p-4 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_10px_30px_-12px_rgb(31_42_38/0.18)] sm:p-5">
         <div data-reveal className="flex items-start gap-2">
           <p className="flex-1 font-serif text-[1.25rem] leading-snug">
             {tokens(text).map((token, i) =>
@@ -66,16 +76,14 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
         <div data-reveal className="flex flex-col gap-1" aria-live="polite" aria-busy={streaming}>
           <div className="flex items-start gap-2">
             {summary ? (
-              <p className={`flex-1 font-serif text-[1.0625rem] leading-relaxed ${streaming ? "stream-caret" : ""}`}>
-                {summary}
-              </p>
+              <Summary text={summary} streaming={streaming} />
             ) : (
               <div className="flex flex-1 flex-col gap-2 py-1.5" aria-label="Writing the explanation">
                 <span className="h-3 w-11/12 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
                 <span className="h-3 w-2/3 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
               </div>
             )}
-            {explanation && <ListenButton text={explanation.meaning} speech={speech} />}
+            {explanation && <ListenButton text={plainSummary(explanation.meaning)} speech={speech} />}
           </div>
           <span className="text-xs text-muted">In simple words</span>
         </div>
@@ -102,19 +110,31 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
         {explanation?.better && (
           <div data-reveal>
             <FoldedRow title="Better way to say it">
-              <BetterVersion text={text} better={explanation.better} why={explanation.betterWhy} speech={speech} />
+              <BetterVersion text={typed} better={explanation.better} why={explanation.betterWhy} speech={speech} />
             </FoldedRow>
           </div>
         )}
-        {explanation && targetLang !== "en" && explanation.translation && (
+        {explanation && targetLang !== "en" && (translating || explanation.translation) && (
           <div data-reveal>
-            <FoldedRow title={languageName(targetLang)}>
-              <p className="font-serif">{explanation.translation}</p>
+            <FoldedRow
+              title={languageName(targetLang)}
+              defaultOpen={startOpen}
+              onToggle={(open) => rememberTranslationRow(showTranslation, open)}
+            >
+              {translating ? (
+                <div className="flex flex-col gap-2 py-1.5" aria-label="Loading the language line">
+                  <span className="h-3 w-11/12 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
+                  <span className="h-3 w-1/2 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
+                </div>
+              ) : (
+                <p className="font-serif">{explanation.translation}</p>
+              )}
             </FoldedRow>
           </div>
         )}
       </article>
       <div className="flex justify-end">
+        {explanation && <LikeButton kind="sentence" text={typed}preview={explanation.meaning} chip={null} />}
         <IconButton
           variant="plain"
           label={copied ? "Copied" : "Copy"}
@@ -123,6 +143,48 @@ export function SentenceCard({ text, meaning, explanation, targetLang, onWord }:
           onClick={copy}
         />
       </div>
+    </div>
+  );
+}
+
+/** The summary's small Markdown (bullets and bold) without its markers, like iOS SummaryMarkup. */
+function Summary({ text, streaming }: { text: string; streaming: boolean }) {
+  // Lines in order; bullets next to each other share one list.
+  const blocks: SummaryLine[][] = [];
+  for (const line of summaryLines(text)) {
+    if (!line.bullet && line.pieces.length === 0) continue;
+    const last = blocks.at(-1);
+    if (line.bullet && last?.[0].bullet) last.push(line);
+    else blocks.push([line]);
+  }
+  const pieces = (line: SummaryLine) =>
+    line.pieces.map((piece, i) =>
+      piece.bold ? (
+        <b key={i} className="font-semibold">
+          {piece.text}
+        </b>
+      ) : (
+        <span key={i}>{piece.text}</span>
+      ),
+    );
+  return (
+    <div className="flex flex-1 flex-col gap-1.5 font-serif text-[1.0625rem] leading-relaxed">
+      {blocks.map((block, b) => {
+        const caret = streaming && b === blocks.length - 1;
+        return block[0].bullet ? (
+          <ul key={b} className="flex list-disc flex-col gap-1 pl-5">
+            {block.map((line, i) => (
+              <li key={i} className={caret && i === block.length - 1 ? "stream-caret" : ""}>
+                {pieces(line)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p key={b} className={caret ? "stream-caret" : ""}>
+            {pieces(block[0])}
+          </p>
+        );
+      })}
     </div>
   );
 }

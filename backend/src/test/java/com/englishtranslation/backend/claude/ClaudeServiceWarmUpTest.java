@@ -19,7 +19,7 @@ import org.mockito.ArgumentCaptor;
 /** ClaudeService.warmUp (TASK-75): a 1-token call, recorded as usage, with no budget check. */
 class ClaudeServiceWarmUpTest {
 
-    private static final ClaudeProperties PROPERTIES = new ClaudeProperties("key", "claude-haiku-5-5", "v6", "v7");
+    private static final LlmProperties PROPERTIES = new LlmProperties("key", "claude-haiku-5-5", "v6", "v7");
 
     @Test
     void makesAOneTokenCallAndRecordsItsUsageAsWarmUp() throws Exception {

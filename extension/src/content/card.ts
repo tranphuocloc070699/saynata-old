@@ -90,13 +90,14 @@ export function applyEvent(state: CardState, event: ExplainEvent): CardState {
     case "sentence":
       return {
         ...state,
+        kind: "sentence", // a single non-English word can end as a sentence result (TASK-114.4)
         phase: "done",
         sentence: event.response,
         meaning: event.response.explanation.meaning,
         meaningFinal: true,
       };
     case "word":
-      return { ...state, phase: "done", word: event.response };
+      return { ...state, kind: "word", phase: "done", word: event.response }; // also a wordMatch from a sentence
     case "error":
       return { ...state, phase: "error", error: { kind: event.kind, message: event.message } };
   }
@@ -189,8 +190,14 @@ function renderView(state: CardState, actions: CardActions, canGoBack: boolean):
   return card;
 }
 
+/** The headline of a sentence card: the English version of non-English input (TASK-114.4), else the typed text. */
+export function headline(state: CardState): string {
+  const english = state.sentence?.explanation.english?.trim();
+  return english ? english : state.text;
+}
+
 function header(state: CardState, actions: CardActions, canGoBack = false): HTMLElement {
-  const speakText = state.kind === "word" ? state.word?.word ?? state.text : state.text;
+  const speakText = state.kind === "word" ? state.word?.word ?? state.text : headline(state);
   const listen = iconButton(
     state.speaking ? ICONS.stop : ICONS.speaker,
     state.speaking ? "Stop" : "Listen",
@@ -204,8 +211,8 @@ function header(state: CardState, actions: CardActions, canGoBack = false): HTML
     const back = canGoBack && actions.back ? iconButton(ICONS.back, "Back", () => actions.back?.()) : null;
     return h("div", { class: "head" }, back, title, h("div", { class: "actions" }, listen, close));
   }
-  const copy = iconButton(state.copied ? ICONS.check : ICONS.copy, state.copied ? "Copied" : "Copy", () => actions.copy(state.text));
-  const title = h("div", { class: "title" }, h("div", { class: "quote" }, `“${state.text}”`));
+  const copy = iconButton(state.copied ? ICONS.check : ICONS.copy, state.copied ? "Copied" : "Copy", () => actions.copy(headline(state)));
+  const title = h("div", { class: "title" }, h("div", { class: "quote" }, `“${headline(state)}”`));
   return h("div", { class: "head" }, title, h("div", { class: "actions" }, listen, copy, close));
 }
 
@@ -321,7 +328,13 @@ function wordBody(state: CardState, actions: CardActions): HTMLElement[] {
 function languageRowNodes(content: RowContent, numbered: boolean, actions: CardActions): (string | HTMLElement)[] {
   switch (content.kind) {
     case "lines":
-      return content.lines.flatMap((line, index) => (line ? [numbered ? `${index + 1}. ${line}` : line] : []));
+      // TASK-106.8: the headword of the sense in bold, then its line in the secondary colour.
+      return content.lines.map((line, index) => {
+        const text = numbered ? `${index + 1}. ${line}` : line;
+        const headword = content.headwords[index];
+        if (!headword) return text;
+        return h("div", { class: "line-with-headword" }, h("strong", { class: "line-headword" }, headword), h("span", { class: "line-text" }, text));
+      });
     case "loading":
       return [h("div", { class: "skeleton", role: "status", "aria-label": "Loading", style: "width: 60%" })];
     case "signIn": {

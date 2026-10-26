@@ -1,5 +1,7 @@
 package com.englishtranslation.backend.translation;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.mockito.Mockito.when;
@@ -58,7 +60,7 @@ class TranslationControllerTest {
     @Test
     void textOf500CharactersIsAccepted() throws Exception {
         String text = "a".repeat(500);
-        when(claude.explainSentence(text))
+        when(claude.explainSentence(eq(text), any()))
                 .thenReturn(new Explanation("A long text.", List.of(), "Một văn bản dài."));
 
         mockMvc.perform(post("/api/translations")
@@ -102,10 +104,10 @@ class TranslationControllerTest {
 
     @Test
     void languageCodeIsReadAndReturned() throws Exception {
-        when(claude.explainSentence("hello"))
+        when(claude.explainSentence(eq("hello"), any()))
                 .thenReturn(new Explanation("A greeting.", List.of(), ""));
-        when(claude.translateLines(com.englishtranslation.backend.translation.TargetLanguage.JA, List.of("hello")))
-                .thenReturn(List.of("こんにちは"));
+        when(claude.translateLinesAllLanguages(List.of("hello")))
+                .thenReturn(com.englishtranslation.backend.lines.LinesFixtures.every("こんにちは"));
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -119,14 +121,28 @@ class TranslationControllerTest {
 
     @Test
     void textThatIsNotEnglishGivesA422WithAClearMessage() throws Exception {
-        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(new NotEnglishException());
+        when(claude.explainSentence(eq("asdkj qwe zzxq"), any())).thenThrow(NotEnglishException.notAWord());
 
         mockMvc.perform(post("/api/translations")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\": \"asdkj qwe zzxq\", \"targetLang\": \"vi\"}"))
                 .andExpect(status().isUnprocessableContent())
                 .andExpect(jsonPath("$.detail")
-                        .value("This doesn't look like English. Type an English word or sentence."));
+                        .value("This does not look like a word or a sentence. Check the spelling."))
+                .andExpect(jsonPath("$.code").value("not_a_word"));
+    }
+
+    @Test
+    void aPersonsNameGivesA422WithTheNameCode() throws Exception {
+        when(claude.explainSentence(eq("John Smith"), any())).thenThrow(NotEnglishException.aName());
+
+        mockMvc.perform(post("/api/translations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\": \"John Smith\", \"targetLang\": \"vi\"}"))
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.detail")
+                        .value("This looks like a person's name, so there is nothing to explain."))
+                .andExpect(jsonPath("$.code").value("a_name"));
     }
 
     @Test
@@ -139,8 +155,8 @@ class TranslationControllerTest {
     @Test
     void noLanguageLineIsAnEmptyStringNeverNull() throws Exception {
         // Old apps decode translation as a String, so a JSON null would break them (TASK-106.6).
-        when(claude.explainSentence("hello")).thenReturn(new Explanation("A greeting.", List.of(), ""));
-        when(claude.translateLines(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyList()))
+        when(claude.explainSentence(eq("hello"), any())).thenReturn(new Explanation("A greeting.", List.of(), ""));
+        when(claude.translateLinesAllLanguages(org.mockito.ArgumentMatchers.anyList()))
                 .thenThrow(new IllegalStateException("line call failed"));
 
         mockMvc.perform(post("/api/translations")

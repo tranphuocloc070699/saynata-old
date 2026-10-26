@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: '2026-10-23 10:24'
-updated_date: '2026-10-25 03:40'
+updated_date: '2026-10-25 15:46'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (sign-in, TASK-102).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (chip shortcuts, inline completion and ranked suggestions, TASK-116; before that a word the word API cannot answer goes to the sentence API, TASK-114.2; before that Download page, TASK-102.9; before that header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -55,13 +55,17 @@ sequenceDiagram
 
 | Step | File | What happens |
 |---|---|---|
-| Page | [page.tsx](../../../web/src/app/page.tsx) | `SiteHeader` (logo and account menu) and intro; `Home` inside `Suspense` because it reads `?q=` |
-| State | [Home.tsx:25](../../../web/src/components/home/Home.tsx#L25) | The address is the source of truth. A new query, language or retry sets the first state during render ([Home.tsx:41](../../../web/src/components/home/Home.tsx#L41)) and an effect fetches the rest ([Home.tsx:54](../../../web/src/components/home/Home.tsx#L54)) |
-| Search | [explain.ts:20](../../../web/src/lib/explain.ts#L20), [explain.ts:35](../../../web/src/lib/explain.ts#L35) | `startState` and `fetchResult`, no React, tested. One word (or a/an/the + word) goes to the word API, the rest to the sentence stream |
+| Page | [page.tsx](../../../web/src/app/page.tsx) | `SiteHeader` (logo and account menu) and intro; `main` has `pt-4`; `Home` inside `Suspense` because it reads `?q=` |
+| State | [Home.tsx:25](../../../web/src/components/home/Home.tsx#L25) | The address is the source of truth. A new query or retry sets the first state during render ([Home.tsx:41](../../../web/src/components/home/Home.tsx#L41)) and an effect fetches the rest ([Home.tsx:58](../../../web/src/components/home/Home.tsx#L58)). **A language change is not a new search:** the result stays on screen. A word's language row loads by itself (WordCard); for a sentence an effect fetches only its language line ([fetchTranslation](../../../web/src/lib/explain.ts#L91)) and `SentenceCard` shows two pulse bars in the language row meanwhile (`translating`) |
+| Search | [explain.ts:20](../../../web/src/lib/explain.ts#L20), [explain.ts:35](../../../web/src/lib/explain.ts#L35) | `startState` and `fetchResult`, no React, tested. One word (or a/an/the + word) goes to the word API, the rest to the sentence stream | When the word API has nothing (200 without senses, 404 or 422) `explainWord` in `web/src/lib/explain.ts` tries the sentence API too ("buồn" gives "sad"); if that fails the word answer stays, except a 422 with code `not_a_word` or `a_name` (`ApiError.code`), whose server text is shown (TASK-114.2 follow-up).
 | Client | [api.ts:180](../../../web/src/lib/api.ts#L180) | Copied from the extension (`extension/src/shared/api.ts`) plus `suggest()`. Stream first, `POST /api/translations` once as a fallback |
-| Suggestions | [Home.tsx:69](../../../web/src/components/home/Home.tsx#L69) | 1-40 characters, 250 ms after the last key, cached and bundled only, so a guest costs nothing |
-| Word card | [WordCard.tsx](../../../web/src/components/home/WordCard.tsx) | Headword, IPA, Listen; one card per sense with level chip and picture or clip; Examples, How to use it and the target language as closed rows, the language last. **Language row (TASK-106.4, doc-5):** every language except English gets it ([useLanguageLines:40](../../../web/src/components/home/WordCard.tsx#L40)); the first time any row opens, one `POST /api/translate-lines` carries all sense explanations ([translateLines:203](../../../web/src/lib/api.ts#L203), [loadLines:61](../../../web/src/lib/lines.ts#L61)). A guest asks with `?cachedOnly=true` (never a Claude call); a signed-in user (`browserTokens`, see Sign in below) gets a missing line from Claude. Lines are kept in memory per (text, language) (`LineCache`). While it loads Vietnamese shows the dictionary text and other languages a small loading bar; a guest miss shows the dictionary text (Vietnamese) or "Sign in to see this line in your language." with a link to `/sign-in` ([LanguageLine:170](../../../web/src/components/home/WordCard.tsx#L170)); an error shows a short line (Vietnamese keeps the dictionary text). What the row shows is decided by the pure [rowContent:99](../../../web/src/lib/lines.ts#L99) |
-| Sentence card | [SentenceCard.tsx](../../../web/src/components/home/SentenceCard.tsx) | Original with tappable words (a tap opens the word sheet; the box, `?q=` and the sentence stay), summary that grows while it streams, key words, the target language last and closed, Copy under the card |
+| Suggestions | [Home.tsx:69](../../../web/src/components/home/Home.tsx#L69) | 1-40 characters, 250 ms after the last key, cached and bundled only, so a guest costs nothing. The chips are the pure `suggestionChips` ([startChips.ts](../../../web/src/lib/startChips.ts)): the user's own recent words that match (start, or a word start) show at once, before the server answers, then the server list (ranked by how many people looked a word up, TASK-116, doc-5); one chip per text, never the typed text itself, at most 9 |
+| Chip shortcuts (TASK-116) | [Home.tsx](../../../web/src/components/home/Home.tsx) | The first 9 chips (typing or start chips) show their number (`<kbd>`, hidden with `@media (hover: none)`) and `Alt+1` ... `Alt+9` open that chip from anywhere on the page. The window listener reads `event.code` (`Digit1`..`Digit9`), not `event.key`: on a Mac Alt+digit makes a symbol. `preventDefault` so nothing is typed. No Ctrl, Meta or Shift. |
+| Chip keys (TASK-116) | [chipKeys.ts](../../../web/src/lib/chipKeys.ts) | One pure function `chipKeyAction(event, state)` decides every chip key; Composer and Home only run the action. Tab = accept the grey text (only when it shows), Alt+digit = pick chip N, ArrowDown/ArrowUp = move a highlight through the chips (when the caret is at the end or the box is empty; wraps), Enter = open the highlighted chip (else the box sends), Esc = clear the highlight. The highlight resets when the chips change. ARIA: the textarea is a `combobox` (`aria-controls`, `aria-activedescendant`), the list a `listbox`, each chip an `option` with `aria-selected`. |
+| Inline completion (TASK-116) | [Composer.tsx](../../../web/src/components/home/Composer.tsx), `ghostCompletion` in [startChips.ts](../../../web/src/lib/startChips.ts) | Grey text after the typed text (an overlay under the transparent textarea, same font and wrapping), only when the top chip starts with the typed text (any case) and the caret is at the end with nothing selected. `Tab` accepts it (fills the box, does not send). Tab is taken only while the grey text shows; otherwise it moves focus as usual. |
+| Reset and start chips (TASK-102.8) | [Home.tsx](../../../web/src/components/home/Home.tsx) | Emptying the box for 400 ms (`RESET_DELAY_MS`, debounced) removes the result and goes back to `/`. With an empty box and no result, the start chips are up to 10 words from the pure [startChips](../../../web/src/lib/startChips.ts): the user's 6 newest History words (kind `word`, so phrases that opened as a word card count, sentences do not; label "Recent"), then hot words from `GET /api/words/hot` (`SaynataApi.hotWords`; words several people looked up in 14 days), then the 4 samples; one chip per word in any case and spacing, a failed hot call is an empty list |
+| Word card | [WordCard.tsx](../../../web/src/components/home/WordCard.tsx) | Headword, IPA, Listen, all inside one white card like the composer (`rounded-[22px]`, `p-4`, same shadow; the sentence card matches); one block per sense with a teal number badge (`bg-accent`, `text-on-accent`, `size-8`) and level chip and picture or clip; Examples, How to use it and the target language as closed rows, the language last. **Language row (TASK-106.4, doc-5):** every language except English gets it ([useLanguageLines:41](../../../web/src/components/home/WordCard.tsx#L41)); the first time any row opens, one `POST /api/translate-lines` carries all sense explanations ([translateLines:207](../../../web/src/lib/api.ts#L207), [loadLines:74](../../../web/src/lib/lines.ts#L74)). A guest asks with `?cachedOnly=true` (never a Claude call); a signed-in user (`browserTokens`, see Sign in below) gets a missing line from Claude. Lines are kept in memory per (text, language) (`LineCache`). **Headword (TASK-106.8):** the call also sends the word, and an open row shows its translated headword in bold above the line (`LanguageLine`). While it loads Vietnamese shows the dictionary text and other languages a small loading bar; a guest miss shows the dictionary text (Vietnamese) or "Sign in to see this line in your language." with a link to `/sign-in` ([LanguageLine:177](../../../web/src/components/home/WordCard.tsx#L177)); an error shows a short line (Vietnamese keeps the dictionary text). What the row shows is decided by the pure [rowContent:122](../../../web/src/lib/lines.ts#L122) |
+| Sentence card | [SentenceCard.tsx](../../../web/src/components/home/SentenceCard.tsx) | Mounts only once the first meaning piece arrives; before that Home shows the `WordSkeleton` (`waitingForMeaning` in explain.ts), so a text that is not English never shows as a result. Original with tappable words (a tap opens the word sheet; the box, `?q=` and the sentence stay), summary that grows while it streams (`**bold**` and `- ` bullets drawn without their markers by [summaryMarkup.ts](../../../web/src/lib/summaryMarkup.ts), like iOS `SummaryMarkup`; Listen reads the plain text), key words, the target language last and closed, Copy under the card |
 | Word sheet | [WordSheet.tsx](../../../web/src/components/home/WordSheet.tsx) | A word tapped in a sentence (or in its Words list) opens the same `WordCard` in a native `<dialog>` with `showModal()`: a bottom sheet on a phone, a centered card from 640 px. It looks the word up with the same `fetchResult` call as a search. Esc, a click on the backdrop and the Close button (aria-label "Close") close it; focus goes back to where it was. Like the iOS `SentenceWordSheet` |
 | Language | [targetLanguage.ts](../../../web/src/lib/targetLanguage.ts) | `localStorage` through `useSyncExternalStore`; a change runs the search again |
 | Speech | [speech.ts](../../../web/src/lib/speech.ts) | Web Speech API, en-US, rate 0.92 |
@@ -85,6 +89,34 @@ All motion runs through [withMotion](../../../web/src/lib/motion.ts#L15) (`gsap.
 Folded rows open with a CSS grid-rows transition, not GSAP and not `height`, and a closed row is `inert`.
 
 Focus: the global `:focus-visible` outline sits in `@layer base` (`globals.css`), so a Tailwind utility can turn it off. The composer textarea uses `outline-none`, and its card shows focus instead (`focus-within`: accent border and a soft ring).
+
+## History and Liked (TASK-102.6, doc-22)
+
+A signed-in user has History and Liked on `/history`, the same lists as the phone and the Mac. A guest sees a sign-in prompt there, and no star on results.
+
+```mermaid
+sequenceDiagram
+    participant U as Learner
+    participant S as SyncStore (lib/sync.ts)
+    participant L as localStorage
+    participant B as POST /api/sync
+    U->>S: lookup, star or remove
+    S->>L: state + queue (shown at once)
+    Note over S: timer 5 s, or 20 ops, or pagehide
+    S->>B: since + ops (max 200)
+    B-->>S: changes + cursor
+    S->>S: merge (newest at wins), replay the queue on top
+```
+
+| Step | File | What happens |
+|---|---|---|
+| Store | [sync.ts:150](../../../web/src/lib/sync.ts#L150) | `SyncStore`: local copy plus op queue per account (`saynata.sync.<email>`). No React, tested with a fake transport |
+| Merge | [applyOp:100](../../../web/src/lib/sync.ts#L100), [mergeItems:124](../../../web/src/lib/sync.ts#L124) | Newest `at` wins; removes and "clear all" stay as tombstones; the server wins a tie; the queue is replayed over every pull |
+| Flush | [sync.ts:238](../../../web/src/lib/sync.ts#L238) | 5 s after the last change, at 20 ops, and `pagehide` with `keepalive` (the queue stays, a repeat is harmless). A failure retries after 30 s; a 400 drops the batch |
+| Transport | [browserTransport:382](../../../web/src/lib/sync.ts#L382) | Bearer token, one refresh and retry on 401 |
+| Record | [Home.tsx:57](../../../web/src/components/home/Home.tsx#L57) | A finished word or sentence result is a `history_add` (preview = first simple explanation, chip = "pos · level") |
+| Star | [LikeButton.tsx](../../../web/src/components/home/LikeButton.tsx) | On word and sentence results; `liked_add` / `liked_remove` |
+| Page | [HistoryView.tsx](../../../web/src/components/history/HistoryView.tsx), [HistoryRows.tsx](../../../web/src/components/history/HistoryRows.tsx) | History \| Liked pill, search, clear all (asks first), day groups, "synced N s ago". **Glass style (TASK-102.8):** the pill, the search box and each day's list use `GLASS` (`border-hairline bg-surface/70 backdrop-blur-xl`, rounded corners, soft shadow); the selected pill segment is `bg-surface/90`; day titles are small bold muted text. Tokens only, so it works in light and dark. A row ([HistoryRow](../../../web/src/components/history/HistoryRows.tsx)) follows iOS `SavedItemRow`: a word is bold with its chip, a sentence is serif and stops at two lines, then the short meaning in two lines at most; star and remove are icon buttons |
 
 ## Deploy (saynata.com, TASK-102.2, moved from loffy.me in TASK-104)
 
@@ -135,11 +167,37 @@ sequenceDiagram
 | Apple | [apple:121](../../../web/src/components/auth/SignInForm.tsx#L121) | AppleID JS in a popup with the Services ID |
 | Client | [auth.ts:52](../../../web/src/lib/auth.ts#L52) | `AuthApi`: email-code, verify, google, apple, refresh, sign-out. Auth errors (`invalid_code` etc.) show the server's text |
 | Session | [auth.ts:121](../../../web/src/lib/auth.ts#L121) | `BrowserTokens`: the session in localStorage (`saynata.session`), refreshed 60 s before it expires, one shared refresh; a 401 on refresh signs out, a network error keeps the session. It is the `TokenSource` of every `SaynataApi` |
-| Header | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx:9](../../../web/src/components/auth/AccountMenu.tsx#L9) | Logo home; a guest sees "Sign in", a signed-in user the email and a Sign out icon button |
+| Header (option B, TASK-102.8) | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx](../../../web/src/components/auth/AccountMenu.tsx) | Logo home. A guest sees only the "Sign in" pill. A signed-in user sees a History icon button (`/history`) and an avatar circle (`bg-accent`, `text-on-accent`, the first letter of the email, [avatarLetter](../../../web/src/lib/account.ts)). The avatar button (aria-label "Account menu", `aria-expanded`) opens a menu: the email (small, muted) on top, then Settings, Account and Sign out. The email is never in the header itself. The menu closes on Escape (focus returns to the avatar), on a click outside and on Tab; ArrowUp/Down, Home and End move between the items; the first item gets focus when it opens |
+| Account page (TASK-102.8) | [AccountPage.tsx](../../../web/src/components/auth/AccountPage.tsx), [account.ts](../../../web/src/lib/account.ts) | `/account`: profile card (pixel cat, email, "Member since October 2026 · Google" from `GET /api/me`, Sign out icon), three stat tiles (Words looked up, Liked, AI answers today as "7 / 50"), a **History section** (the 5 most recent items from the same sync store as `/history`, in the same glass rows, with a "See all" link to `/history`; a short empty state when there are none) and a Delete account row. A guest is sent to `/sign-in?next=/account`. Delete is two taps: the red trash icon, then it turns into a confirm state (with Cancel); confirm calls `DELETE /api/me`, `browserTokens.signOut()`, then goes home. `AccountApi` sends the Bearer token and retries once after a refresh |
 | After sign-in | [safeNextPath:257](../../../web/src/lib/auth.ts#L257) | Goes to `?next=` only when it is a path on this site, else `/` |
 
 Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
 [auth.ts:266](../../../web/src/lib/auth.ts#L266). The backend must list both in `GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS` (doc-11 section 13, doc-17).
+
+## Download (TASK-102.9)
+
+`/download` ([page.tsx](../../../web/src/app/download/page.tsx)) tells a learner Saynata is also on iPhone, Mac and as a browser extension. Heading "Take Saynata everywhere", then three stacked cards ([DownloadCards.tsx](../../../web/src/components/download/DownloadCards.tsx)): a picture tile on `bg-meaning`, the platform name, one line on what it does there, the requirement, and either a "Coming soon" pill (`bg-chip`, `text-accent`) or a store button.
+
+| Step | File | What happens |
+|---|---|---|
+| Config | [downloads.ts](../../../web/src/lib/downloads.ts) | `DOWNLOADS`: per platform `{ status: "soon" \| "live", url?, requirement }`. All three start as `soon`. **To turn one on: set `status: "live"` and `url`** (one edit). `liveUrl()` gives the link only when live and a url is set, so a "soon" platform never renders a link |
+| Device | [detectDevice](../../../web/src/lib/downloads.ts), [orderPlatforms](../../../web/src/lib/downloads.ts) | Pure functions from the User-Agent: iPhone first for an iPhone, Mac first for a Mac, the extension first for Chromium on Windows or Linux; Android, iPad and unknown keep iPhone, Mac, extension. The page reads the header on the server inside `Suspense` (Cache Components), so the heading is static and the cards stream in already ordered |
+| QR code | [page.tsx](../../../web/src/app/download/page.tsx) | Made on the server with the small `qrcode` package (SVG string, on a white tile so it scans in dark mode). Only when the iPhone card is live and the visitor is not on an iPhone; hidden below 640 px |
+| Live button | DownloadCards.tsx | `<a target="_blank" rel="noopener noreferrer">` with the store text (store buttons keep their words); a Live card shows the button, a Soon card the pill |
+| Entry points | [AccountMenu.tsx](../../../web/src/components/auth/AccountMenu.tsx) | A guest gets an icon-only download button (aria-label "Get the app") beside "Sign in"; a signed-in user gets "Get the app" in the avatar menu |
+
+Tests: `web/test/downloads.test.ts` (device detection and order, soon renders no link, live renders the url with `_blank` and `noopener`, QR only for a non-iPhone visitor). `vitest.config.ts` got the `@/` alias for it.
+
+## Settings (TASK-102.7)
+
+`/settings` ([page.tsx](../../../web/src/app/settings/page.tsx), [SettingsForm.tsx](../../../web/src/components/settings/SettingsForm.tsx)) has two cards: **Translation** (Language select from `languages.ts`; Show translation as a pill: Collapsed, Always open, Remember) and **History** (Sync history switch: "Keep your history the same on phone, Mac and web."). Defaults: Remember, sync on.
+
+| Step | File | What happens |
+|---|---|---|
+| Store | [settings.ts:92](../../../web/src/lib/settings.ts#L92) | `SettingsStore`: the snapshot is in localStorage (`saynata.settings`; the language keeps `saynata.targetLang`, so the homepage reads it as before). `update(patch)` applies at once and, when signed in, sends `PUT /api/me/settings` in the background; a failed send keeps the local value |
+| Load | [settings.ts:118](../../../web/src/lib/settings.ts#L118) | `load()` reads `GET /api/me/settings` when signed in (page open, `Home`); a guest or a failed request keeps the local settings. One retry after a 401 |
+| Guest | settings.ts | A guest's settings never leave the browser |
+| Show translation | [translationRowOpen](../../../web/src/lib/settings.ts#L190) | Word and sentence cards start the language row open (Always open), closed (Collapsed) or as the user left the last one (Remember, `saynata.translationOpen`). Values are the backend's: `collapsed`, `alwaysOpen`, `remember` |
 
 ## Errors
 
@@ -160,10 +218,16 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 | Test file | What it covers |
 |---|---|
 | `web/test/api.test.ts` | The client (from the extension) and `suggest()` |
+| `web/test/chipKeys.test.ts` | `chipKeyAction`: Tab, Alt+digit by `event.code`, arrows, Enter, Esc, IME |
+| `web/test/startChips.test.ts` | Start chips, `suggestionChips` (recent first, deduped, word-start, max) and `ghostCompletion` |
 | `web/test/sse.test.ts` | The stream parser |
 | `web/test/textKind.test.ts` | Word or sentence |
 | `web/test/mochi.test.ts` | The five choices have equal shares, Box picks one of three, the visit keeps its cat, a missing file means fallback, `steps()` and frame 1 with reduced motion in `globals.css` |
 | `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
+| `web/test/account.test.ts` | `AccountApi` (Bearer, DELETE, one refresh, no token, errors), `memberLine`, `statTiles`, `avatarLetter`, the guest redirect path |
+| `web/test/settings.test.ts` | Account load and save (Bearer, PUT body, one retry after 401, unknown values), a guest keeps localStorage and sends nothing, a signed-in change applies at once, a failed load keeps the local settings, `translationRowOpen` |
+| `web/test/downloads.test.ts` | Device detection and card order, soon has no link, live opens the store url in a new tab, QR only for a non-iPhone visitor |
+| `web/test/summaryMarkup.test.ts` | Bullets, bold, an unclosed `**` while streaming, `plainSummary` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
 
 ## Change checklist
@@ -175,7 +239,7 @@ Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `
 
 ## Known gaps
 
-- Only the homepage and sign-in exist. Word page (`/word/run`), Introduction, History & Liked, Settings, Privacy & Terms and 404 are TASK-102.
+- Only the homepage and sign-in exist. Word page (`/word/run`), Introduction, History & Liked, Privacy & Terms and 404 are TASK-102.
 - A guest's miss ends with a message and a link to `/sign-in`, not a sign-in sheet. No Like star and no History yet.
 - A guest sees a language line only when the backend already has it (TASK-106.5 fills them all); signed in, a missing line comes from Claude.
 - The `deploy-web` check fails until the developer adds the DNS record and the Caddy block once (doc-11 section 14); the repo does not manage the Caddyfile.

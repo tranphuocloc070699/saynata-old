@@ -1,21 +1,8 @@
-# Stage 1: build the jar with the Maven wrapper (needs a JDK).
-# Not the -alpine tags: they have no arm64 build, so they fail on Apple Silicon and ARM servers.
-# Both base images are pinned by digest. Docker Hub is slow from the VPS (about 0.4 MB/s), so a new upstream
-# image made a deploy pass its time limit (2026-10-18). To upgrade: docker pull the tag, then copy its digest here.
-FROM eclipse-temurin:17-jdk@sha256:fe947d993c32dd9cf651a4353a6ed723c2370b3a9d034ea4cab4775404ea531a AS build
-WORKDIR /build
-
-# Copy only what Maven needs to download dependencies first, so this layer is cached
-# until pom.xml changes.
-COPY .mvn .mvn
-COPY mvnw pom.xml ./
-RUN ./mvnw -B -q dependency:go-offline
-
-COPY src src
-# Tests run in CI. The image build only packages the jar.
-RUN ./mvnw -B -q package -DskipTests && mv target/backend-*.jar app.jar
-
-# Stage 2: a small runtime with only a JRE.
+# Runtime image only: a small JRE. The jar is NOT built here. The GitHub Deploy workflow builds it (Maven cache) and
+# copies it to backend/dist/app.jar on the server, so the VPS never pulls a JDK or downloads Maven dependencies
+# (Docker Hub is about 0.4 MB/s from the VPS; doc-11, Troubleshooting). Local build: ./mvnw -DskipTests package,
+# then mkdir -p dist && mv target/backend-*.jar dist/app.jar, then docker build.
+# The base image is pinned by digest. To upgrade: docker pull the tag, then copy its digest here.
 FROM eclipse-temurin:17-jre@sha256:e04fa72be13b257a59fdec6dc14af78c8f80f035d3c1ed4e03e45552a231d4c8
 WORKDIR /app
 
@@ -50,7 +37,7 @@ RUN case "$TARGETARCH" in \
 RUN mkdir /app/.codex && chown app:app /app/.codex
 ENV CODEX_HOME=/app/.codex
 
-COPY --from=build --chown=app:app /build/app.jar app.jar
+COPY --chown=app:app dist/app.jar app.jar
 USER app
 
 # Media files (photos and clips). In production a volume is mounted here and Caddy serves it.

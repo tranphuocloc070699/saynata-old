@@ -785,3 +785,62 @@ def test_pg_the_openai_command_ignores_media_ai_tries(pg):
     ai.save_result(finished(item, name="bank_5_ai_aaaaaaaa.webp"))
     old = media_generate.PostgresStore(pg)
     assert old.unlinked() == [] and old.report_rows() == []
+
+
+# --- Backend words (TASK-115.2) ------------------------------------------------------------------------
+
+BACKEND_ENTRY = json.dumps({"senses": [
+    {"pos": "verb", "cefr": "A2", "simpleDefinition": "to move fast on foot", "vietnamese": "chạy",
+     "examples": [{"level": "easy", "text": "I run every day."}], "usage": []},
+    {"pos": "noun", "cefr": "B1", "simpleDefinition": "a short trip on foot", "vietnamese": "cuộc chạy",
+     "examples": [{"level": "easy", "text": "We went for a run."}], "usage": []}]})
+
+
+def test_backend_sense_reads_the_entry_json_like_a_bundled_sense():
+    row = {"id": 7, "lemma": "run", "position": 1, "media_id": 3, "entry_json": BACKEND_ENTRY}
+    item = media_ai.backend_sense(row)
+    assert item["pos"] == "noun" and item["simple_definition"] == "a short trip on foot"
+    assert item["others"] == [{"pos": "verb", "meaning": "to move fast on foot"}] and item["forms"] == []
+    assert media_ai.scene_message(item).splitlines()[2] == "Example: We went for a run."
+    assert media_ai.backend_sense({**row, "position": 5}) is None and media_ai.backend_sense({**row, "entry_json": "x"}) is None
+
+
+def seed_backend(pg):
+    """Word run: sense 0 has a Pixabay clip, sense 1 has no picture row, sense 2 is removed. Word walk: needs_ai, no media."""
+    now = datetime.now(timezone.utc)
+    with pg.cursor() as cursor:
+        cursor.execute("INSERT INTO media (file_name, kind, source, created_at) VALUES ('run_1.mp4', 'clip', 'pixabay', %s) RETURNING id", (now,))
+        clip = cursor.fetchone()[0]
+        ids = {}
+        for word in ("run", "walk"):
+            cursor.execute("INSERT INTO word_lookup (cache_key, word, entry_json, model, prompt_version, created_at) "
+                           "VALUES (%s, %s, %s, 'm', 'v1', %s) RETURNING id", (f"k-{word}", word, BACKEND_ENTRY, now))
+            ids[word] = cursor.fetchone()[0]
+        for word, position, media_id, status in (("run", 0, clip, None), ("run", 1, None, None), ("walk", 0, None, "needs_ai"),
+                                                 ("walk", 1, clip, "removed")):
+            cursor.execute("INSERT INTO word_lookup_media (word_lookup_id, sense_position, media_id, media_status, created_at) "
+                           "VALUES (%s, %s, %s, %s, %s)", (ids[word], position, media_id, status, now))
+    pg.commit()
+
+
+def test_pg_backend_pending_is_only_senses_with_a_picture_or_waiting_for_one(pg):
+    seed_backend(pg)
+    store = media_ai.BackendStore(pg)
+    assert [(s["lemma"], s["position"]) for s in store.pending_senses(None, 100, False)] == [("run", 0), ("walk", 0)]
+    assert store.count_pending(["run"], False) == 1 and store.count_pending(None, True) == 2
+
+
+def test_pg_backend_tries_link_and_stay_apart_from_the_bundled_store(pg):
+    seed_backend(pg)
+    store = media_ai.BackendStore(pg)
+    item = store.pending_senses(["run"], 10, False)[0]
+    store.save_result(finished(item, name="run_1_ai_aaaaaaaa.webp"))
+    assert media_ai.PostgresStore(pg).unlinked_passed() == []
+    [generation] = store.unlinked_passed()
+    assert store.link(generation, (1536, 1024, 90000)) is True
+    row = pg.execute("""SELECT m.source, m.file_name, w.media_status FROM word_lookup_media w JOIN media m ON m.id = w.media_id
+                        WHERE w.id = %s""", (item["id"],)).fetchone()
+    assert row == ("ai", "run_1_ai_aaaaaaaa.webp", "ai_generated")
+    assert pg.execute("SELECT count(*) FROM media WHERE file_name = 'run_1.mp4'").fetchone()[0] == 1   # old row kept
+    assert store.unlinked_passed() == [] and store.count_pending(["run"], False) == 0
+    assert [r["pos"] for r in store.report_rows()] == ["verb"]

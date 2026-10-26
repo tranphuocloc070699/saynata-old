@@ -43,6 +43,12 @@ export interface SentenceWord {
 }
 
 export interface Explanation {
+  /** TASK-114: the natural English version of non-English input. Missing for English input. */
+  english?: string;
+  /** TASK-114: ISO code of the typed language. Missing for English input. */
+  sourceLang?: string;
+  /** TASK-114: one English headword, phrasal verb or idiom for a single non-English item. */
+  wordMatch?: string;
   meaning: string;
   words: SentenceWord[];
   translation: string;
@@ -72,6 +78,8 @@ export class ApiError extends Error {
     readonly kind: ApiErrorKind,
     message: string,
     readonly status?: number,
+    /** The server's `code` (for example `not_a_word`, `a_name`), when the answer had one. */
+    readonly code?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -109,7 +117,9 @@ export function errorFrom(status: number, body: ErrorBody | null, retryAfter?: s
   }
   if (status === 401) return new ApiError("signInRequired", MESSAGES.signIn, status);
   if (status === 429) return new ApiError("rateLimited", rateLimitMessage(retryAfter), status);
-  if (status === 422) return new ApiError("notEnglish", serverText ?? "This doesn't look like English.", status);
+  if (status === 422) {
+    return new ApiError("notEnglish", serverText ?? "This does not look like a word or a sentence.", status, body?.code);
+  }
   if (status >= 400 && status < 500) return new ApiError("badRequest", serverText ?? MESSAGES.generic, status);
   return new ApiError("server", serverText ?? MESSAGES.generic, status);
 }
@@ -181,20 +191,26 @@ export class SaynataApi {
     texts: string[],
     targetLang: LanguageCode,
     signal?: AbortSignal,
-  ): Promise<{ translations: (string | null)[]; signedIn: boolean }> {
+    headword?: string,
+  ): Promise<{ translations: (string | null)[]; headwords: (string | null)[]; signedIn: boolean }> {
     const signedIn = (await this.tokens.accessToken()) !== null;
     const url = `${this.baseUrl}/api/translate-lines${signedIn ? "" : "?cachedOnly=true"}`;
     const response = await this.withAuth((token) =>
       this.send(url, {
         method: "POST",
         headers: this.headers(token, true),
-        body: JSON.stringify({ targetLang, texts }),
+        // TASK-106.8: the card's word with every sense, so the backend translates it per sense.
+        body: JSON.stringify(headword ? { targetLang, texts, headwords: texts.map(() => headword) } : { targetLang, texts }),
         signal,
       }),
     );
     if (!response.ok) throw await errorFromResponse(response);
-    const body = (await response.json()) as { lines?: { translation?: string | null }[] };
-    return { translations: texts.map((_, index) => body.lines?.[index]?.translation ?? null), signedIn };
+    const body = (await response.json()) as { lines?: { translation?: string | null; headword?: string | null }[] };
+    return {
+      translations: texts.map((_, index) => body.lines?.[index]?.translation ?? null),
+      headwords: texts.map((_, index) => body.lines?.[index]?.headword ?? null),
+      signedIn,
+    };
   }
 
   /** The stream first; if it fails with anything but a final 4xx answer or a cancel, the old endpoint once. */
