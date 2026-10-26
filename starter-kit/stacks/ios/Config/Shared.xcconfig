@@ -1,0 +1,4 @@
+// Values that differ per build. Secrets do not belong here (this file is committed);
+// the Sentry DSN is not a secret, but API keys are: an app binary can always be read.
+// Local overrides: create Config/Local.xcconfig (git-ignored).
+#include? "Local.xcconfig"

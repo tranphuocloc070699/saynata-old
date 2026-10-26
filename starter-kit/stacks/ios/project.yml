@@ -1,0 +1,43 @@
+# XcodeGen spec: the .xcodeproj is generated (`make project`), not committed.
+# Agents and humans edit this small YAML instead of a huge project.pbxproj, so diffs stay readable.
+name: App
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget: { iOS: "18.0" }
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: YES
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+packages:
+  Sentry:
+    url: https://github.com/getsentry/sentry-cocoa
+    from: 8.0.0
+targets:
+  App:
+    type: application
+    platform: iOS
+    sources: [App, Features, Core]
+    configFiles:
+      Debug: Config/Debug.xcconfig
+      Release: Config/Release.xcconfig
+    info:
+      path: App/Info.plist
+      properties:
+        UILaunchScreen: {}
+        API_BASE_URL: $(API_BASE_URL)
+        APP_ENV: $(APP_ENV)
+        SENTRY_DSN: $(SENTRY_DSN)
+    dependencies:
+      - package: Sentry
+  AppTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [Tests]
+    dependencies:
+      - target: App
+schemes:
+  App:
+    build: { targets: { App: all, AppTests: [test] } }
+    test: { targets: [AppTests] }

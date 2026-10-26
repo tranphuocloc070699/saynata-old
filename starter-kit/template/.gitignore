@@ -1,0 +1,29 @@
+# Secrets: only .env.example is committed
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Claude Code: personal settings stay local
+.claude/settings.local.json
+CLAUDE.local.md
+
+# Build output (each part adds its own too)
+node_modules/
+dist/
+build/
+target/
+.venv/
+__pycache__/
+*.xcodeproj/
+DerivedData/
+coverage/

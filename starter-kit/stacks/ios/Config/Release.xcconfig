@@ -1,0 +1,4 @@
+API_BASE_URL = https:/$()/api.example.com
+APP_ENV = production
+SENTRY_DSN =
+#include "Shared.xcconfig"

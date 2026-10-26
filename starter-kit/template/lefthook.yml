@@ -1,0 +1,30 @@
+# Git hooks for everyone (humans and agents). Install once: `lefthook install`.
+# Fast checks only; the full suites run in CI.
+pre-commit:
+  parallel: true
+  commands:
+    secrets:
+      run: gitleaks git --staged --redact --no-banner
+    backend-format:
+      root: backend/
+      glob: "*.java"
+      run: ./mvnw -q spotless:apply && git add {staged_files}
+      stage_fixed: true
+    web-lint:
+      root: web/
+      glob: "*.{ts,tsx}"
+      run: npx eslint --fix {staged_files} && npx prettier --write {staged_files}
+      stage_fixed: true
+    python-lint:
+      root: python/
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files} && uv run ruff format {staged_files}
+      stage_fixed: true
+
+commit-msg:
+  commands:
+    conventional:
+      # type(scope)!: subject   — feat, fix, docs, refactor, test, chore, perf, build, ci
+      run: |
+        head -1 {1} | grep -Eq '^(feat|fix|docs|refactor|test|chore|perf|build|ci|revert)(\([a-z0-9-]+\))?!?: .{3,}' \
+          || { echo "Commit message must look like: feat(notes): add search"; exit 1; }

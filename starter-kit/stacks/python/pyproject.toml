@@ -1,0 +1,50 @@
+[project]
+name = "app"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Claude", email = "noreply@anthropic.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=2.3.0",
+    "pydantic-settings>=2.16.1",
+    "structlog>=26.1.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.32,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+[project.scripts]
+app = "app.cli:main"
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.ruff.lint]
+# pycodestyle errors, pyflakes, isort, bugbear, pyupgrade, simplify, bandit (security), ruff-specific
+select = ["E4", "E7", "E9", "F", "I", "B", "UP", "SIM", "S", "RUF"]
+ignore = ["S101"]  # assert is fine in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+reportMissingTypeStubs = false
+# Tests use small fakes in place of the SDK client; strict "unknown" checks there add noise.
+executionEnvironments = [{ root = "tests", reportUnknownMemberType = false, reportUnknownVariableType = false, reportUnknownArgumentType = false, reportPrivateUsage = false }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
