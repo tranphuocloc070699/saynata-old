@@ -3,11 +3,11 @@ id: doc-22
 title: History and Liked
 type: other
 created_date: '2026-10-19 13:12'
-updated_date: '2026-10-25 08:01'
+updated_date: '2026-10-25 12:22'
 ---
 # History and Liked
 
-> Status: **built** (TASK-93.2 iOS lists, TASK-93.1 and 93.3 backend, TASK-93.4 iOS sync). Tested on the iPhone 16 Pro, iOS 18.5 simulator. Last traced from code: 2026-10-25.
+> Status: **built** (TASK-93.2 iOS lists, TASK-93.1 and 93.3 backend, TASK-93.4 iOS sync). Tested on the iPhone 16 Pro, iOS 18.5 simulator. Last traced from code: 2026-10-25 (TASK-114.3: a sentence typed in another language is saved under the typed text with the summary of its English version; a `wordMatch` is saved as a word).
 > Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md). Accounts: doc-17.
 
 ## What it does
@@ -136,3 +136,7 @@ Show translation now defaults to **Remember last choice** ([TranslationRowPrefer
 - The engine sends ops only while the app runs (or its extension); a force-quit with ops waiting sends them at the next launch.
 - Settings of the Mac app share the same engine, but the Mac has no History button yet.
 - `TranslationStore` records into the shared History by default, so unit tests that make a store with defaults write to the simulator file.
+
+## Text in another language (TASK-114.3)
+
+`SavedItem(result:)` still uses `result.sentence`, the text the user typed, as the key and `explanation.meaning` (the summary of the English version) as the preview, so opening the item runs the same request and hits the cache. The star on the card also saves the typed text, not the English headline (`SentenceCard.savedText`). When the answer has a `wordMatch` and the word card opens, History records the word, not the sentence. Tests: `NonEnglishInputTests`.

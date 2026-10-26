@@ -3,10 +3,11 @@ id: TASK-114.3
 title: >-
   iOS and Mac: show the English version first for non-English input, and open
   the word card for a single word
-status: To Do
-assignee: []
+status: In Progress
+assignee:
+  - '@implementer'
 created_date: '2026-10-25 09:23'
-updated_date: '2026-10-25 11:57'
+updated_date: '2026-10-25 12:22'
 labels: []
 dependencies:
   - TASK-114.1
@@ -37,8 +38,16 @@ iOS and Mac part of TASK-114. Today a single non-English token goes to the word 
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
 
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+Optional english/sourceLang/wordMatch on Explanation; SentenceResult.headline; TranslationStore and QuickExplainer open the word card for wordMatch, else sentence; remove Not English gate; tests; docs 4,5,20,21,22.
+<!-- SECTION:PLAN:END -->
+
 ## Implementation Notes
 
 <!-- SECTION:NOTES:BEGIN -->
 Developer decision 2026-10-25: NO new UI. Keep the current sentence card and word card exactly as they are. The headline slot (where the typed sentence shows today) shows the English version (explanation.english) when present; the rest is unchanged: simple summary, then the target-language row. No 'From <language>' note or chip, so the mockup step is not needed. wordMatch opens the normal word card. English input unchanged.
+
+PR https://github.com/tranphuocloc070699/saynata/pull/221 (into feature/local). Test it: type 'Hôm nay tôi buồn' -> English headline then summary then closed Vietnamese row; 'buồn' -> word card for sad; 'bỏ cuộc' -> give up card; History/Liked keep typed text; Quick explain same; gibberish -> error. Automated: NonEnglishInputTests, QuickExplainerTests, TranslationStoreTests (83 pass).
 <!-- SECTION:NOTES:END -->

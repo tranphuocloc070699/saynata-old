@@ -115,21 +115,14 @@ struct QuickExplainerTests {
         #expect(calls.sentences.isEmpty)
     }
 
+    /// TASK-114.3: the server now explains other languages, so the app sends them.
     @Test(arguments: ["你好世界", "Tôi muốn đi học tiếng Anh mỗi ngày", "Привет как дела"])
-    func nonEnglishTextIsNotSent(copied: String) async {
+    func nonEnglishTextIsSentToTheServer(copied: String) async {
         let calls = Calls()
-        let result = await makeExplainer(calls: calls).explain(copied)
-        guard case let .problem(title, _) = result else {
-            Issue.record("Expected a problem, got \(result)")
-            return
-        }
-        #expect(title == "Not English")
-        #expect(calls.words.isEmpty && calls.sentences.isEmpty)
-    }
-
-    @Test(arguments: ["café", "I love sushi and ramen", "The naïve résumé was fine."])
-    func englishWithForeignWordsIsStillSent(copied: String) {
-        #expect(QuickExplainer.looksLikeEnglish(copied))
+        // One token goes to the word lookup first, which says "not an English word", then to the sentence API.
+        let result = await makeExplainer(word: .failure(WordLookupError.notAnEnglishWord(copied)), calls: calls).explain(copied)
+        #expect(result == .sentence(copied, sampleExplanation))
+        #expect(calls.sentences == [copied])
     }
 
     @Test func aWordTheServerDoesNotKnowTriesTheSentenceExplanation() async {
