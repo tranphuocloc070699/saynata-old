@@ -112,7 +112,9 @@ describe("Sources page (TASK-108)", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /^Names skipped/ }));
     expect(within(table).getByText("alice")).toBeInTheDocument();
-    expect(within(table).queryByRole("checkbox", { name: "Pick alice" })).not.toBeInTheDocument();
+    expect(screen.getByText(/A picked name is queued as a word/)).toBeInTheDocument();
+    await userEvent.click(within(table).getByRole("checkbox", { name: "Pick alice" }));
+    expect(screen.getByText("1 picked")).toBeInTheDocument();
   });
 
   it("counts the picked items and adds them to the queue", async () => {
