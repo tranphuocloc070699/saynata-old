@@ -66,6 +66,7 @@ starter-kit/
 
 ## Read the docs in this order
 
+0. [Getting started: a step-by-step plan](docs/00-getting-started.md)
 1. [Working with AI agents](docs/01-working-with-ai.md): the loop, what goes in CLAUDE.md vs skills vs hooks
 2. [Database](docs/02-database.md) · [Spring Boot](docs/03-backend-spring.md) · [React](docs/04-web-react.md) ·
    [Swift](docs/05-ios-swift.md) · [Python](docs/06-python.md)
