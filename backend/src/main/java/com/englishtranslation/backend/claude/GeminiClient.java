@@ -66,6 +66,45 @@ public class GeminiClient {
         }
     }
 
+    /**
+     * One answer about one photo (TASK-121.1). The image goes inline as a base64 data URI in an {@code image_url} part,
+     * which the OpenAI-compatible endpoint turns into Gemini's {@code inline_data}. The photo is only in this request.
+     */
+    public Reply describeImage(String system, String text, byte[] image, String mimeType, long maxTokens,
+            Double temperature) {
+        try {
+            Map<String, Object> body = new java.util.LinkedHashMap<>();
+            body.put("model", model);
+            body.put("max_tokens", maxTokens);
+            String dataUri = "data:" + mimeType + ";base64," + java.util.Base64.getEncoder().encodeToString(image);
+            body.put("messages", List.of(Map.of("role", "system", "content", system),
+                    Map.of("role", "user", "content", List.of(
+                            Map.of("type", "text", "text", text),
+                            Map.of("type", "image_url", "image_url", Map.of("url", dataUri))))));
+            if (temperature != null) {
+                body.put("temperature", temperature);
+            }
+            HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/chat/completions"))
+                    .timeout(TIMEOUT)
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body)))
+                    .build();
+            HttpResponse<String> response = http.send(request,
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            requireOk(response.statusCode(), response.body());
+            JsonNode root = JSON.readTree(response.body());
+            return new Reply(root.path("choices").path(0).path("message").path("content").asText(""),
+                    root.path("usage").path("prompt_tokens").asLong(0),
+                    root.path("usage").path("completion_tokens").asLong(0));
+        } catch (IOException e) {
+            throw new IllegalStateException("Gemini call failed: " + e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Gemini call was interrupted.", e);
+        }
+    }
+
     /** The answer as server-sent events: every piece of text goes to {@code onText} as it arrives. */
     public Reply stream(String system, String user, long maxTokens, Double temperature, Consumer<String> onText) {
         try {
