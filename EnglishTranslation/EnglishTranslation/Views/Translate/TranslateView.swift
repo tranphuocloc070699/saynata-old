@@ -60,7 +60,8 @@ struct TranslateView: View {
         .fullScreenCover(isPresented: $isCameraOpen) {
             CameraScreen(objectStore: cameraObjects,
                          onText: { text in Task { await store.explainFromCamera(text) } },
-                         onLabel: { label in Task { await store.lookUpCameraLabel(label) } })
+                         onLabel: { label in Task { await store.lookUpCameraLabel(label) } },
+                         targetLanguage: store.targetLanguage)
         }
         // The backend said "sign in" (TASK-70). The sheet opens over the result; when the code is right it closes
         // and the same request runs again.

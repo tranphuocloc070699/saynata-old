@@ -35,39 +35,33 @@ struct CameraTextPanel: View {
     let store: CameraTextStore
     /// Live text is not available (simulator, older phones): ask for a photo instead.
     var liveTextMissing = false
+    /// Some lines show English over another language (TASK-121.7).
+    var hasEnglish = false
     let onExplain: (String) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
             PanelCaption(text: caption)
-            if let text = store.pickedText {
-                Text(text)
-                    .font(.system(.body, design: .serif))
-                    .foregroundStyle(Theme.Colors.textPrimary)
-                    .lineLimit(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
             if let message = store.message {
                 PanelMessage(text: message)
             }
             HStack(spacing: Theme.Spacing.medium) {
-                IconButton(systemImage: "text.justify.left", label: "Use all text") { store.toggleAll() }
-                    .disabled(store.lines.isEmpty)
-                    .opacity(store.lines.isEmpty ? 0.4 : 1)
-                Spacer()
                 if store.isReading { ProgressView().frame(width: Theme.minTapTarget, height: Theme.minTapTarget) }
-                IconButton(systemImage: "arrow.up", label: "Explain", isProminent: true) {
-                    if let text = store.pickedText { onExplain(text) }
+                Spacer()
+                IconButton(systemImage: "text.justify.left", label: "Explain all text", isProminent: true) {
+                    if let text = store.allText { onExplain(text) }
                 }
-                .disabled(store.pickedText == nil)
-                .opacity(store.pickedText == nil ? 0.4 : 1)
+                .disabled(store.allText == nil)
+                .opacity(store.allText == nil ? 0.4 : 1)
             }
         }
     }
 
     private var caption: String {
+        if store.selectedLine != nil { return "Tap outside to close" }
         if liveTextMissing && store.lines.isEmpty { return "Live text is not available here. Choose a photo." }
-        return store.lines.isEmpty ? "Point the camera at text" : "Tap the text you want"
+        if store.lines.isEmpty { return "Point the camera at text" }
+        return hasEnglish ? "Shown in English · Tap a line to see what it means" : "Tap a line to see what it means"
     }
 }
 

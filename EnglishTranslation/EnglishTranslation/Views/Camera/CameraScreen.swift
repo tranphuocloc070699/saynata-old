@@ -11,6 +11,7 @@ import AVFoundation
 import ImageIO
 import PhotosUI
 import SwiftUI
+import Translation
 
 enum CameraMode: Equatable {
     case text, objects
@@ -36,12 +37,16 @@ struct CameraScreen: View {
     let onText: (String) -> Void
     /// The user tapped a label: open its word card.
     let onLabel: (String) -> Void
+    /// The language line under a tapped line's explanation (TASK-121.7).
+    var targetLanguage: TargetLanguage = .vietnamese
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var mode: CameraMode = .text
-    @State private var textStore = CameraTextStore()
+    @State private var textStore = CameraTextStore(explainer: try? TranslatorFactory.makeTranslator())
+    /// Apple Translation for the English drawn over other-language lines (TASK-121.7).
+    @State private var englishConfig: TranslationSession.Configuration?
     @State private var feed = CameraFeed()
     @State private var access = CameraAccess.current
     @State private var photo: PickedPhoto?
@@ -77,6 +82,18 @@ struct CameraScreen: View {
         }
         .onChange(of: scenePhase) { updateFeed() }
         .onChange(of: photoItem) { Task { await loadPhoto() } }
+        .onChange(of: textStore.englishRequest) { _, request in
+            guard let request else { return }
+            let source = Locale.Language(identifier: request.language)
+            if englishConfig?.source == source {
+                englishConfig?.invalidate() // same language, new lines: run the task again
+            } else {
+                englishConfig = .init(source: source, target: Locale.Language(identifier: "en"))
+            }
+        }
+        .translationTask(englishConfig) { session in
+            await textStore.makeEnglish(with: SessionEnglish(session: session))
+        }
         .onDisappear {
             feed.stop()
             objectStore.reset()
@@ -95,9 +112,8 @@ struct CameraScreen: View {
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .overlay {
                         if mode == .text {
-                            PickedLinesOverlay(lines: textStore.lines, picked: textStore.picked,
-                                               contentRect: { PickedLinesOverlay.fitted(photo.uiImage.size, in: $0) },
-                                               onTap: { textStore.toggle($0) })
+                            linesLayer(contentRect: { TextLinesOverlay.fitted(photo.uiImage.size, in: $0) },
+                                       tappable: true)
                         }
                     }
             }
@@ -105,10 +121,9 @@ struct CameraScreen: View {
             permissionMessage
         } else if mode == .text {
             if LiveTextScanner.isSupported {
-                LiveTextScanner(store: textStore)
+                LiveTextScanner(store: textStore, isPaused: textStore.selectedLine != nil, onTap: { select($0) })
                     .overlay {
-                        PickedLinesOverlay(lines: textStore.lines, picked: textStore.picked)
-                            .allowsHitTesting(false) // VisionKit takes the taps
+                        linesLayer(contentRect: { CGRect(origin: .zero, size: $0) }, tappable: false)
                     }
             }
         } else {
@@ -121,6 +136,44 @@ struct CameraScreen: View {
                         .accessibilityHidden(true)
                 }
         }
+    }
+
+    /// The English over the lines, the outline of the tapped line, and its explanation bubble (mockup 6A).
+    /// Live text: VisionKit gets the line taps, so only the bubble layer takes touches.
+    private func linesLayer(contentRect: @escaping (CGSize) -> CGRect, tappable: Bool) -> some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .topLeading) {
+                TextLinesOverlay(lines: textStore.lines, english: { textStore.overlayText(for: $0) },
+                                 selectedID: textStore.selectedLine?.id, contentRect: contentRect,
+                                 onTap: tappable ? { select($0) } : nil)
+                    .allowsHitTesting(tappable && textStore.selectedLine == nil)
+                if let line = textStore.selectedLine {
+                    // Tap outside the bubble: close it.
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { textStore.closeExplanation() }
+                        .accessibilityHidden(true)
+                    callout(for: line, area: contentRect(proxy.size), size: proxy.size)
+                }
+            }
+        }
+    }
+
+    private func callout(for line: RecognizedLine, area: CGRect, size: CGSize) -> some View {
+        let lineRect = TextLinesOverlay.rect(of: line, in: area)
+        let place = CalloutPlacement.place(lineRect: lineRect, in: size)
+        return LineExplanationCallout(explanation: textStore.explanation, language: targetLanguage) {
+            finish { onText(line.text) }
+        }
+        .padding(.horizontal, Theme.Spacing.large)
+        .frame(width: size.width)
+        .fixedSize(horizontal: false, vertical: true)
+        .alignmentGuide(.top) { dimensions in place.above ? -(place.y - dimensions.height) : -place.y }
+        .transition(.opacity)
+    }
+
+    private func select(_ line: RecognizedLine) {
+        Task { await textStore.select(line, language: targetLanguage) }
     }
 
     private var permissionMessage: some View {
@@ -143,9 +196,17 @@ struct CameraScreen: View {
         HStack {
             IconButton(systemImage: "xmark", label: "Close") { dismiss() }
             Spacer()
-            modeSwitch
+            if textStore.selectedLine == nil { modeSwitch }
             Spacer()
-            if photo == nil {
+            if mode == .text, textStore.hasEnglishOverlay {
+                IconButton(systemImage: textStore.showsOriginal ? "eye.slash" : "eye",
+                           label: textStore.showsOriginal ? "Show English" : "Show the original text") {
+                    textStore.showsOriginal.toggle()
+                }
+            }
+            if textStore.selectedLine != nil {
+                EmptyView()
+            } else if photo == nil {
                 IconButton(systemImage: "photo.on.rectangle", label: "Choose a photo") { isPickerOpen = true }
             } else {
                 IconButton(systemImage: "camera", label: "Back to the camera") {
@@ -193,7 +254,8 @@ struct CameraScreen: View {
         Group {
             switch mode {
             case .text:
-                CameraTextPanel(store: textStore, liveTextMissing: photo == nil && !LiveTextScanner.isSupported) { text in
+                CameraTextPanel(store: textStore, liveTextMissing: photo == nil && !LiveTextScanner.isSupported,
+                                hasEnglish: textStore.hasEnglishOverlay) { text in
                     finish { onText(text) }
                 }
             case .objects:
@@ -268,6 +330,24 @@ extension CGImagePropertyOrientation {
                                                 makeCascade: { ObjectCascade(labels: labels, food: nil) },
                                                 identifier: nil),
                  onText: { _ in }, onLabel: { _ in })
+}
+
+/// Apple Translation behind `EnglishMaking`: one request per line, answers matched by their number.
+struct SessionEnglish: EnglishMaking {
+    let session: TranslationSession
+
+    func english(for texts: [String]) async throws -> [String] {
+        let requests = texts.enumerated().map {
+            TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset))
+        }
+        var english = Array(repeating: "", count: texts.count)
+        for response in try await session.translations(from: requests) {
+            if let id = response.clientIdentifier, let index = Int(id), english.indices.contains(index) {
+                english[index] = response.targetText
+            }
+        }
+        return english
+    }
 }
 
 /// For previews: a fixed vector, no model.

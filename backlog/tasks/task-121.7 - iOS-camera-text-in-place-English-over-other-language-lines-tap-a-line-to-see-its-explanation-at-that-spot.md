@@ -3,11 +3,11 @@ id: TASK-121.7
 title: >-
   iOS: camera text in place: English over other-language lines, tap a line to
   see its explanation at that spot
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T16:59:00Z'
-updated_date: '2026-11-02T17:00:00Z'
+updated_date: '2026-11-02T17:09:00Z'
 labels:
   - ios
 dependencies: []
@@ -40,4 +40,6 @@ The developer wants the camera to work like iOS Live Text translate (screenshot 
 
 <!-- SECTION:NOTES:BEGIN -->
 Mockup added to the F8 canvas (boards 5, 6A, 6B), waiting for the developer's choice. Planned: Apple Translation (on device) for the English line drawn over non-English text; NaturalLanguage to tell the language; the tap explanation from the existing sentence endpoint (cache first, sign-in for new).
+
+Built after the developer chose 6A and the eye button top right: InPlaceText.swift, CameraTextStore (English per text, requests per language, select/close), TextLinesOverlay, LineExplanationCallout, translationTask in CameraScreen, InPlaceTextTests. Not compiled (no Mac).
 <!-- SECTION:NOTES:END -->
