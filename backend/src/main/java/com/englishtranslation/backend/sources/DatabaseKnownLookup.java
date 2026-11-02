@@ -1,7 +1,7 @@
 package com.englishtranslation.backend.sources;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
 import com.englishtranslation.backend.word.WordLookupRepository;
 import java.util.ArrayList;
@@ -30,10 +30,10 @@ public class DatabaseKnownLookup implements KnownLookup {
     private final DictionaryWordRepository bundled;
     private final WordLookupRepository lookups;
     private final NamedParameterJdbcTemplate jdbc;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
 
     public DatabaseKnownLookup(DictionaryWordRepository bundled, WordLookupRepository lookups,
-            NamedParameterJdbcTemplate jdbc, ClaudeProperties properties) {
+            NamedParameterJdbcTemplate jdbc, LlmProperties properties) {
         this.bundled = bundled;
         this.lookups = lookups;
         this.jdbc = jdbc;

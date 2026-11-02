@@ -157,6 +157,13 @@ final class TranslationStore {
         await history?.record(SavedItem(entry: entry))
     }
 
+    /// The word card for the English word or phrase the backend matched to non-English text (TASK-114).
+    /// Nil on any error or an empty entry, so the caller shows the sentence result instead.
+    private func wordCard(forMatch match: String) async -> WordEntry? {
+        guard let entry = try? await makeWordLookup().lookUp(match), !entry.senses.isEmpty else { return nil }
+        return entry
+    }
+
     /// Close words to show under the error. Only when the backend says it is not an English word,
     /// or cannot be reached (`URLError`). The bundle was already checked before both.
     private func spellingHelp(for word: String, after error: Error, lookup: (any WordLooking)?) -> SpellingHelp? {
@@ -274,6 +281,11 @@ final class TranslationStore {
                 onMeaning: { [weak self] meaning in
                     self?.showMeaning(SentenceMeaning(sentence: sentence, meaning: meaning, language: language))
                 })
+            // One non-English word or idiom ("buồn"): open the normal word card. Any failure keeps the sentence result.
+            if let match = explanation.wordMatchQuery, let entry = await wordCard(forMatch: match) {
+                await showWord(entry)
+                return
+            }
             let result = SentenceResult(
                 sentence: sentence, explanation: explanation, language: language, isTyped: sentence != textFromElsewhere)
             state = .loaded(result)

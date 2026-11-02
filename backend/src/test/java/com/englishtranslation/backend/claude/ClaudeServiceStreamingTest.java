@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
  */
 class ClaudeServiceStreamingTest {
 
-    private static final ClaudeProperties PROPERTIES = new ClaudeProperties("key", "claude-haiku-5-5", "v6", "v7");
+    private static final LlmProperties PROPERTIES = new LlmProperties("key", "claude-haiku-5-5", "v6", "v7");
 
     private static String textDelta(String text) {
         String escaped = text.replace("\\", "\\\\").replace("\"", "\\\"");

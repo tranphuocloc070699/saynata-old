@@ -1,11 +1,13 @@
 package com.englishtranslation.backend.cache;
 
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.translation.Explanation;
 import com.englishtranslation.backend.translation.SentenceTranslationRepository;
@@ -48,28 +50,29 @@ class PromptVersionCacheTest {
     void setUp() {
         sentences.deleteAll();
         words.deleteAll();
-        when(claude.explainSentence("hello")).thenReturn(explanation);
+        when(claude.explainSentence(eq("hello"), any())).thenReturn(explanation);
         when(claude.describeWord("hello")).thenReturn(entry);
     }
 
-    private ClaudeProperties versions(String sentence, String word) {
-        return new ClaudeProperties("test-key", "model", sentence, word);
+    private LlmProperties versions(String sentence, String word) {
+        return new LlmProperties("test-key", "model", sentence, word);
     }
 
-    private TranslationService sentenceService(ClaudeProperties properties) {
+    private TranslationService sentenceService(LlmProperties properties) {
         return new TranslationService(sentences, org.mockito.Mockito.mock(com.englishtranslation.backend.translation.SentenceSourceAliasRepository.class), claude, properties, jsonMapper, new com.englishtranslation.backend.translation.PersonalTextDetector(),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.lines.LineTranslationService.class), new EnglishWords());
     }
 
-    private WordService wordService(ClaudeProperties properties) {
+    private WordService wordService(LlmProperties properties) {
         return new WordService(words, claude, properties, jsonMapper, new EnglishWords(), new IpaDictionary(),
                 new SimpleWords(), org.mockito.Mockito.mock(com.englishtranslation.backend.media.BackendWordMediaService.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.media.SenseMediaReader.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.dictionary.DictionaryWordRepository.class),
                 new com.englishtranslation.backend.dictionary.BundledEntryReader(jsonMapper),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class),
-                org.mockito.Mockito.mock(com.englishtranslation.backend.translation.SentenceSourceAliasRepository.class));
+                org.mockito.Mockito.mock(com.englishtranslation.backend.translation.SentenceSourceAliasRepository.class),
+                org.mockito.Mockito.mock(com.englishtranslation.backend.word.WordForms.class));
     }
 
     @Test
@@ -89,7 +92,7 @@ class PromptVersionCacheTest {
         boolean sentenceStillCached = sentenceService(versions("s1", "w2")).translate("hello", TargetLanguage.VI).cached();
 
         assertThat(sentenceStillCached).isTrue();
-        verify(claude, times(1)).explainSentence("hello");
+        verify(claude, times(1)).explainSentence(eq("hello"), any());
     }
 
     @Test

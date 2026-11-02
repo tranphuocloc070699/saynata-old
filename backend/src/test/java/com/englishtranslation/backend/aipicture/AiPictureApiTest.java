@@ -13,7 +13,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.englishtranslation.backend.admin.LoginRateLimiter;
-import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.ClaudeUsage;
 import com.englishtranslation.backend.claude.ClaudeUsageRepository;
 import com.englishtranslation.backend.claude.Feature;
@@ -62,7 +61,7 @@ import tools.jackson.databind.json.JsonMapper;
  * test calls Claude or Codex for real. The wand's cap is 0.50 dollars and the picture cap is 2 a day in this class.
  */
 @SpringBootTest(properties = {"app.claude.api-key=test-key", "app.media.ai.enabled=true",
-        "app.media.ai.pictures-per-day=2", "app.media.ai.scene-daily-usd=0.50"})
+        "app.media.ai.pictures-per-day=2"})
 @AutoConfigureMockMvc
 class AiPictureApiTest {
 
@@ -104,7 +103,7 @@ class AiPictureApiTest {
     JsonMapper json;
 
     @MockitoBean
-    ClaudeService claude;
+    SceneWriter sceneWriter;
     @MockitoBean
     MediaConverter converter;
     @MockitoBean
@@ -270,7 +269,7 @@ class AiPictureApiTest {
                 .andExpect(jsonPath("$.prompt").value(org.hamcrest.Matchers.endsWith(AiPrompts.STYLE)))
                 .andExpect(jsonPath("$.usage.picturesToday").value(0))
                 .andExpect(jsonPath("$.usage.picturesPerDay").value(2))
-                .andExpect(jsonPath("$.usage.sceneUsdPerDay").value(0.5));
+                .andExpect(jsonPath("$.usage.sceneUsdPerDay").value(0));
     }
 
     @Test
@@ -316,9 +315,9 @@ class AiPictureApiTest {
     // ---- the wand ----
 
     @Test
-    void theWandAsksClaudeSonnetForANewSceneAndAnswersWithTheImagePrompt() throws Exception {
+    void theWandAsksCodexForANewSceneAndAnswersWithTheImagePrompt() throws Exception {
         DictionaryWord run = saveBundled("run");
-        when(claude.writePictureScene(anyString(), anyString())).thenReturn("Here you go:\n" + SCENE_JSON);
+        when(sceneWriter.write(anyString(), anyString())).thenReturn("Here you go:\n" + SCENE_JSON);
 
         postJson("/api/admin/words/b-" + run.getId() + "/senses/0/media/ai-prompt/scene", "{}")
                 .andExpect(status().isOk())
@@ -326,15 +325,15 @@ class AiPictureApiTest {
                 .andExpect(jsonPath("$.prompt").value("The kid " + AiPrompts.KID.substring(8)
                         + " runs in a park. Main focus: the kid. Must not appear: a bike.\n" + AiPrompts.STYLE));
 
-        verify(claude).writePictureScene(AiPrompts.SCENE_SYSTEM, "Word: \"run\" (verb)\nThis sense: meaning 0 of run\n"
+        verify(sceneWriter).write(AiPrompts.SCENE_SYSTEM, "Word: \"run\" (verb)\nThis sense: meaning 0 of run\n"
                 + "Example: I run to the park.\nOther senses of the word (do NOT show these): "
                 + "[{\"pos\": \"verb\", \"meaning\": \"meaning 1 of run\"}]");
     }
 
     @Test
-    void aSenseClaudeCannotDrawIs422NotDrawable() throws Exception {
+    void aSenseTheModelCannotDrawIs422NotDrawable() throws Exception {
         DictionaryWord run = saveBundled("run");
-        when(claude.writePictureScene(anyString(), anyString())).thenReturn(
+        when(sceneWriter.write(anyString(), anyString())).thenReturn(
                 "{\"method\":\"none\",\"scene\":\"\",\"focus\":\"\",\"avoid\":\"\",\"distractors\":[]}");
 
         postJson("/api/admin/words/b-" + run.getId() + "/senses/0/media/ai-prompt/scene", "{}")
@@ -346,7 +345,7 @@ class AiPictureApiTest {
     @Test
     void anAnswerThatIsNotJsonIs502WithACode() throws Exception {
         DictionaryWord run = saveBundled("run");
-        when(claude.writePictureScene(anyString(), anyString())).thenReturn("Sorry, I cannot do that.");
+        when(sceneWriter.write(anyString(), anyString())).thenReturn("Sorry, I cannot do that.");
 
         postJson("/api/admin/words/b-" + run.getId() + "/senses/0/media/ai-prompt/scene", "{}")
                 .andExpect(status().isBadGateway())
@@ -354,29 +353,14 @@ class AiPictureApiTest {
     }
 
     @Test
-    void theWandStopsAtItsOwnDailyCapBeforeCallingClaude() throws Exception {
+    void aCodexFailureIs502WithItsOwnCode() throws Exception {
         DictionaryWord run = saveBundled("run");
-        // 0.60 dollars of admin spend today: over the wand's cap (0.50), under the users' budget (1.00).
-        usageRows.save(new ClaudeUsage(Instant.now(), ClaudeService.SCENE_MODEL, Feature.ADMIN, 10, 10, new BigDecimal("0.60")));
+        when(sceneWriter.write(anyString(), anyString())).thenThrow(new DrawException("Codex is not signed in."));
 
         postJson("/api/admin/words/b-" + run.getId() + "/senses/0/media/ai-prompt/scene", "{}")
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("ai_budget_reached"));
-        verify(claude, never()).writePictureScene(anyString(), anyString());
-        // The dialog shows the numbers.
-        getAs("/api/admin/words/b-" + run.getId() + "/senses/0/media/ai-prompt", adminCookie)
-                .andExpect(jsonPath("$.usage.sceneUsdToday").value(0.6));
-    }
-
-    @Test
-    void theWandAlsoStopsWhenTheUsersBudgetIsUsedUp() throws Exception {
-        DictionaryWord run = saveBundled("run");
-        usageRows.save(new ClaudeUsage(Instant.now(), "claude-haiku-5-5", Feature.SENTENCE, 10, 10, new BigDecimal("1.20")));
-
-        postJson("/api/admin/words/b-" + run.getId() + "/senses/0/media/ai-prompt/scene", "{}")
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("daily_limit_reached"));
-        verify(claude, never()).writePictureScene(anyString(), anyString());
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.code").value("ai_scene_failed"))
+                .andExpect(jsonPath("$.detail").value("Codex is not signed in."));
     }
 
     // ---- the job ----

@@ -1,6 +1,6 @@
 package com.englishtranslation.backend.suggest;
 
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -37,9 +37,9 @@ public class SuggestService {
     static final int ROWS_PER_SOURCE = 24;
 
     private final JdbcClient jdbc;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
 
-    public SuggestService(JdbcClient jdbc, ClaudeProperties properties) {
+    public SuggestService(JdbcClient jdbc, LlmProperties properties) {
         this.jdbc = jdbc;
         this.properties = properties;
     }

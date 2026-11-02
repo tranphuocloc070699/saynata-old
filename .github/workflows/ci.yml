@@ -43,6 +43,7 @@ jobs:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: backend
@@ -53,9 +54,13 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      # ffmpeg is for the converter test (it is skipped without ffmpeg).
-      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
+      # ffmpeg is for the converter test (it is skipped without ffmpeg). On 2026-10-24 this step took 18 minutes
+      # because the Ubuntu mirror was slow (the tests themselves took 2.5). So it has a time limit, and a failed
+      # install only skips that test.
+      - run: sudo apt-get install -y --no-install-recommends ffmpeg
         working-directory: .
+        timeout-minutes: 4
+        continue-on-error: true
       # Tests use H2, a mocked ClaudeService and a fake Pixabay: no Docker or API key needed.
       - run: ./mvnw -B test
 
@@ -66,6 +71,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      # The Dockerfile only adds backend/dist/app.jar to a JRE image, so build the jar first (as the Deploy workflow does).
+      - run: ./mvnw -B -q package -DskipTests && mkdir -p dist && mv target/backend-*.jar dist/app.jar
+        working-directory: backend
       # Build only: nothing is pushed to a registry. Catches a broken Dockerfile before the VPS does.
       - run: docker build -t saynata-backend:ci backend
 

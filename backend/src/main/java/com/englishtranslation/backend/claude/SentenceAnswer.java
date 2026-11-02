@@ -22,14 +22,21 @@ import java.util.regex.Pattern;
  * Answers before v12 had {@code "isEnglish": true/false} instead of {@code sourceLang}; they are still read
  * (true is "en", false is "none").
  */
-@JsonPropertyOrder({ "sourceLang", "english", "wordMatch", "summary", "better", "betterWhy" })
+@JsonPropertyOrder({ "sourceLang", "english", "wordMatch", "summary", "better", "betterWhy", "line" })
 public record SentenceAnswer(
         @JsonPropertyDescription("ISO 639-1 code of the language of the text, lowercase: \"en\" for English, \"vi\" for Vietnamese. \"none\" for program code or random letters. \"name\" when the whole text is only the name of a person.") String sourceLang,
         @JsonPropertyDescription("The natural English a native speaker would say for the text, when the text is not English. \"\" when the text is English or sourceLang is \"none\" or \"name\".") String english,
         @JsonPropertyDescription("Only when the text is ONE non-English word, phrasal verb or idiom that has a good single English match: that English headword, phrasal verb or idiom in lower case. \"\" for everything else.") String wordMatch,
         @JsonPropertyDescription("What the English text says in simple B1 English. Short text: one sentence. Longer text: a gist line, then up to 3 lines starting with \"- \", at most half as long; **bold** for 1-3 key terms. The content itself, never a description of it.") String summary,
         @JsonPropertyDescription("The English text with only its real mistakes fixed (grammar, a wrong word, a phrase a native speaker would not say). \"\" when the text is correct, long, not English, or reads like a book, news or a website.") String better,
-        @JsonPropertyDescription("\"\" when better is \"\". Else one short line in simple B1 English that says why.") String betterWhy) {
+        @JsonPropertyDescription("\"\" when better is \"\". Else one short line in simple B1 English that says why.") String betterWhy,
+        @JsonPropertyDescription("Only when the message has a <line_lang> tag: one natural line in that language for the text as typed. \"\" otherwise, and when the text is already in that language.") String line) {
+
+    /** An answer without a line (prompt v13 and older, and calls that do not ask for one). */
+    public SentenceAnswer(String sourceLang, String english, String wordMatch, String summary, String better,
+            String betterWhy) {
+        this(sourceLang, english, wordMatch, summary, better, betterWhy, null);
+    }
 
     /** One word or a phrase of up to 6 words: the same rule as the word path in WordController. */
     private static final Pattern WORD_PATH = Pattern.compile("(?=.{1,64}$)[\\p{L}'-]+( [\\p{L}'-]+){0,5}");
@@ -39,12 +46,13 @@ public record SentenceAnswer(
     public static SentenceAnswer fromJson(@JsonProperty("sourceLang") String sourceLang,
             @JsonProperty("english") String english, @JsonProperty("wordMatch") String wordMatch,
             @JsonProperty("summary") String summary, @JsonProperty("better") String better,
-            @JsonProperty("betterWhy") String betterWhy, @JsonProperty("isEnglish") Boolean isEnglish) {
+            @JsonProperty("betterWhy") String betterWhy, @JsonProperty("line") String line,
+            @JsonProperty("isEnglish") Boolean isEnglish) {
         String lang = sourceLang;
         if (lang == null && isEnglish != null) {
             lang = isEnglish ? "en" : "none";
         }
-        return new SentenceAnswer(lang, english, wordMatch, summary, better, betterWhy);
+        return new SentenceAnswer(lang, english, wordMatch, summary, better, betterWhy, line);
     }
 
     /** An answer for English text without a fix, as v10 wrote it. Kept for tests and callers that do not care. */
@@ -95,14 +103,14 @@ public record SentenceAnswer(
         if (englishText()) {
             String fix = blankToNull(better);
             return new Explanation(null, null, null, meaning, List.of(), fix, fix == null ? null : blankToNull(betterWhy),
-                    "");
+                    lineOrEmpty());
         }
         String englishVersion = blankToNull(english);
         if (englishVersion == null) {
             throw NotEnglishException.notAWord();
         }
         return new Explanation(englishVersion, languageCode(), validWordMatch(wordMatch), meaning, List.of(), null, null,
-                "");
+                lineOrEmpty());
     }
 
     /** The word match in lower case when it is a valid word path (one word or a phrase of up to 6), else null. */
@@ -113,6 +121,12 @@ public record SentenceAnswer(
         }
         match = match.toLowerCase(Locale.ROOT).replaceAll("\\s+", " ");
         return WORD_PATH.matcher(match).matches() ? match : null;
+    }
+
+    /** The language line the model wrote, or "" (the service then asks the line call as before). */
+    private String lineOrEmpty() {
+        String clean = blankToNull(line);
+        return clean == null ? "" : clean;
     }
 
     private static String blankToNull(String value) {

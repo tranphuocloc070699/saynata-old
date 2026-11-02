@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.prefill;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
@@ -9,7 +10,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.ClaudeUsageRepository;
 import com.englishtranslation.backend.claude.ClaudeUsageService;
@@ -78,7 +79,7 @@ class SentenceWordQueueTest {
     @Autowired
     ClaudeUsageService usage;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
     @Autowired
     EnglishWords englishWords;
     @Autowired
@@ -123,7 +124,7 @@ class SentenceWordQueueTest {
 
     @Test
     void wordsOfATranslatedSentenceAreQueuedAfterTheResponse() throws Exception {
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\": \"The lantern glows.\", \"targetLang\": \"vi\"}"))
@@ -144,7 +145,7 @@ class SentenceWordQueueTest {
 
     @Test
     void aCachedAnswerQueuesItsWordsToo() throws Exception {
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
         String body = "{\"text\": \"A lantern.\", \"targetLang\": \"vi\"}";
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -160,7 +161,7 @@ class SentenceWordQueueTest {
 
     @Test
     void aCachedOnlyPrefetchQueuesNothing() throws Exception {
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
         String body = "{\"text\": \"A lantern.\", \"targetLang\": \"vi\"}";
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON).content(body))
@@ -177,7 +178,7 @@ class SentenceWordQueueTest {
 
     @Test
     void theStreamingEndpointQueuesTheWordsToo() throws Exception {
-        when(claude.explainSentenceStreaming(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentenceStreaming(anyString(), any(), any())).thenReturn(EXPLANATION);
 
         var started = mockMvc.perform(post("/api/translations/stream").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"text\": \"The lantern glows.\", \"targetLang\": \"vi\"}")).andReturn();
@@ -190,7 +191,7 @@ class SentenceWordQueueTest {
 
     @Test
     void personalTextIsNeverScanned() throws Exception {
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
 
         mockMvc.perform(post("/api/translations").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"text\": \"Write to jane@example.com about the lantern\", \"targetLang\": \"vi\"}"))

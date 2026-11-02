@@ -2,7 +2,7 @@ package com.englishtranslation.backend.translation;
 
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.cache.NotCachedException;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.limits.ClaudeGate;
@@ -47,7 +47,7 @@ public class TranslationService {
     private final SentenceTranslationRepository repository;
     private final SentenceSourceAliasRepository aliases;
     private final ClaudeService claude;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
     private final JsonMapper jsonMapper;
     private final PersonalTextDetector personalTextDetector;
     private final ClaudeGate gate;
@@ -55,7 +55,7 @@ public class TranslationService {
     private final EnglishWords englishWords;
 
     public TranslationService(SentenceTranslationRepository repository, SentenceSourceAliasRepository aliases,
-            ClaudeService claude, ClaudeProperties properties, JsonMapper jsonMapper,
+            ClaudeService claude, LlmProperties properties, JsonMapper jsonMapper,
             PersonalTextDetector personalTextDetector, ClaudeGate gate, LineTranslationService lines,
             EnglishWords englishWords) {
         this.englishWords = englishWords;
@@ -75,7 +75,7 @@ public class TranslationService {
 
     /** With {@code cachedOnly} (TASK-83.4) a miss throws {@link NotCachedException} and Claude is never asked. */
     public TranslationResponse translate(String text, TargetLanguage targetLang, boolean cachedOnly) {
-        return translate(text, targetLang, cachedOnly, false, (normalized, timing) -> claude.explainSentence(normalized));
+        return translate(text, targetLang, cachedOnly, false, (normalized, timing) -> claude.explainSentence(normalized, lineLangFor(targetLang, normalized)));
     }
 
     /** Same as the four-argument version, for callers that do not want the word-by-word text. */
@@ -103,8 +103,13 @@ public class TranslationService {
             return claude.explainSentenceStreaming(normalized, piece -> {
                 timing.firstToken();
                 meaningStream.feed(piece);
-            });
+            }, lineLangFor(targetLang, normalized));
         });
+    }
+
+    /** The language to ask for in the sentence call itself (TASK-115), or null when no line is needed. */
+    private TargetLanguage lineLangFor(TargetLanguage targetLang, String normalized) {
+        return lines.wantsLine(targetLang, normalized) ? targetLang : null;
     }
 
     /** Times the request and logs one line, whatever the result. */
@@ -264,7 +269,7 @@ public class TranslationService {
     private Explanation withSavedEnglishPart(Explanation fromClaude, SentenceTranslation row) {
         Explanation saved = readExplanation(row);
         return new Explanation(row.getSourceText(), fromClaude.sourceLang(), fromClaude.wordMatch(), saved.meaning(),
-                saved.words(), saved.better(), saved.betterWhy(), "");
+                saved.words(), saved.better(), saved.betterWhy(), fromClaude.translation());
     }
 
     private void saveAlias(String aliasKey, String cacheKey, Explanation explanation) {
@@ -301,6 +306,9 @@ public class TranslationService {
             line = english.english() != null ? english.english() : normalized;
         } else if (targetLang.code().equals(english.sourceLang())) {
             line = normalized;
+        } else if (english.translation() != null && !english.translation().isBlank()) {
+            // The sentence call wrote the line too (TASK-115): no second call.
+            line = lines.keepLine(targetLang, normalized, english.translation().strip(), store);
         } else {
             line = timing.time("line", () -> lines.lineFor(targetLang, normalized, cachedOnly, store, alreadyGated))
                     .orElse("");

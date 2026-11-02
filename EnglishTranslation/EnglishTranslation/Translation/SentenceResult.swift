@@ -19,4 +19,8 @@ struct SentenceResult: Equatable {
     /// False when the text came from another app (copied text, Share, the Mac Services item): it is someone
     /// else's text, so the "Better way to say it" row is hidden (TASK-110).
     var isTyped = true
+
+    /// What the card shows at the top: the English version of text typed in another language (TASK-114),
+    /// otherwise the sentence that was sent.
+    var headline: String { explanation.englishHeadline ?? sentence }
 }

@@ -16,19 +16,22 @@ private struct TranslationResponse: Decodable {
     let explanation: Explanation
 }
 
-/// The part of the `GET /api/words/{word}` reply we need: `{ word, entry: { senses }, cached, ipa }`.
+/// The part of the `GET /api/words/{word}` reply we need: `{ word, entry: { senses }, cached, ipa, matchedForm? }`.
 private struct WordResponse: Decodable {
     let word: String
     let entry: Body
     /// The backend adds it from an IPA list. Missing or null (older replies, rare words) means no IPA line.
     let ipa: String?
+    /// Set when the text was a form of the word ("ran" for "run", TASK-118); then `word` is the base form.
+    /// Missing in older replies and for a base word.
+    let matchedForm: MatchedForm?
 
     struct Body: Decodable {
         let senses: [Sense]
     }
 
     var wordEntry: WordEntry {
-        WordEntry(word: word, ipa: ipa, senses: entry.senses)
+        WordEntry(word: word, ipa: ipa, senses: entry.senses, matchedForm: matchedForm)
     }
 }
 

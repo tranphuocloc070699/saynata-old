@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: '2026-10-11 16:33'
-updated_date: '2026-10-25 03:40'
+updated_date: '2026-10-26 10:44'
 ---
 # Deploy to a VPS
 
@@ -53,15 +53,14 @@ nano .env
 
 | Name | Meaning |
 |---|---|
-| `CLAUDE_API_KEY` | Your Anthropic key. Required, unless you use a gateway (next rows). |
-| `CLAUDE_BASE_URL`, `CLAUDE_AUTH_TOKEN` | Optional. An Anthropic-compatible gateway instead of Anthropic: its URL without `/v1` (for example `https://steyg.one/api`) and its key, sent as `Authorization: Bearer`. With a gateway the backend puts the JSON Schema in the prompt and parses the answer from the text (STEYG ignores the strict JSON setting), so non-Claude models work too: on STEYG use `CLAUDE_MODEL=deepseek-v4.1-flash` (the fastest model there in the 2026-10-20 test: about 2.6 s to the first words of a sentence, against about 6 s for `gpt-6-luna`), `CLAUDE_SCENE_MODEL=claude-opus-5-5`, `CLAUDE_EFFORT=` (empty). Then also set `CLAUDE_MODEL` and `CLAUDE_SCENE_MODEL` to model IDs the gateway sells, `CLAUDE_EFFORT=` (empty) for models before the 5 family, and check there is a price for each model in `application.properties`. |
-| `CLAUDE_SCENE_MODEL` | Optional. The model that writes the AI picture scene (default `claude-sonnet-5-5`). |
-| `CLAUDE_EFFORT` | Optional. `low` by default; empty = not sent (older models refuse it). |
-| `CLAUDE_TEMPERATURE` | Optional (TASK-89.3). The temperature for sentence calls; empty = not sent (Claude Haiku 5.5 refuses it). On the server with `deepseek-v4.1-flash` through STEYG set `CLAUDE_TEMPERATURE=0`. |
+| `DEEPSEEK_API_KEY` | Your DeepSeek key. **Required: the backend does not start without it** (the message says `Set DEEPSEEK_API_KEY`). The main model for sentences, words and language lines, with thinking switched off. |
+| `DEEPSEEK_MODEL`, `DEEPSEEK_BASE_URL` | Optional. Default `deepseek-flash` and `https://api.deepseek.com/anthropic` (the Anthropic-compatible endpoint; the backend puts the JSON Schema in the prompt and parses the answer from the text). Add a price for another model in `application.properties` (`app.claude.pricing.<model>.*`). |
+| `GEMINI_API_KEY` | Optional but recommended. The fallback model: when DeepSeek fails before any text is streamed, the same request is answered by Gemini. After streamed text the error is shown as before. Empty = no fallback. |
+| `GEMINI_MODEL`, `GEMINI_BASE_URL` | Optional. Default `gemini-3.5-flash-lite` and `https://generativelanguage.googleapis.com/v1beta/openai` (the OpenAI-compatible endpoint). |
+| `LLM_TEMPERATURE` | Optional (TASK-89.3). The temperature for sentence calls; empty = not sent. DeepSeek takes `0`. |
 | `DB_PASSWORD` | A long random password for Postgres. Required. Make one with `openssl rand -base64 24`. |
 | `BACKEND_PORT` | Port on the server (default 8081). |
 | `BACKEND_BIND` | `0.0.0.0` (open) or `127.0.0.1` (only Caddy on the same server can reach it). |
-| `CLAUDE_MODEL` | Optional. Default is the model in `application.properties`. |
 | `ADMIN_JWT_SECRET` | Signs the admin login cookie. 32+ characters. Make one with `openssl rand -base64 48`. **The backend does not start without it**, unless `ADMIN_ENABLED=false`. |
 | `ADMIN_EMAIL` | Email of the first admin (for the admin web app). Used only when no admin exists yet. |
 | `AI_PICTURES_ENABLED` | Optional, default `false`. `true` lets the admin draw AI pictures on the server with the Codex CLI (TASK-91). Needs the steps in section 12 first. Also `AI_PICTURES_PER_DAY` (30), `AI_SCENE_DAILY_USD` (1.00), `AI_CODEX_SANDBOX` (`read-only`), `CODEX_HOST_DIR` (`/var/lib/saynata/codex`). |
@@ -82,10 +81,10 @@ nano .env
 | `APP_URL_SCHEME` | Optional. The app's URL scheme the link page opens, default `saynata` (`saynata://sign-in?token=...`). |
 | `APPLE_APP_IDS` | Optional, paid Apple account only. `TEAMID.com.luke.EnglishTranslation`. Set = `/.well-known/apple-app-site-association` is served, so iOS opens the emailed link in the app directly (section 13). |
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
-| `CLAUDE_DAILY_BUDGET_USD` | Optional. The most Claude may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
+| `LLM_DAILY_BUDGET_USD` | Optional. The most the language models may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
 | `PREFILL_CRON` | Optional. When the prefill job runs by itself (TASK-83.1, feature page "Prefill"): a six-field Spring cron (`second minute hour day month weekday`) in **UTC**. Empty (default) = it never runs by itself. A night run in Vietnam: `PREFILL_CRON=0 0 20 * * *` (20:00 UTC = 03:00). You can always start a run by hand with `POST /api/admin/prefill/run`. |
 | `PREFILL_CRON_SOURCES` | Optional (TASK-83.12). The queue sources the scheduled run answers, a comma list. Default `sentence-words` (the words users typed). Words, phrases and sentences the developer queues (`scowl-70`, `oewn-2025`, `common-sentences`) stay `pending` at night and are run at once with `uv run pipeline prefill run --source <label>` or `prefill collect ... --now` (needs `ADMIN_API_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` in `pipeline/.env`). Set it on the VPS `.env` and restart the backend. An empty value switches the night job off. |
-| `PREFILL_MAX_USD_PER_RUN` | Optional. The most **one** prefill run may spend on Claude, in US dollars. Default `0.50`. Separate from `CLAUDE_DAILY_BUDGET_USD`: prefill calls are saved as feature `PREFILL` and do not use the users' day budget. |
+| `PREFILL_MAX_USD_PER_RUN` | Optional. The most **one** prefill run may spend on Claude, in US dollars. Default `0.50`. Separate from `LLM_DAILY_BUDGET_USD`: prefill calls are saved as feature `PREFILL` and do not use the users' day budget. |
 | `PREFILL_DELAY` | Optional. Pause after each new word, default `0s`. Prefilled words get no picture, so no pause is needed. |
 | `LIMIT_*` | Optional. Rate limits, for example `LIMIT_CLAUDE_USER_HOUR_MAX` (default 60). The full list is in `backend/.env.example`. |
 | `POSTGRES_PORT` | Optional. Port of Postgres on the server's own loopback (`127.0.0.1`), for the dictionary pipeline (section 8). Default 5432. It is never open to the internet. |
@@ -178,17 +177,28 @@ The Claude key stays on the server. The app never sends one.
 
 ## 7. Auto deploy (GitHub Actions)
 
-After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml) logs in to the VPS
-over SSH, moves `~/saynata` to the commit CI tested (`git merge --ff-only`), and runs
-[backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh). That script builds the backend image
-(`docker compose build backend`), then runs `docker compose up -d --wait`, so the run turns red if the backend does not
-become healthy, and it prints the last backend logs.
+After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml) runs four jobs:
+
+1. `prepare` logs in to the VPS over SSH and moves `~/saynata` to the commit CI tested (`git merge --ff-only`), once. It also
+   finds which parts changed (`git diff HEAD^1 HEAD`): backend, admin, web. A change in `.github/workflows/` counts for all
+   parts, and a manual run deploys all parts.
+2. `deploy` (backend), `deploy-admin` and `deploy-web` wait only for `prepare`, so they **run at the same time**, and a
+   part that did not change is skipped.
+
+The backend jar is built **on GitHub** (Java 17, Maven cache) with `./mvnw package -DskipTests` and copied with `rsync` to
+`backend/dist/app.jar` on the server. Then [backend/scripts/deploy.sh](../../../backend/scripts/deploy.sh) builds the image
+(`docker compose build backend`): the [Dockerfile](../../../backend/Dockerfile) is only the JRE runtime stage (ffmpeg, Codex)
+plus `COPY dist/app.jar`, so the server never pulls the JDK image or downloads Maven dependencies. Those two steps took 6+
+minutes at 0.4 MB/s after the cache prune of 2026-10-24 and made deploys fail. Then it runs `docker compose up -d --wait`, so
+the run turns red if the backend does not become healthy, and it prints the last backend logs.
 Each build try is stopped after 6 minutes (`DEPLOY_BUILD_TIMEOUT`, in seconds, set it on the server to change it) and
 tried once more; if both tries fail, the old backend keeps running. The GitHub jobs stop after 20 minutes (backend),
-10 minutes (admin) and 15 minutes (web). A normal deploy takes about 3 minutes.
-A third job, `deploy-web`, does the same for the learner web app (section 14). It waits for the backend job but runs even when that job failed (a broken backend build does not hold back a web change); it then moves the server's repo to the commit itself. A second job, `deploy-admin`, then builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
+10 minutes (admin) and 15 minutes (web). A normal backend deploy takes about 2 minutes.
+`deploy-web` does the same for the learner web app (section 14). `deploy-admin` builds the admin web app on GitHub (Node 22, `VITE_API_URL` from the
 `ADMIN_API_URL` repository variable, default `https://api.saynata.com`) and copies `admin/dist` to the server with
-`rsync --delete` (section 8). The VPS needs `rsync`, but no Node.
+`rsync --delete` (section 8). The VPS needs `rsync`, but no Node and no Java.
+A local Docker build needs the jar first: `cd backend && ./mvnw -DskipTests package && mkdir -p dist && mv target/backend-*.jar dist/app.jar`.
+If a part failed and the next push does not touch it, run the workflow by hand (it deploys all parts).
 You can also start it by hand: Actions tab, **Deploy**, **Run workflow**.
 Until the secrets below exist, the workflow does nothing and stays green.
 
@@ -196,7 +206,10 @@ Until the secrets below exist, the workflow does nothing and stays green.
 flowchart LR
     PUSH[push to main] --> CI[CI workflow]
     CI -->|success| DEP[Deploy workflow]
-    DEP -->|SSH, deploy key| VPS[VPS: git merge + deploy.sh]
+    DEP --> PREP[prepare: git merge once]
+    PREP --> BE[backend: jar + rsync + deploy.sh]
+    PREP --> AD[admin: build + rsync]
+    PREP --> WE[web: build + rsync]
 ```
 
 One-time setup (steps 1-3 above must be done first; the repo can live in `~/saynata` or another folder such as `/var/www/saynata`, see `VPS_APP_DIR`):
@@ -602,7 +615,7 @@ The admin web app can draw an AI picture for one sense: Sparkles button, edit th
 - `auth.json` is like a **password**. Anyone who has it can use your ChatGPT account. Never put it in git, in chat or in a backup you do not control. It is `chmod 600` and owned by user 10001 on the server.
 - Your ChatGPT plan has its own limits. When it is used up, the admin shows "The ChatGPT plan limit is reached". The backend also stops at `AI_PICTURES_PER_DAY` (default 30) pictures a day.
 - OpenAI's consumer terms forbid taking Output "automatically or programmatically", and their docs recommend an API key for automation ([source](https://learn.chatgpt.com/docs/auth)). The account could be limited. See the provider table in section 9.
-- Codex starts with an empty environment (only `PATH`, `HOME`, `CODEX_HOME`, `LANG`), so it never sees `CLAUDE_API_KEY` or `DB_PASSWORD`.
+- Codex starts with an empty environment (only `PATH`, `HOME`, `CODEX_HOME`, `LANG`), so it never sees `DEEPSEEK_API_KEY` or `DB_PASSWORD`.
 
 **Steps** (you do these; the Docker image already has Codex, `CODEX_VERSION` in the [Dockerfile](../../../backend/Dockerfile)):
 
@@ -816,7 +829,7 @@ www.loffy.me, www.saynata.com {
 
 ## 16. Language lines (TASK-106.2)
 
-`POST /api/translate-lines` needs no new key and no new server setting. It uses the same Claude settings as the sentence and word calls (`CLAUDE_BASE_URL`, `CLAUDE_AUTH_TOKEN`, `CLAUDE_MODEL`; through a gateway the JSON Schema goes in the prompt). Flyway V27 creates the table `line_translation` on the next start. The prompt version is `app.claude.line-prompt-version` in `application.properties` (default `v1`); bump it when `LINE_PROMPT` in `ClaudeService.java` changes, so old lines are not served for the new prompt. Its Claude spend appears as feature `line` in `GET /api/admin/usage` and counts toward `app.claude.daily-budget-usd`.
+`POST /api/translate-lines` needs no new key and no new server setting. It uses the same model settings as the sentence and word calls (`DEEPSEEK_*`, with `GEMINI_*` as the fallback; the JSON Schema goes in the prompt). Flyway V27 creates the table `line_translation` on the next start. The prompt version is `app.claude.line-prompt-version` in `application.properties` (default `v1`); bump it when `LINE_PROMPT` in `ClaudeService.java` changes, so old lines are not served for the new prompt. Its Claude spend appears as feature `line` in `GET /api/admin/usage` and counts toward `app.claude.daily-budget-usd`.
 
 Quick check on the server (use a signed-in user's token):
 `curl -s -X POST https://api.saynata.com/api/translate-lines -H 'Content-Type: application/json' -H "Authorization: Bearer $TOKEN" -d '{"targetLang":"vi","texts":["a place that keeps your money safe"]}'`
@@ -994,8 +1007,8 @@ Put a monthly reminder in your calendar; the script is safe to run again.
 
 | Problem | Fix |
 |---|---|
-| The backend stops at start with `Set CLAUDE_API_KEY, or CLAUDE_AUTH_TOKEN for a gateway` | `.env` is missing or both values are empty. Run compose from the `backend/` folder. |
-| Every new explanation fails, the log says `401 invalid x-api-key` | The Claude key is wrong or was revoked. Put a new one in `.env` (or switch to a gateway), then `docker compose -f docker-compose.prod.yml up -d backend`. |
+| The backend stops at start with `Set DEEPSEEK_API_KEY` | `.env` is missing or `DEEPSEEK_API_KEY` is empty. Run compose from the `backend/` folder, or run `scripts/migrate-env.sh` (section 19). |
+| Every new explanation fails, the log says `401 invalid x-api-key` | The DeepSeek key is wrong or was revoked. Put a new one in `.env`, then `docker compose -f docker-compose.prod.yml up -d backend`. |
 | Backend stays "unhealthy" | Read `logs backend`. Often a wrong `DB_PASSWORD` (the volume keeps the old one) or too little RAM. |
 | Admin page is blank after a reload | The Caddy block is missing `try_files {path} /index.html`. |
 | App cannot connect | Test the URL with `curl` from your laptop. Check DNS, the firewall, and that the URL starts with `https://`. |
@@ -1004,11 +1017,13 @@ Put a monthly reminder in your calendar; the script is safe to run again.
 | Pipeline cannot connect to `DATABASE_URL` | Is the SSH tunnel open? Does the port in the URL match `-L`? Is the compose file the new one (`docker compose -f docker-compose.prod.yml up -d` recreates Postgres with the loopback port; the data stays in the volume)? |
 | Sign-in works but no email arrives | `RESEND_API_KEY` or `EMAIL_FROM` is empty (the code is only in the log), the Resend domain is not Verified, or the key is wrong. See section 10, "How to test". With SES: sandbox or unverified address, see section 11. |
 | App says it needs a sign-in for a new sentence (401 `sign_in_required`) | The app has no sign-in screen yet (it waits for a mockup). Set `REQUIRE_SIGN_IN=false` in `.env` and redeploy until the app with sign-in is released. Cached sentences and bundled words work either way. |
-| New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `CLAUDE_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
+| New explanations stop with 503 `daily_limit_reached` | Today's Claude spend reached `LLM_DAILY_BUDGET_USD` (UTC day). See the spend: `GET /api/admin/usage?days=1` with the admin cookie. Raise the cap in `.env` if you want. |
 | Prefill run does nothing | `GET /api/admin/prefill` shows `running`, the counts by status and the last runs (`stoppedBecause`: `queue-empty`, `cap`, `limit`, `failures`). Items are added by the pipeline collector (TASK-83.2) or by an admin; `PREFILL_CRON` empty means no night run. A run that stops with `cap` is normal: the next run continues. |
 | Deploy hangs (the build log stops, the server is idle) | Seen on 2026-10-17: dockerd logged `session healthcheck failed fatally` and the BuildKit build waited forever. `deploy.sh` now stops a build after 6 minutes and tries once more, and the job stops after 20 minutes. If a run still hangs: 1. Cancel it (Actions tab, the run, **Cancel workflow**). 2. On the server, look for leftover build processes: `pgrep -af 'docker compose\|buildx'`, and stop them: `pkill -f 'buildx.*bake'; pkill -f 'docker compose -f docker-compose.prod.yml'`. 3. If builds still hang, restart Docker: `sudo systemctl restart docker` (the backend and Postgres restart too, a short outage). 4. Re-run the workflow (**Re-run all jobs**). The old backend keeps running until a new build succeeds. |
 | `https://saynata.com` shows Cloudflare 522 or the `deploy-web` check fails | DNS record missing or proxied (orange cloud), or the Caddy block is missing. See section 14, steps 1 and 2. `curl -I http://127.0.0.1:3001` on the server tells if the web container itself is up. |
 | Backend keeps restarting, `api.saynata.com` gives 502, and `docker compose -f docker-compose.prod.yml logs backend` says `No space left on device` (often `Unable to create tempDir`), or a deploy stops with "Not enough disk space to build" | The disk is full, usually Docker build cache (seen on 2026-10-24). 1. `df -h /` and `docker system df`. 2. Free the cache and old images: `docker builder prune -af && docker image prune -f` (**never** `docker volume prune` or `--volumes`: that deletes the database). 3. Old logs: `sudo journalctl --vacuum-size=100M`. 4. Start the backend again: `docker compose -f docker-compose.prod.yml up -d backend`, or re-run the deploy workflow. 5. Still full? `sudo du -xh / --max-depth=2 \| sort -h \| tail -20`. Then do the one-time steps in section 18 (journald cap, weekly prune) so it does not come back. |
+| Deploy fails with `backend/dist/app.jar is missing` | The jar is copied by the `deploy` job. Run the Deploy workflow by hand. On the server never run `deploy.sh` alone without a jar. |
+| Backend deploy build is slow or passes 6 minutes | The server must not pull the JDK: check that the Dockerfile has only the JRE stage and `docker images eclipse-temurin` shows only the `17-jre` image. |
 | Build is killed on a 1 GB VPS | Add swap: `sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`. |
 | AI picture fails (TASK-91) | See section 12, "If something goes wrong": the three usual causes are a missing `AI_PICTURES_ENABLED=true`, an `auth.json` that is not owned by 10001 or has ended, and a sandbox that needs `AI_CODEX_SANDBOX=workspace-write`. |
 
@@ -1081,3 +1096,16 @@ bigger disk. Media files are not copied locally; restic reads them in place.
 What else uses the 16 GB: Ubuntu, Docker, our images (backend, Postgres, web), the Postgres volume, the media
 folder (`/var/lib/saynata/media`), 1 GB of build cache, the backups and up to 100 MB of logs. `docker system df` and the
 `du` line above give the real numbers. Keep at least 3 GB free, so one deploy (a new image next to the old one) always fits.
+
+## 19. Switching LLM keys (TASK-117)
+
+The backend now calls **DeepSeek** (main, thinking off) and **Gemini** (fallback), and **Codex** writes the AI picture scene. The old `CLAUDE_*` keys are gone. The deploy workflow never writes `backend/.env`, so you switch the keys yourself, in this order. The order matters: the new backend does not start without `DEEPSEEK_API_KEY`.
+
+1. **On the VPS, add the new keys** (the old ones stay, so the running backend keeps working):
+   `cd ~/saynata/backend && scripts/migrate-env.sh`
+   It saves a copy (`.env.bak-<time>`, mode 600), asks for `DEEPSEEK_API_KEY` and `GEMINI_API_KEY` (hidden input) and copies `CLAUDE_DAILY_BUDGET_USD` to `LLM_DAILY_BUDGET_USD`. It prints key names only, never values, and you can run it again.
+2. **Merge `feature/local` into `main`** (the release PR). The deploy workflow rebuilds and restarts the backend (section 7).
+3. **Check it works:** `curl -s https://api.saynata.com/actuator/health` says `UP`; explain a sentence in the app; draw a scene with the wand in the admin (needs `AI_PICTURES_ENABLED=true`, section 12).
+4. **Remove the old keys:** `scripts/migrate-env.sh --cleanup`. It removes `CLAUDE_API_KEY`, `CLAUDE_BASE_URL`, `CLAUDE_AUTH_TOKEN`, `CLAUDE_MODEL`, `CLAUDE_SCENE_MODEL`, `CLAUDE_EFFORT`, `CLAUDE_TEMPERATURE`, `CLAUDE_WARM_UP` and `AI_SCENE_DAILY_USD`, and renames `CLAUDE_DAILY_BUDGET_USD` to `LLM_DAILY_BUDGET_USD`. Delete the `.env.bak-*` copy when you are happy: it holds the old secrets.
+
+To test the fallback: put a wrong `DEEPSEEK_API_KEY` in a local `.env`, explain a sentence, and the log says `DeepSeek failed ... answering with Gemini`. The usage rows (`GET /api/admin/usage`) then show the Gemini model.

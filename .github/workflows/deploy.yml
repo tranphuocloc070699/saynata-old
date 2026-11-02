@@ -1,6 +1,6 @@
 name: Deploy
 
-# Deploys the backend, then the admin web app, to the VPS after CI passes on main. Can also be started by hand (Actions tab).
+# Deploys the backend, the admin web app and the web app to the VPS after CI passes on main. Can also be started by hand (Actions tab).
 # Setup and secrets: backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md, section "Auto deploy".
 on:
   workflow_run:
@@ -18,15 +18,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Deploy backend to VPS
+  # Moves the server's git repo to this commit once, and finds which parts changed. The three deploy jobs below wait
+  # only for this one, so they run at the same time. A manual run deploys every part. A push to main deploys the parts
+  # that changed against the first parent of the commit (the previous main); a change to the workflows deploys all.
+  prepare:
+    name: Prepare deploy
     if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
-    # A normal deploy takes about 3 minutes. deploy.sh limits each build try to 6 minutes (two tries) and the start
-    # to 6 minutes, so this only stops a run that hangs outside it (for example a dead SSH link). Doc-11, Troubleshooting.
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.changed.outputs.backend }}
+      admin: ${{ steps.changed.outputs.admin }}
+      web: ${{ steps.changed.outputs.web }}
     steps:
-      - name: Deploy over SSH
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
+      - name: Find the changed parts
+        id: changed
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || ! git rev-parse -q --verify HEAD^1 >/dev/null; then
+            files="all"
+          else
+            files="$(git diff --name-only HEAD^1 HEAD)"
+          fi
+          for part in backend admin web; do
+            if [ "$files" = "all" ] || printf '%s\n' "$files" | grep -qE "^($part/|\.github/workflows/)"; then
+              echo "$part=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$part=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+          cat "$GITHUB_OUTPUT"
+      - name: Move the server repo to this commit
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -44,18 +69,72 @@ jobs:
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          # ServerAlive: notice a dead connection in about 3 minutes instead of waiting forever.
           ssh -i ~/.ssh/deploy_key -p "${VPS_PORT:-22}" -o StrictHostKeyChecking=yes \
             -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
             "${VPS_USER:-root}@$VPS_HOST" \
-            "set -e; cd ${VPS_APP_DIR:-saynata}; git fetch -q origin main; git merge --ff-only $SHA; backend/scripts/deploy.sh"
+            "set -e; cd ${VPS_APP_DIR:-saynata}; git fetch -q origin main; git merge --ff-only $SHA"
+
+  # The jar is built here (Maven cache, fast), not on the VPS: pulling the JDK image and the Maven dependencies there
+  # took 6+ minutes at 0.4 MB/s and made deploys fail (2026-10-24, doc-11 Troubleshooting). The jar is copied to
+  # backend/dist/app.jar; the Dockerfile only adds it to the cached JRE image.
+  deploy:
+    name: Deploy backend to VPS
+    needs: prepare
+    if: needs.prepare.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    # A normal deploy takes about 2 minutes. deploy.sh limits each build try to 6 minutes (two tries) and the start
+    # to 6 minutes, so this only stops a run that hangs outside it (for example a dead SSH link). Doc-11, Troubleshooting.
+    timeout-minutes: 20
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Skip when VPS secrets are not set
+        if: env.VPS_HOST == '' || env.VPS_SSH_KEY == ''
+        run: echo "::notice::VPS secrets are not set, so the backend was not deployed. See doc-11, section Auto deploy."
+      - uses: actions/checkout@v4
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: actions/setup-java@v4
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - name: Build the jar
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        working-directory: backend
+        # Tests already ran in CI.
+        run: |
+          ./mvnw -B -q package -DskipTests
+          mkdir -p dist
+          mv target/backend-*.jar dist/app.jar
+      - name: Copy the jar to the VPS and restart the backend
+        if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
+        env:
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # ServerAlive: notice a dead connection in about 3 minutes instead of waiting forever.
+          ssh_cmd="ssh -i $HOME/.ssh/deploy_key -p ${VPS_PORT:-22} -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6"
+          target="${VPS_USER:-root}@$VPS_HOST"
+          app="${VPS_APP_DIR:-saynata}"
+          $ssh_cmd "$target" "mkdir -p $app/backend/dist"
+          rsync -az -e "$ssh_cmd" backend/dist/app.jar "$target:$app/backend/dist/app.jar"
+          $ssh_cmd "$target" "$app/backend/scripts/deploy.sh"
 
   # The admin app is only static files. It is built here, not on the VPS (no Node there, and a small VPS can run out
   # of memory during the build), then copied into admin/dist on the server, where Caddy serves it (doc-11, section 8).
-  # It runs after the backend job, because that job moves the server's repo to this commit first.
   deploy-admin:
     name: Deploy admin web app to VPS
-    needs: deploy
+    needs: prepare
+    if: needs.prepare.outputs.admin == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -108,12 +187,10 @@ jobs:
   # The learner web app (web/, Next.js). Same idea as the admin job: `next build` runs here, not on the VPS (a small VPS
   # can run out of memory during it). The standalone server is copied to web/dist on the server; web/scripts/deploy-web.sh
   # puts it into a node:22-alpine image and restarts only the web container. Caddy sends saynata.com to it (doc-11, section 14).
-  # It waits for the backend job (two jobs must not move the server's repo at the same time), but still runs when that
-  # job failed, so a broken backend build does not hold back a web change. It then moves the repo to this commit itself.
   deploy-web:
     name: Deploy web app to VPS
-    needs: deploy
-    if: "!cancelled() && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'))"
+    needs: prepare
+    if: needs.prepare.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -152,7 +229,6 @@ jobs:
           VPS_PORT: ${{ secrets.VPS_PORT }}
           VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
-          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
@@ -160,9 +236,6 @@ jobs:
           ssh_cmd="ssh -i $HOME/.ssh/deploy_key -p ${VPS_PORT:-22} -o StrictHostKeyChecking=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=6"
           target="${VPS_USER:-root}@$VPS_HOST"
           app="${VPS_APP_DIR:-saynata}"
-          # The backend job usually did this already (then it changes nothing). When that job failed before it, this
-          # brings web/scripts/deploy-web.sh and web/Dockerfile up to this commit.
-          $ssh_cmd "$target" "set -e; cd $app; git fetch -q origin main; git merge -q --ff-only $SHA"
           $ssh_cmd "$target" "mkdir -p $app/web/dist"
           # --delete removes files of the old build, so the folder holds only this build.
           rsync -az --delete -e "$ssh_cmd" web/dist/ "$target:$app/web/dist/"
