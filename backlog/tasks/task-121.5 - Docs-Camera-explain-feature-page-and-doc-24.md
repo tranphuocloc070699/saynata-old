@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T15:51:00Z'
-updated_date: '2026-11-02T16:26:00Z'
+updated_date: '2026-11-02T16:34:00Z'
 labels:
   - docs
 dependencies: []
@@ -37,4 +37,6 @@ Feature doc page (doc-3 template), doc-24 System map, doc-7 decision rows, doc-9
 
 <!-- SECTION:NOTES:BEGIN -->
 doc-25 page, doc-3, doc-24, doc-7 rows, doc-9 line; check_docs clean. Update after the UI is built.
+
+Merged into feature/f8-camera-explain 2026-11-02. Waits for the developer's Xcode build and phone test (PR #243 into feature/local).
 <!-- SECTION:NOTES:END -->

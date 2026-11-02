@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T15:51:00Z'
-updated_date: '2026-11-02T16:26:00Z'
+updated_date: '2026-11-02T16:34:00Z'
 labels:
   - ios
 dependencies:
@@ -39,4 +39,8 @@ Object mode: MobileCLIP on the device a few frames per second, the food layer fo
 
 <!-- SECTION:NOTES:BEGIN -->
 Logic + tests in draft PR #240; layout waits for the mockup choice.
+
+Merged into feature/f8-camera-explain 2026-11-02. Waits for the developer's Xcode build and phone test (PR #243 into feature/local).
+
+Camera screen built after mockup approval (CameraScreen, LiveTextScanner, CameraPreview, CameraPanels, CameraFeed).
 <!-- SECTION:NOTES:END -->

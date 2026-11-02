@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@implementer'
 created_date: '2026-11-02T15:51:00Z'
-updated_date: '2026-11-02T15:59:00Z'
+updated_date: '2026-11-02T16:34:00Z'
 labels:
   - backend
 dependencies: []
@@ -52,4 +52,6 @@ When the phone is unsure, it sends one photo to the backend. Gemini names the th
 Built: Feature.VISION, GeminiClient.describeImage (image_url data URI on the OpenAI-compatible endpoint), Flyway V40 vision_identify, package vision/ (controller, service, VisionLabels), WordService treats dishes (accent alias) and stored vision labels like a wordMatch. Tests: Vision* and Word* pass (58 tests). Docs: doc-24, doc-5, doc-7.
 
 Test it: curl -F image=@photo.jpg with a Bearer token to POST /api/vision/identify gives {label,kind,confidence}; same photo again is a cache hit; GET /api/words/phở and /pho describe the dish; guest 401 sign_in_required, over 2 MB 413 file_too_large, not an image 400 invalid_image. Automated: cd backend && ./mvnw -B test -Dtest='Vision*,Word*'.
+
+Merged into feature/f8-camera-explain 2026-11-02. Waits for the developer's Xcode build and phone test (PR #243 into feature/local).
 <!-- SECTION:NOTES:END -->

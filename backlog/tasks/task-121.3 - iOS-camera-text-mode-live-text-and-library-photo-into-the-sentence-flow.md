@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T15:51:00Z'
-updated_date: '2026-11-02T16:26:00Z'
+updated_date: '2026-11-02T16:34:00Z'
 labels:
   - ios
 dependencies:
@@ -39,4 +39,6 @@ Text mode of the camera screen: VisionKit DataScannerViewController for live tex
 
 <!-- SECTION:NOTES:BEGIN -->
 Logic + tests in draft PR #239; SwiftUI layout waits for the mockup choice (https://claude.ai/artifact/GQbtRYUtwQgLemGNJDPVHu).
+
+Merged into feature/f8-camera-explain 2026-11-02. Waits for the developer's Xcode build and phone test (PR #243 into feature/local).
 <!-- SECTION:NOTES:END -->
