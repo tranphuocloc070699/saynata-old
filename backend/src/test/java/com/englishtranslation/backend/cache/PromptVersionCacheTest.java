@@ -73,7 +73,8 @@ class PromptVersionCacheTest {
                 org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.translation.SentenceSourceAliasRepository.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.word.WordForms.class),
-                org.mockito.Mockito.mock(com.englishtranslation.backend.term.TermService.class));
+                org.mockito.Mockito.mock(com.englishtranslation.backend.term.TermService.class),
+                org.mockito.Mockito.mock(com.englishtranslation.backend.vision.VisionLabels.class));
     }
 
     @Test
