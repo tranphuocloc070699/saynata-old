@@ -13,6 +13,9 @@ struct TranslateView: View {
     @Environment(LikedStore.self) private var liked
     /// True while the text box has the keyboard (TASK-50).
     @FocusState private var isInputFocused: Bool
+    @State private var isCameraOpen = false
+    /// Made once, so the model and label files load only the first time the camera opens in object mode.
+    @State private var cameraObjects = CameraObjectStore.live()
     /// Back Tap / the Action Button asks to start from the clipboard (TASK-87).
     private let launch = CopiedTextLaunch.shared
 
@@ -23,7 +26,7 @@ struct TranslateView: View {
             VStack(alignment: .leading, spacing: 16) {
                 TranslateOptionsView()
                     .simultaneousGesture(hideKeyboardTap)
-                TranslateInputView(isFocused: $isInputFocused)
+                TranslateInputView(isFocused: $isInputFocused, onCamera: { isCameraOpen = true })
                 TranslateResultView(
                     state: store.state,
                     targetLanguage: store.targetLanguage,
@@ -52,6 +55,13 @@ struct TranslateView: View {
             // A closing sheet takes the focus with it, so wait until it is gone.
             if hadSignInSheet { try? await Task.sleep(for: .milliseconds(500)) }
             isInputFocused = true
+        }
+        // The camera (F8, TASK-121): picked text goes into the normal flow, a label opens its word card.
+        .fullScreenCover(isPresented: $isCameraOpen) {
+            CameraScreen(objectStore: cameraObjects,
+                         onText: { text in Task { await store.explainFromCamera(text) } },
+                         onLabel: { label in Task { await store.lookUpCameraLabel(label) } },
+                         targetLanguage: store.targetLanguage)
         }
         // The backend said "sign in" (TASK-70). The sheet opens over the result; when the code is right it closes
         // and the same request runs again.

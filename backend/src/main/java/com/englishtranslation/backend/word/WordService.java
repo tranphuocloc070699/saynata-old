@@ -15,6 +15,7 @@ import com.englishtranslation.backend.media.SenseMediaReader;
 import com.englishtranslation.backend.term.Term;
 import com.englishtranslation.backend.term.TermService;
 import com.englishtranslation.backend.translation.SentenceSourceAliasRepository;
+import com.englishtranslation.backend.vision.VisionLabels;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -46,13 +47,16 @@ public class WordService {
     private final SentenceSourceAliasRepository aliases;
     private final WordForms forms;
     private final TermService terms;
+    private final VisionLabels visionLabels;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, LlmProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
             BackendWordMediaService mediaService, SenseMediaReader mediaReader,
             DictionaryWordRepository bundled, BundledEntryReader bundledReader, ClaudeGate gate,
-            SentenceSourceAliasRepository aliases, WordForms forms, TermService terms) {
+            SentenceSourceAliasRepository aliases, WordForms forms, TermService terms,
+            VisionLabels visionLabels) {
+        this.visionLabels = visionLabels;
         this.terms = terms;
         this.aliases = aliases;
         this.forms = forms;
@@ -94,7 +98,9 @@ public class WordService {
     }
 
     private WordAnswer lookUp(String word, boolean cachedOnly, WordTiming timing) {
-        String normalized = CacheKeys.normalizeWord(word);
+        // TASK-121.1: "pho" and "phở" are the same dish; the accented form is the one we look up and save.
+        String typed = CacheKeys.normalizeWord(word);
+        String normalized = visionLabels.dish(typed).orElse(typed);
         timing.word(normalized);
 
         // A bundled word is answered from its own entry. The bundled entry wins (TASK-58): Claude is not
@@ -106,8 +112,10 @@ public class WordService {
 
         // TASK-114.5: the backend (not the client) decides when Claude may describe a phrase or a word that is not on
         // the word list: only when the sentence endpoint returned it as a wordMatch for the current prompt version.
+        // TASK-121.1: one of the 30 dishes, or a label the vision endpoint returned, is allowed the same way.
         boolean fromWordMatch = timing.time("lookup",
-                () -> aliases.existsWordMatch(normalized, properties.sentencePromptVersion()));
+                () -> aliases.existsWordMatch(normalized, properties.sentencePromptVersion())
+                        || visionLabels.isAnswerable(normalized));
 
         // A phrase ("give up", "a piece of cake") is answered only from the cache, filled by the local collection
         // (TASK-83.9), unless it is a wordMatch. Otherwise it never calls Claude and is never "not a word": a miss is

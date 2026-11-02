@@ -2,8 +2,8 @@
 id: doc-3
 title: Features overview
 type: specification
-created_date: '2026-10-10 06:23'
-updated_date: '2026-10-23 10:25'
+created_date: 2026-10-10 06:23
+updated_date: '2026-11-02T16:33:00Z'
 ---
 One page per flow: what it does, a diagram, every file and line on the path, the rules that matter,
 what can go wrong, which tests cover it, and what is still missing.
@@ -26,6 +26,7 @@ what can go wrong, which tests cover it, and what is still missing.
 | [Browser extension](doc-19%20-%20Browser-extension.md) | Built (TASK-86.1 to 86.4): selection icon, card with the streamed meaning, settings popup, email-code sign-in. Not yet tested in Brave against the real server | Chromium MV3 extension (`extension/`, TypeScript, Vite) |
 | [Prefill](doc-18%20-%20Prefill.md) | Backend built (TASK-83.1): a queue of words and phrases answered at night through the normal services, with its own $0.50 run cap apart from the users' budget; admin run and overview | Backend |
 | [Web app](doc-23%20-%20Web-app.md) | Homepage built (TASK-102.1): composer with a pixel cat, suggestions, word and sentence results, GSAP motion. The other MVP pages are TASK-102 | Next.js website for learners (`web/`, Tailwind, GSAP) |
+| [Camera explain](doc-25%20-%20Camera-explain.md) | F8 (TASK-121): built end to end (backend, model files, camera screen); waits for a device test | Point the camera at text or a thing: MobileCLIP on the phone, a food layer for 30 dishes, Gemini when unsure |
 
 Not started yet: **text to speech** (TASK-7), **speech to text with a score** (TASK-8). Add a page when work starts.
 
