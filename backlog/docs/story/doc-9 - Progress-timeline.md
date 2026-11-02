@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: 2026-10-11 08:52
-updated_date: '2026-10-22T10:00:00Z'
+updated_date: '2026-11-02T16:26:00Z'
 ---
 # Progress timeline
 
@@ -34,6 +34,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-18 | Phrases as word cards (TASK-83.10): the backend answers a phrase like "give up" only from its cache (never Claude), and the app tries it as a word card before the sentence path. The ~7,200 phrasal verbs, idioms and collocations from the local collection can now be pushed. The IPA moved onto the headword line on every word card. |
 | 2026-10-18 | The admin can draw an AI picture for one sense (TASK-91): the Sparkles button opens a dialog with the prompt already filled in, the developer edits it, and the server draws it with the Codex CLI on the VPS through his ChatGPT login, then links it like an upload. A wand asks Claude for a new scene; caps are 30 pictures and $1 of wand calls a day. | "Fix one wrong picture without leaving the admin." |
 | 2026-10-22 | The loose sentence match got looser (TASK-83.3): besides case and a final `. ? !`, curly quotes and apostrophes, a final `…` or comma and odd spaces no longer make a miss, so "I’m fine…" finds a saved "I'm fine". A Java Flyway migration (V24) gave the saved rows their new key. This is what makes thousands of prefilled sentences useful. | Small typing differences should not cost a new LLM call. |
+| 2026-11-02 | **F8 Camera explain** started (TASK-121): the vision spike was finished with Gemini (objects 68%, dishes 73%, 4.2 s a photo, under 1 cent), which confirmed the cascade: the trained food layer (87%) beats the LLM on Vietnamese dishes, so the LLM is only the fallback. Built the backend `POST /api/vision/identify` (cached by photo hash, the photo never stored), MobileCLIP2-S2 as Core ML with 8-bit weights (36 MB), 5,149 label vectors, and the iOS logic for text and object mode with tests. The camera screen waits for a mockup choice. | A phone that names a bowl of phở without the internet. |
 
 ## Numbers to show
 
