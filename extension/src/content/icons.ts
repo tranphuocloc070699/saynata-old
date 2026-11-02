@@ -8,6 +8,8 @@ export const ICONS = {
   copy: svg('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
   check: svg('<path d="M20 6 9 17l-5-5"/>'),
   close: svg('<path d="M18 6 6 18M6 6l12 12"/>'),
+  globe: svg('<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20"/>'),
+  book: svg('<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15z"/><path d="M6.5 17A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20v-5"/>'),
   chevronDown: svg('<path d="m6 9 6 6 6-6"/>'),
   chevronRight: svg('<path d="m9 6 6 6-6 6"/>'),
   back: svg('<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>'),

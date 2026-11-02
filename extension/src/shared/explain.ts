@@ -36,7 +36,7 @@ export async function explain(
 const NOTHING_TO_EXPLAIN = ["not_a_word", "a_name"];
 
 /**
- * One word. When the word API has nothing for it (200 without senses, 404 or 422), the sentence API tries it: "buồn"
+ * One word. When the word API has nothing for it (200 without senses or terms, 404 or 422), the sentence API tries it: "buồn"
  * is not an English word, but it has a meaning. If that fails the word answer stays, except a 422 with a code in
  * NOTHING_TO_EXPLAIN, whose server text is the better message. Throws the error the card should show.
  */
@@ -51,7 +51,7 @@ async function explainWord(
   let empty: WordResponse | null = null;
   try {
     const response = await api.lookUpWord(word, signal);
-    if (response.entry?.senses?.length) {
+    if (response.entry?.senses?.length || response.terms?.length) {
       emit({ type: "word", response });
       return;
     }

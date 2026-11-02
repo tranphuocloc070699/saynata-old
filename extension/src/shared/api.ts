@@ -29,11 +29,22 @@ export interface Sense {
   imageUrl?: string;
 }
 
+/** A named thing written like the text (TASK-119): "swift" also names Swift the language. Links come from Wikidata. */
+export interface Term {
+  name: string;
+  field?: string;
+  simpleDefinition?: string;
+  officialUrl?: string;
+  wikipediaUrl?: string;
+}
+
 export interface WordResponse {
   word: string;
   entry: { senses: Sense[] };
   cached: boolean;
   ipa: string | null;
+  /** Left out when there are none. Shown below the senses, never in place of them (TASK-119.6). */
+  terms?: Term[];
 }
 
 export interface SentenceWord {
