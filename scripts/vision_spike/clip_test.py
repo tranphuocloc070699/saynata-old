@@ -2,15 +2,21 @@
 # requires-python = ">=3.11"
 # dependencies = ["torch", "torchvision", "open_clip_torch>=3.1", "timm", "pillow", "nltk"]
 # [tool.uv]
-# index-url = "https://download.pytorch.org/whl/cpu"
-# extra-index-url = ["https://pypi.org/simple"]
-# index-strategy = "unsafe-best-match"
+# exclude-newer = "2026-10-31T00:00:00Z"  # same package versions on every run
+# [[tool.uv.index]]
+# name = "pytorch-cpu"
+# url = "https://download.pytorch.org/whl/cpu"
+# explicit = true  # only torch/torchvision come from here; everything else from PyPI
+# [tool.uv.sources]
+# torch = { index = "pytorch-cpu" }
+# torchvision = { index = "pytorch-cpu" }
 # ///
 """Zero-shot test: can MobileCLIP name everyday objects and Vietnamese dishes from Saynata's own word list?
 
 Run (from the repo root):
   uv run scripts/vision_spike/clip_test.py --objects <dir> --foods <dir> [--model MobileCLIP2-S2] [--per-class 10]
 <dir> holds one folder per expected label with photos inside (objects/desk/0.jpg, foods/Pho/12.jpg).
+In a Claude cloud session, add NLTK_ALLOW_PROXIED_URLOPEN=1 before uv (NLTK refuses downloads through a proxy otherwise).
 Free, CPU only, safe to run again (text embeddings are cached in the scratch folder next to the photos).
 Prints a Markdown report: top-1 / top-5 accuracy, and accuracy vs. coverage per confidence threshold.
 """

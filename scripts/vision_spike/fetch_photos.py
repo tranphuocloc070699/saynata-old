@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = ["httpx"]
+# [tool.uv]
+# exclude-newer = "2026-10-31T00:00:00Z"
 # ///
 """Download a small test set of photos from Wikimedia Commons (free licenses).
 

@@ -2,9 +2,14 @@
 # requires-python = ">=3.11"
 # dependencies = ["torch", "torchvision", "open_clip_torch>=3.1", "timm", "pillow", "scikit-learn"]
 # [tool.uv]
-# index-url = "https://download.pytorch.org/whl/cpu"
-# extra-index-url = ["https://pypi.org/simple"]
-# index-strategy = "unsafe-best-match"
+# exclude-newer = "2026-10-31T00:00:00Z"  # same package versions on every run
+# [[tool.uv.index]]
+# name = "pytorch-cpu"
+# url = "https://download.pytorch.org/whl/cpu"
+# explicit = true  # only torch/torchvision come from here; everything else from PyPI
+# [tool.uv.sources]
+# torch = { index = "pytorch-cpu" }
+# torchvision = { index = "pytorch-cpu" }
 # ///
 """Linear probe: train one small layer on frozen MobileCLIP image vectors to name 30 Vietnamese dishes.
 

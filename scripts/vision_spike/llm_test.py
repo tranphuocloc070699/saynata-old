@@ -1,6 +1,8 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = ["httpx"]
+# [tool.uv]
+# exclude-newer = "2026-10-31T00:00:00Z"
 # ///
 """Ask a vision LLM (Gemini) to name the thing in each photo, on the same photos as clip_test.py.
 

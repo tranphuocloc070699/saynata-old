@@ -4,8 +4,10 @@ title: >-
   Spike: on-device object and Vietnamese food recognition (MobileCLIP) vs.
   vision LLM
 status: In Progress
-assignee: []
+assignee:
+  - '@claude'
 created_date: '2026-11-02 15:19'
+updated_date: '2026-11-02 15:24'
 labels:
   - ios
   - backend
@@ -34,3 +36,18 @@ The developer wants a camera feature: point the phone at a thing (a desk, a bowl
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Zero-shot MobileCLIP2-S2 test: dictionary nouns (WordNet physical, no plurals) + 30 dishes as labels; 30VNFoods validation + 27 ImageNet objects (done)
+2. Linear probe on frozen image vectors, trained on 30VNFoods test split, scored on validation (running)
+3. Gemini flash-lite on the same photos (llm_test.py; needs GEMINI_API_KEY in a new session; under 1 US cent)
+4. README with results and a recommended cascade + thresholds
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Wikimedia Commons blocks the cloud IP (403), so photos come from Hugging Face (30VNFoods CC BY-NC-SA 4.0, ImageNet research-only); none are committed. Zero-shot: objects 57% top-1 / 77% top-5, food 38% / 66%; ≥0.6 confidence answers 40% of photos at 68%. clip_test.py needs NLTK_ALLOW_PROXIED_URLOPEN=1 in cloud sessions. Commit 55eb7e4 used the non-standard type 'research'; not rewritten (no force-push).
+<!-- SECTION:NOTES:END -->
