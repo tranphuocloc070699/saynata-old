@@ -2,8 +2,8 @@
 id: doc-7
 title: Decisions and reasons
 type: guide
-created_date: 2026-10-11 08:52
-updated_date: '2026-11-02T16:20:00Z'
+created_date: '2026-10-11 08:52'
+updated_date: '2026-11-02 11:40'
 ---
 # Decisions and reasons
 
