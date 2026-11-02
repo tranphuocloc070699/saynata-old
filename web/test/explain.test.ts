@@ -35,6 +35,18 @@ describe("fetchResult", () => {
     expect(seen).toEqual([{ kind: "word", query: "Run.", word }]);
   });
 
+  it("shows the word card for a term with no English senses (TASK-119.3)", async () => {
+    const word: WordResponse = {
+      word: "nuxtjs",
+      entry: { senses: [] },
+      cached: true,
+      ipa: null,
+      terms: [{ name: "Nuxt", field: "JavaScript framework", officialUrl: "https://nuxt.com" }],
+    };
+    const seen = await states({ lookUpWord: async () => word, explainSentence: never }, "Nuxtjs");
+    expect(seen).toEqual([{ kind: "word", query: "Nuxtjs", word }]);
+  });
+
   it("grows the meaning with each piece, then shows the full answer", async () => {
     const response = sentenceResponse();
     const seen = await states(

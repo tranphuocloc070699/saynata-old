@@ -2,10 +2,10 @@
 id: doc-5
 title: Word lookup
 type: specification
-created_date: 2026-10-10 06:23
-updated_date: '2026-11-02T06:49:00Z'
+created_date: '2026-10-10 06:23'
+updated_date: '2026-11-02 09:14'
 ---
-> Status: **working end to end** (bundle, local cache, backend, word card). The word endpoint may call Claude for a `wordMatch` of a non-English input: TASK-114.5. iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-11-02 (a form of a bundled or backend word is answered from its lemma with `matchedForm`: TASK-118; before that 2026-10-25 (TASK-114.3: a `wordMatch` from a sentence answer opens the word card, see "wordMatch on iOS and Mac" below; a compound of two simple words such as `notebook` passes the simple-word check, and every word request logs a `WordTiming` line; before that 2026-10-25: a `wordMatch` phrase or word may call Claude: TASK-114.5; before that 2026-10-25: the word language row shows the translated headword per sense: TASK-106.8; before that 2026-10-25: a miss in `line_translation` saves the line in all 7 languages with one call: TASK-106.7; before that 2026-10-24: word language row from `POST /api/translate-lines`: TASK-106.3; language lines endpoint: TASK-106.2; before that 2026-10-22: unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
+> Status: **working end to end** (bundle, local cache, backend, word card). The word endpoint may call Claude for a `wordMatch` of a non-English input: TASK-114.5. iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-11-02 (terms below the senses, or alone for a term that is not a word: TASK-119; a form of a bundled or backend word is answered from its lemma with `matchedForm`: TASK-118; before that 2026-10-25 (TASK-114.3: a `wordMatch` from a sentence answer opens the word card, see "wordMatch on iOS and Mac" below; a compound of two simple words such as `notebook` passes the simple-word check, and every word request logs a `WordTiming` line; before that 2026-10-25: a `wordMatch` phrase or word may call Claude: TASK-114.5; before that 2026-10-25: the word language row shows the translated headword per sense: TASK-106.8; before that 2026-10-25: a miss in `line_translation` saves the line in all 7 languages with one call: TASK-106.7; before that 2026-10-24: word language row from `POST /api/translate-lines`: TASK-106.3; language lines endpoint: TASK-106.2; before that 2026-10-22: unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
 
 ## What it does
@@ -118,6 +118,31 @@ docker exec -i backend-postgres-1 psql -U app -d english_translation -1 -c "TRUN
 ```
 
 Check: `docker exec backend-postgres-1 psql -U app -d english_translation -c "SELECT count(*) FROM word_form"`.
+
+### Terms: named things below the senses (TASK-119)
+
+A **term** is a named thing from any field (Node.js, Nuxt, Stoicism, cognitive dissonance). `GET /api/words/{word}` adds
+`terms: [{ name, field, simpleDefinition, officialUrl, wikipediaUrl }]` (at most 3, most popular first; null fields and an
+empty list are left out) to **every** answer, so "swift" keeps its English senses and shows Swift the language below them.
+A text that is **not** an English word but is a term alias ("nuxtjs", "node.js", "nuxt js") is answered with its terms and
+no senses (origin `TERM`, `Cache-Control` like a cached word) instead of the empty not-a-word reply. Claude is never called.
+
+| Step | File | What happens |
+|---|---|---|
+| Tables | [V39__create_term.sql](../../../backend/src/main/resources/db/migration/V39__create_term.sql) | `term` (unique `wikidata_id`, `name`, `field` = Wikidata description, `simple_definition` (null until TASK-119.4), `official_url` = Wikidata P856, `wikipedia_url`, `popularity` = sitelink count) and `term_alias` (`alias_key`, `term_id`, `source` wikidata / rule / llm / manual). |
+| Key | [TermKeys.java](../../../backend/src/main/java/com/englishtranslation/backend/term/TermKeys.java) | Lower case without dots, dashes, underscores, apostrophes and spaces: Nuxt.js, NuxtJS, nuxt js → `nuxtjs`. Same rule as `alias_key` in `pipeline/src/pipeline/terms.py`. |
+| Lookup | [TermService.find:22](../../../backend/src/main/java/com/englishtranslation/backend/term/TermService.java#L22) | One query by `alias_key`, `limit 3`, `popularity desc`. |
+| Below any answer | [WordService.withTerms:242](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L242) | After the answer is built, the terms of the typed text are added. A failure is logged and ignored ([findTerms:251](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L251)). |
+| Term only | [WordService.termAnswer:229](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L229) | Before the not-a-word reply ([line 144](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L144)) and on a phrase cache miss ([line 120](../../../backend/src/main/java/com/englishtranslation/backend/word/WordService.java#L120)). |
+| Path | [WordController](../../../backend/src/main/java/com/englishtranslation/backend/word/WordController.java) | The path also takes digits and dots inside a word ("node.js", "web3"). The web app sends dotted words to the word API ([textKind.ts](../../../web/src/lib/textKind.ts)); a reply with no senses and no terms still falls back to the sentence API ([explain.ts](../../../web/src/lib/explain.ts)). |
+| Web | [WordCard.tsx](../../../web/src/components/home/WordCard.tsx) | "Also a name" (or "A name" with no senses) below the senses: name, field, simple definition, Official site and Wikipedia links (new tab, `noopener`). |
+
+Data (TASK-119.2, no LLM): `exports/terms/seeds.txt` (one name per line, `Name | hint` when the name means several things;
+the hint must be in the Wikidata description) → `cd pipeline && uv run python -m pipeline.terms` (Wikidata search, exact
+label or alias match only, P856, enwiki, aliases plus the rule alias without `js`; answers cached in `exports/terms/.cache/`)
+→ `exports/terms/terms.tsv`, `term_aliases.tsv`, `report.md` (seeds not found, aliases that are English words, shared aliases)
+→ `exports/terms/import_terms.sh` on the Mac replaces both tables on the VPS in one transaction. Next: simple definitions and
+extra aliases with the LLM (TASK-119.4), a live Wikidata lookup (TASK-119.5), iOS and the extension (TASK-119.6).
 
 ### Pictures for backend words (TASK-49.4)
 

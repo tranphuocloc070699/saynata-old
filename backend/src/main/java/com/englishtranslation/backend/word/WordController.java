@@ -26,20 +26,20 @@ public class WordController {
     }
 
     /**
-     * One word or a phrase of up to 6 words with single spaces ("don't", "well-known", "give up"): letters,
-     * apostrophes and hyphens only. A phrase is answered only from the cache (else 404 not_cached).
+     * One word or a phrase of up to 6 words with single spaces ("don't", "well-known", "give up"): letters, digits,
+     * apostrophes and hyphens, and dots inside a word so a term like "node.js" or "web3" can be asked (TASK-119.1). A phrase is answered only from the cache (else 404 not_cached).
      * {@code cachedOnly=true} answers only from the bundled dictionary or the cache, else 404 not_cached;
      * it never causes a Claude call, so guests can use it while typing.
      */
     @GetMapping("/{word}")
     public ResponseEntity<WordResponse> lookUp(
-            @PathVariable @Pattern(regexp = "(?=.{1,64}$)[\\p{L}'-]+( +[\\p{L}'-]+){0,5}") String word,
+            @PathVariable @Pattern(regexp = "(?=.{1,64}$)[\\p{L}\\p{N}'-]+(\\.[\\p{L}\\p{N}'-]+)*( +[\\p{L}\\p{N}'-]+(\\.[\\p{L}\\p{N}'-]+)*){0,5}") String word,
             @RequestParam(defaultValue = "false") boolean cachedOnly) {
         WordAnswer answer = service.lookUp(word, cachedOnly);
         ResponseEntity.BodyBuilder response = ResponseEntity.ok();
         switch (answer.origin()) {
             case BUNDLED -> response.cacheControl(CacheControl.maxAge(BUNDLED_MAX_AGE).cachePublic());
-            case CACHED -> response.cacheControl(CacheControl.maxAge(CACHED_MAX_AGE).cachePublic());
+            case CACHED, TERM -> response.cacheControl(CacheControl.maxAge(CACHED_MAX_AGE).cachePublic());
             // A new answer has no picture yet, and the word list changes on deploy: these keep Spring Security's
             // default "no-cache, no-store".
             case NEW, NOT_A_WORD -> {

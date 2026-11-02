@@ -11,6 +11,8 @@ public record WordAnswer(WordResponse response, Origin origin) {
         /** Claude wrote it just now. Its picture is still being fetched. */
         NEW,
         /** Not on the English word list: an empty entry, Claude not called. */
-        NOT_A_WORD
+        NOT_A_WORD,
+        /** Not an English word but a term alias ("nuxtjs", TASK-119.1): no senses, only terms, Claude not called. */
+        TERM
     }
 }
