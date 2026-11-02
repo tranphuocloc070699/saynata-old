@@ -37,6 +37,7 @@ USER_AGENT = "SaynataTerms/0.1 (https://github.com/tranphuocloc070699/saynata-ol
 QID = re.compile(r"^Q\d+$")
 DROPPED = re.compile(r"[\s._'’-]+")
 MAX_FIELD = 250
+SEARCH_LIMIT = 50
 
 
 def alias_key(text: str) -> str:
@@ -55,11 +56,14 @@ class TermRow:
     aliases: dict[str, str] = field(default_factory=dict)  # alias_key -> source
 
 
-def rule_aliases(key: str) -> list[str]:
-    """Extra keys people type: "nuxtjs" -> "nuxt". Never shorter than 3 characters."""
+def rule_aliases(key: str, description: str = "") -> list[str]:
+    """Extra keys people type: "nuxtjs" -> "nuxt", and "golang" for the Go programming language. Never shorter
+    than 3 characters."""
     extra = []
     if key.endswith("js") and len(key) >= 5:
         extra.append(key[:-2])
+    if "programming language" in description.lower() and not key.endswith("lang"):
+        extra.append(f"{key}lang")
     return extra
 
 
@@ -96,7 +100,7 @@ def parse_entity(entity: dict) -> TermRow | None:
         if key:
             row.aliases.setdefault(key, "wikidata")
     for key in list(row.aliases):
-        for extra in rule_aliases(key):
+        for extra in rule_aliases(key, description):
             row.aliases.setdefault(extra, "rule")
     return row
 
@@ -156,8 +160,10 @@ class Wikidata:
         return data
 
     def search(self, name: str) -> dict:
-        return self._get(f"search-{alias_key(name) or 'x'}",
-                         {"action": "wbsearchentities", "search": name, "language": "en", "type": "item", "limit": 7})
+        # 50 hits (the API's most): a short name like "Go" has the board game, the verb and more before the language.
+        return self._get(f"search{SEARCH_LIMIT}-{alias_key(name) or 'x'}",
+                         {"action": "wbsearchentities", "search": name, "language": "en", "type": "item",
+                          "limit": SEARCH_LIMIT})
 
     def entities(self, qids: list[str]) -> dict[str, dict]:
         result: dict[str, dict] = {}

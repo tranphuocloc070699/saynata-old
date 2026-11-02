@@ -50,6 +50,12 @@ def test_rule_aliases_drop_js_but_never_make_short_keys():
     assert rule_aliases("react") == []
 
 
+def test_a_programming_language_also_gets_the_lang_alias():
+    assert rule_aliases("go", "programming language designed at Google") == ["golang"]
+    assert rule_aliases("golang", "programming language") == []
+    assert rule_aliases("go", "board game") == []
+
+
 def test_parse_entity_takes_the_preferred_site_the_wikipedia_link_and_all_aliases():
     row = parse_entity(NUXT)
     assert row.name == "Nuxt"
@@ -62,6 +68,7 @@ def test_parse_entity_takes_the_preferred_site_the_wikipedia_link_and_all_aliase
 
 def test_parse_entity_without_site_or_label():
     row = parse_entity(SWIFT)
+    assert row.aliases == {"swift": "wikidata", "swiftlang": "rule"}
     assert row.official_url == ""
     assert row.wikipedia_url == "https://en.wikipedia.org/wiki/Swift_%28programming_language%29"
     assert parse_entity({"id": "Q1", "labels": {}}) is None
@@ -104,7 +111,7 @@ def test_collisions_and_written_files(tmp_path: Path):
     rows.append(other)
     words, shared = collisions(rows, {"swift", "fast"})
     assert words == {"swift": ["Swift", "SWIFT"]}
-    assert shared == {"swift": ["Swift", "SWIFT"]}
+    assert shared == {"swift": ["Swift", "SWIFT"], "swiftlang": ["Swift", "SWIFT"]}
 
     report = write(rows, ["asdfjs"], {"swift"}, tmp_path)
     terms_tsv = (tmp_path / "terms.tsv").read_text().splitlines()

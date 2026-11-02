@@ -3,7 +3,7 @@ id: doc-5
 title: Word lookup
 type: specification
 created_date: '2026-10-10 06:23'
-updated_date: '2026-11-02 09:14'
+updated_date: '2026-11-02 11:20'
 ---
 > Status: **working end to end** (bundle, local cache, backend, word card). The word endpoint may call Claude for a `wordMatch` of a non-English input: TASK-114.5. iOS lookup: TASK-4, TASK-5, TASK-6; single-word routing and card: TASK-19; "an apple" is the word apple: TASK-44. Last traced from code: 2026-11-02 (terms below the senses, or alone for a term that is not a word: TASK-119; a form of a bundled or backend word is answered from its lemma with `matchedForm`: TASK-118; before that 2026-10-25 (TASK-114.3: a `wordMatch` from a sentence answer opens the word card, see "wordMatch on iOS and Mac" below; a compound of two simple words such as `notebook` passes the simple-word check, and every word request logs a `WordTiming` line; before that 2026-10-25: a `wordMatch` phrase or word may call Claude: TASK-114.5; before that 2026-10-25: the word language row shows the translated headword per sense: TASK-106.8; before that 2026-10-25: a miss in `line_translation` saves the line in all 7 languages with one call: TASK-106.7; before that 2026-10-24: word language row from `POST /api/translate-lines`: TASK-106.3; language lines endpoint: TASK-106.2; before that 2026-10-22: unknown-word fallback: TASK-94; before that 2026-10-20: warm connection and cached-only prefetch while typing: TASK-83.5; before that 2026-10-18: phrases from the cache as word cards and the IPA on the headword line: TASK-83.10; `imageWidth`/`imageHeight` per sense, so the picture frame keeps its shape; cachedOnly lookups, Cache-Control and `GET /api/suggest`: TASK-83.4; sign-in for words that need a new Claude call: TASK-70; examples row layout: TASK-48; stop speech and duck music: TASK-46; media of bundled words loads from the server: TASK-51; a bundled word is answered from Postgres first, the bundled entry wins: TASK-58; pictures for backend words: TASK-49.4; Listen: TASK-7; article before a word: TASK-44; Show translation setting: TASK-29; simple-word check on backend entries: TASK-16; target-language row: TASK-40; IPA from a word list: TASK-39; not-a-word check before Claude: TASK-38; better did-you-mean (Apple's checker, long words): TASK-72; did you mean: TASK-37; levelled examples and form types: TASK-35).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md).
@@ -139,7 +139,7 @@ no senses (origin `TERM`, `Cache-Control` like a cached word) instead of the emp
 
 Data (TASK-119.2, no LLM): `exports/terms/seeds.txt` (one name per line, `Name | hint` when the name means several things;
 the hint must be in the Wikidata description) → `cd pipeline && uv run python -m pipeline.terms` (Wikidata search, exact
-label or alias match only, P856, enwiki, aliases plus the rule alias without `js`; answers cached in `exports/terms/.cache/`)
+label or alias match only, P856, enwiki, aliases plus rule aliases (without `js`: nuxtjs → nuxt; with `lang` for a programming language: go → golang); 50 search hits, so short names like "Go" are found; answers cached in `exports/terms/.cache/`)
 → `exports/terms/terms.tsv`, `term_aliases.tsv`, `report.md` (seeds not found, aliases that are English words, shared aliases)
 → `exports/terms/import_terms.sh` on the Mac replaces both tables on the VPS in one transaction. Next: simple definitions and
 extra aliases with the LLM (TASK-119.4), a live Wikidata lookup (TASK-119.5), iOS and the extension (TASK-119.6).
