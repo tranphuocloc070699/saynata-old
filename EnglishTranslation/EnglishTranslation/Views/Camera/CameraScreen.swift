@@ -38,6 +38,7 @@ struct CameraScreen: View {
     let onLabel: (String) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
     @State private var mode: CameraMode = .text
     @State private var textStore = CameraTextStore()
@@ -129,7 +130,7 @@ struct CameraScreen: View {
                 .foregroundStyle(Theme.Colors.surface)
                 .multilineTextAlignment(.center)
             IconButton(systemImage: "gearshape", label: "Open Settings") {
-                if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
             }
         }
         .padding(Theme.Spacing.xLarge)
