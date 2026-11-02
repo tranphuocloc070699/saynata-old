@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-11-02 11:40'
+updated_date: '2026-11-02 15:24'
 ---
 # Decisions and reasons
 
@@ -44,6 +44,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-24 | **Supported languages: English (no row), Vietnamese, Japanese, Korean, Simplified Chinese, French, Spanish, German; Thai removed** (TASK-106.1) | "only keep Vietnamese, Japanese, Korean, Chinese, French, Spanish, German. Remove Thai" | Keep Thai | Developer |
 | 10-24 | **One new sentence counts as one call against the user's hourly limit** (TASK-106.6, option A): when the same request already asked the LLM for the English part, the language line call checks only the money budget, not the hourly and daily call limits again. A line asked alone (English part cached) counts as one call. A refused or failed line still returns the English part, with `translation` "" | The developer chose option A after the example: with 60 calls an hour, option B would stop a user after 30 new sentences. The hourly limit stops spam per question; the money budget still counts every line (about $0.00005 each) | B: the line call counts as a second call against the hourly limit | Claude, chosen by developer |
 | 11-02 | **Terms** (TASK-119): named things (Node.js, Nuxt, Stoicism) from Wikidata, shown **below** the English senses, never instead of them; links only from Wikidata P856; aliases by a normalized key | "I want definitions for technical terms like Node.js, with a link to the official homepage, and not only software: psychology, philosophy, like Wikipedia but simple." | Let the LLM explain any unknown word (made-up facts and links, cost per typo); terms as a new sense type (breaks old apps and the cache) | Developer (design by Claude) |
+| 11-02 | **Camera recognition is a cascade of all three ways** (TASK-120 spike): MobileCLIP on the phone with the dictionary nouns as labels, a small trained layer for Vietnamese dishes, and a vision LLM on the backend when the phone is unsure | "I want to combine all three ways to make sure the results are accurate, fast, and varied" (focus on Vietnamese things like bánh mì, phở) | One way only: COCO YOLO or ML Kit (no "desk", no Vietnamese dishes), LLM only (slow, paid per photo), on-device only (weak on look-alike dishes) | Claude proposed, developer chose |
 
 | 10-22 | An unrecognized single word or compound tries the existing text explanation after its word lookup returns no senses (TASK-94); known words still use word cards | "Users don't know about it, and I want to translate as much as possible rather than require users to follow my rules." The word list misses some useful compounds, so its miss must not end the user's request. | Stop with "not an English word" when the word list misses; add every possible compound to the word list | Developer |
 
