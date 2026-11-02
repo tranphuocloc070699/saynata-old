@@ -1,11 +1,11 @@
 ---
 id: TASK-124
 title: 'Sentence result: simple English first, the original folded (iOS and web)'
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T17:15:00Z'
-updated_date: '2026-11-02T17:16:00Z'
+updated_date: '2026-11-02T17:22:00Z'
 labels:
   - ios
   - web
@@ -39,4 +39,6 @@ The developer finds the original sentence at the top of the sentence result anno
 
 <!-- SECTION:NOTES:BEGIN -->
 Mockup https://claude.ai/artifact/6oAiqufMFnchTNw2UD9fww: A (original as a closed row above the language row), B (original as one muted line at the top); web uses the same order. Waiting for the developer's choice.
+
+Built option B on iOS (SentenceCard.swift: originalBlock, summary as .title3 headline with Listen and Like, betterBlock open) and web (SentenceCard.tsx: original line button, Summary headline, better open before words). Web: vitest 185 passed, eslint clean. iOS not compiled (no Mac). Share and Translation extensions use the same card.
 <!-- SECTION:NOTES:END -->
