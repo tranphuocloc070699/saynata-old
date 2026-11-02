@@ -5,8 +5,11 @@
 
 export const MAX_SENTENCE_LENGTH = 500;
 
-/** GET /api/words/{word} accepts only letters, ' and -, 1-64 characters (WordController). */
-const WORD = /^[\p{L}'-]{1,64}$/u;
+/**
+ * GET /api/words/{word} takes letters, ' and -, 1-64 characters (WordController), and dots inside a word, so a term
+ * such as "node.js" goes to the word API (TASK-119.6). A word reply with nothing to show falls back to the sentence API.
+ */
+const WORD = /^(?=.{1,64}$)[\p{L}'-]+(\.[\p{L}'-]+)*$/u;
 const ARTICLES = new Set(["a", "an", "the"]);
 
 export type TextKind =

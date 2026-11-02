@@ -56,7 +56,8 @@ struct SavedItem: Equatable, Identifiable, Sendable, Codable {
             [sense.pos, sense.cefr].filter { !$0.isEmpty }.joined(separator: " · ")
         }
         self.init(
-            kind: .word, text: text, preview: first?.simpleDefinition ?? "",
+            kind: .word, text: text,
+            preview: first?.simpleDefinition ?? entry.shownTerms.first.map { $0.simpleDefinition ?? $0.field ?? $0.name } ?? "",
             chip: text.contains(" ") ? nil : chip, date: date)
     }
 

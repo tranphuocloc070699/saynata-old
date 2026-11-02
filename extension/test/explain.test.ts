@@ -18,6 +18,13 @@ describe("explain", () => {
     expect(events).toEqual([{ type: "word", response: wordResponse }]);
   });
 
+  it("a dotted term goes to the word API, and a term-only answer is shown as a word (TASK-119.6)", async () => {
+    const nuxt = { word: "nuxt.js", entry: { senses: [] }, cached: true, ipa: null, terms: [{ name: "Nuxt" }] };
+    const { events, calls } = await run("Nuxt.js", () => json(nuxt));
+    expect(calls[0].url).toBe("https://api.test/api/words/nuxt.js");
+    expect(events).toEqual([{ type: "word", response: nuxt }]);
+  });
+
   it("more than one word goes to the stream, with the meaning before the result", async () => {
     const { events } = await run(
       "reluctant to approve the plan",

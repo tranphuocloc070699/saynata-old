@@ -12,7 +12,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param claudePerUserHour new Claude calls, per signed-in user
  * @param claudePerUserDay  new Claude calls, per signed-in user
  * @param claudePerGuestIp  new Claude calls by guests (only when sign-in is not required), per client IP
- * @param publicReadPerIp   /api/translations* and /api/words/*, per client IP (cache hits included)
+ * @param publicReadPerIp   /api/translations*, /api/words/* and /api/terms/*, per client IP (cache hits included)
  */
 @ConfigurationProperties(prefix = "app.limits")
 public record LimitProperties(
