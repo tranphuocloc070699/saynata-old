@@ -6,11 +6,13 @@
 import SwiftUI
 
 /// The composer card (TASK-97): the text on top; below it the target-language chip on the left,
-/// the character counter (only near the limit) and the round Explain button on the right.
+/// the character counter (only near the limit), the camera button (F8) and the round Explain button on the right.
 struct TranslateInputView: View {
     @Environment(TranslationStore.self) private var store
     /// Owned by the screen, so a tap outside the box can hide the keyboard.
     var isFocused: FocusState<Bool>.Binding
+    /// Opens the camera screen (F8, TASK-121). Nil hides the button.
+    var onCamera: (() -> Void)? = nil
 
     /// The counter stays hidden until the text is close to the limit.
     static let counterStart = 450
@@ -31,6 +33,12 @@ struct TranslateInputView: View {
                 Spacer()
                 if store.inputLength >= Self.counterStart {
                     CharacterCounter(count: store.inputLength, limit: TranslationStore.maxInputLength)
+                }
+                if let onCamera {
+                    IconButton(systemImage: "camera", label: "Camera") {
+                        isFocused.wrappedValue = false
+                        onCamera()
+                    }
                 }
                 IconButton(systemImage: "arrow.up", label: "Explain", isProminent: true) {
                     isFocused.wrappedValue = false
@@ -76,7 +84,7 @@ struct TranslateInputView: View {
 
 #Preview {
     @Previewable @FocusState var focused: Bool
-    TranslateInputView(isFocused: $focused)
+    TranslateInputView(isFocused: $focused, onCamera: {})
         .padding()
         .background(Theme.Colors.background)
         .environment(TranslationStore())

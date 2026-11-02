@@ -60,7 +60,7 @@ enum SmallJPEG {
     static func make(from image: CGImage, orientation: CGImagePropertyOrientation = .up) -> Data? {
         let scaled = scaledDown(image) ?? image
         let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil)
+        guard let destination = CGImageDestinationCreateWithData(data as CFMutableData, UTType.jpeg.identifier as CFString, 1, nil)
         else { return nil }
         let options: [CFString: Any] = [
             kCGImageDestinationLossyCompressionQuality: quality,

@@ -120,6 +120,12 @@ final class CameraTextStore {
         if picked.contains(line.id) { picked.remove(line.id) } else { picked.insert(line.id) }
     }
 
+    /// The "all text" button: picks every line, or clears the picks when all are picked already.
+    func toggleAll() {
+        let all = Set(lines.map(\.id))
+        picked = picked == all ? [] : all
+    }
+
     /// The text of the picked lines in reading order, or nil when none is picked.
     var pickedText: String? {
         let chosen = lines.filter { picked.contains($0.id) }.map(\.text)
