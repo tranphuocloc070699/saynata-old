@@ -72,7 +72,8 @@ class PromptVersionCacheTest {
                 new com.englishtranslation.backend.dictionary.BundledEntryReader(jsonMapper),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.limits.ClaudeGate.class),
                 org.mockito.Mockito.mock(com.englishtranslation.backend.translation.SentenceSourceAliasRepository.class),
-                org.mockito.Mockito.mock(com.englishtranslation.backend.word.WordForms.class));
+                org.mockito.Mockito.mock(com.englishtranslation.backend.word.WordForms.class),
+                org.mockito.Mockito.mock(com.englishtranslation.backend.term.TermService.class));
     }
 
     @Test
