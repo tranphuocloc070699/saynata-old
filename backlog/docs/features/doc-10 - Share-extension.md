@@ -2,12 +2,12 @@
 id: doc-10
 title: Share extension
 type: specification
-created_date: '2026-10-11 15:35'
-updated_date: '2026-10-17 17:01'
+created_date: 2026-10-11 15:35
+updated_date: '2026-11-02T16:20:00Z'
 ---
 # Share extension and Translate button
 
-> Status: **working** (TASK-30 share extension, TASK-42 Translate button). Listen reads aloud (F3, TASK-7). Last traced from code: 2026-10-17 (the extensions share the app's sign-in; Translate tested on the developer's iPhone with the paid team).
+> Status: **working** (TASK-30 share extension, TASK-42 Translate button). Listen reads aloud (F3, TASK-7). Last traced from code: 2026-11-02 (Fix card in the Translate sheet added, not yet tested on a device; before that: the extensions share the app's sign-in, Translate tested on the developer's iPhone with the paid team).
 > Spec: R1, R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md).
 
 ## What it does
@@ -69,6 +69,7 @@ Why: no files moved and no new module; a change in `WordCardView` shows in both.
 | Test file | What it covers |
 |---|---|
 | [TextRouteTests.swift](../../../EnglishTranslation/EnglishTranslationTests/TextRouteTests.swift) | Empty, word, sentence, exactly 500, over 500 with the message, `DeepLink` round trip and bad links. |
+| [FixStatusTests.swift](../../../EnglishTranslation/EnglishTranslationTests/FixStatusTests.swift) | Fix card: checking, fix with its reason, no fix, no card for idle and errors; the replaced text keeps the spaces around the selection and never empties the box. |
 
 Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -scheme EnglishTranslation -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' -only-testing:EnglishTranslationTests -parallel-testing-enabled NO`. The sheet itself is checked by hand (PR "Test it" card).
 
@@ -104,8 +105,9 @@ flowchart TD
 | Piece | Where | Notes |
 |---|---|---|
 | Extension target | `TranslationExtension` in project.pbxproj: product type `com.apple.product-type.extensionkit-extension`, minimum iOS 18.4, embedded in the app's `Extensions/` folder by an "Embed ExtensionKit Extensions" phase | It is not a share-services extension. `EXAppExtensionAttributes` / `EXExtensionPointIdentifier` = `com.apple.public.translation-ui-provider` in [TranslationExtension/Info.plist](../../../EnglishTranslation/TranslationExtension/Info.plist). |
-| Entry point | [TranslationExtension.swift:15-25](../../../EnglishTranslation/TranslationExtension/TranslationExtension.swift#L15-L25) | `@main` class conforming to `TranslationUIProviderExtension`; scene `TranslationUIProviderSelectedTextScene`. |
-| Sheet | [TranslationExtension.swift:28-35](../../../EnglishTranslation/TranslationExtension/TranslationExtension.swift#L28-L35) | `context.inputText` is an `AttributedString`; it is turned into a `String` and given to `SelectedTextResultView`. No Close button of our own: the system draws its own X above the sheet. No Replace button (Saynata explains, it does not replace), so `allowsReplacement` is ignored. No Open in Saynata button: the context has no way to open the app. |
+| Entry point | [TranslationExtension.swift:15-24](../../../EnglishTranslation/TranslationExtension/TranslationExtension.swift#L15-L24) | `@main` class conforming to `TranslationUIProviderExtension`; scene `TranslationUIProviderSelectedTextScene`. |
+| Sheet | [TranslationExtension.swift:26-44](../../../EnglishTranslation/TranslationExtension/TranslationExtension.swift#L26-L44) | `context.inputText` is an `AttributedString`; it is turned into a `String` and given to `SelectedTextResultView`. No Close button of our own: the system draws its own X above the sheet. When `context.allowsReplacement` is true it passes `onReplace`, which calls `context.finish(translation:)` with the **fixed English text** (never a translation). No Open in Saynata button: the context has no way to open the app. |
+| Fix card | [SelectedTextResultView.swift:77-81](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L77-L81), [FixCard.swift](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/FixCard.swift), [FixStatus.swift](../../../EnglishTranslation/EnglishTranslation/Translation/FixStatus.swift) | Option A (2026-11-02, mockup `docs/design/mockups/translate-fix-option-a.html`). Only with `onReplace` and a sentence: a card on top shows a spinner, then the sentence answer's own `better` (TASK-110, bold changed words via `BetterDiff`) with `betterWhy`, Listen and the prominent Replace button, or "No mistakes found." No extra backend call. Replace keeps the spaces around the selection (`FixStatus.replacement`). The share extension never sets `onReplace`. |
 | Entitlement | [EnglishTranslation.entitlements](../../../EnglishTranslation/EnglishTranslation.entitlements): `com.apple.developer.translation-app` = true | On the **app** target, as in Apple's guide. Without it the app is not offered in Default Apps. |
 | Network key | `com.apple.developer.translation-ui-provider.network-access` = true in the app's and the extension's Info.plist | Needed because the extension calls our backend. |
 | Sharing code | Same synchronized folder and exception list as the share extension | `dictionary.sqlite` and the asset catalog are compiled into the extension too. |
@@ -125,3 +127,6 @@ Same as the share sheet: empty text, over 500 characters, offline, not an Englis
 - The consent sheet names the app by its `CFBundleName`, which is the Xcode product name `EnglishTranslation`, not "Saynata". Fixing it means renaming the app target's product name (not done: it touches the test host path).
 - Listen works as in the share sheet.
 - Some reports say the default translation app setting is limited by region; not checked.
+- Fix card (2026-11-02): not yet checked whether Telegram and Discord show the system Translate item in their message box, or allow replacing (`allowsReplacement`). Where they don't, the sheet is the normal explain sheet.
+- Fix card: the reason is one line (`betterWhy`) for the whole fix, not one line per change as in the mockup. A per-change list needs a prompt change.
+- Fix card: the backend drops a fix for text over 40 words (`BetterCheck.MAX_WORDS`), so a long message shows "No mistakes found."
