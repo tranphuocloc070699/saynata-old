@@ -139,4 +139,20 @@ class TermLookupTest {
 
         verifyNoInteractions(claude, gate);
     }
+
+    @Test
+    void theTermsEndpointGivesOnlyTheTermsOfAText() throws Exception {
+        saveTerm("Q17118377", "Swift", "programming language", null, "https://www.swift.org", 60, "Swift");
+
+        mockMvc.perform(get("/api/terms/{text}", "Swift")).andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", Matchers.containsString("max-age=86400")))
+                .andExpect(jsonPath("$.text").value("Swift"))
+                .andExpect(jsonPath("$.terms[0].name").value("Swift"))
+                .andExpect(jsonPath("$.terms[0].officialUrl").value("https://www.swift.org"));
+        mockMvc.perform(get("/api/terms/{text}", "node.js")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.terms.length()").value(0));
+        mockMvc.perform(get("/api/terms/{text}", "<script>")).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(claude, gate);
+    }
 }
