@@ -53,8 +53,14 @@ def main() -> None:
                 body = {"contents": [{"parts": [{"text": PROMPT}, {"inline_data": {"mime_type": "image/jpeg",
                         "data": base64.b64encode(f.read_bytes()).decode()}}]}]}
                 t0 = time.time()
-                r = c.post(url, params={"key": key}, json=body)
-                r.raise_for_status()
+                for wait in (0, 5, 15, 30, 60):  # the free tier answers 429 when it is busy; wait and try again
+                    time.sleep(wait)
+                    # the key goes in a header, so it never shows in an error message or log
+                    r = c.post(url, headers={"x-goog-api-key": key}, json=body)
+                    if r.status_code != 429:
+                        break
+                if r.is_error:
+                    raise SystemExit(f"Gemini answered {r.status_code}: {r.text[:300]}")
                 times.append(time.time() - t0)
                 cache[k] = r.json()["candidates"][0]["content"]["parts"][0]["text"]
                 cache_file.write_text(json.dumps(cache, indent=1))

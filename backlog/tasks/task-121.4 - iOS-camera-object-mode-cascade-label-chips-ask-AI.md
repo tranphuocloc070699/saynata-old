@@ -1,10 +1,11 @@
 ---
 id: TASK-121.4
 title: 'iOS: camera object mode (cascade, label chips, ask AI)'
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T15:51:00Z'
+updated_date: '2026-11-02T16:26:00Z'
 labels:
   - ios
 dependencies:
@@ -33,3 +34,9 @@ Object mode: MobileCLIP on the device a few frames per second, the food layer fo
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Logic + tests in draft PR #240; layout waits for the mockup choice.
+<!-- SECTION:NOTES:END -->

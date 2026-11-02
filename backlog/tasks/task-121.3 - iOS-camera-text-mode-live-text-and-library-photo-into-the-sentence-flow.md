@@ -1,10 +1,11 @@
 ---
 id: TASK-121.3
 title: 'iOS: camera text mode (live text and library photo into the sentence flow)'
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T15:51:00Z'
+updated_date: '2026-11-02T16:26:00Z'
 labels:
   - ios
 dependencies:
@@ -33,3 +34,9 @@ Text mode of the camera screen: VisionKit DataScannerViewController for live tex
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Logic + tests in draft PR #239; SwiftUI layout waits for the mockup choice (https://claude.ai/artifact/GQbtRYUtwQgLemGNJDPVHu).
+<!-- SECTION:NOTES:END -->

@@ -1,10 +1,11 @@
 ---
 id: TASK-121.2
 title: 'Model: MobileCLIP2 to Core ML, label vectors and food layer weights'
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T15:51:00Z'
+updated_date: '2026-11-02T16:26:00Z'
 labels:
   - ios
   - pipeline
@@ -32,3 +33,9 @@ The phone needs the image encoder as Core ML, the precomputed text vectors of it
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+PR #238. S2 with 8-bit weights: 36 MB encoder, 42 MB folder; 8-bit check cosine 0.995 mean, top-1 same 37/40. Checked into git (repo has no LFS). Needs an Xcode build on the Mac.
+<!-- SECTION:NOTES:END -->

@@ -8,6 +8,7 @@ This folder measures accuracy and speed **before** any UI or backend code. Resul
 | `clip_test.py` | Zero-shot MobileCLIP2-S2: the labels are the concrete nouns of `existing_words.txt` (WordNet physical senses, no plurals) + 30 dishes | free, ~5 min |
 | `food_probe.py` | Trains one small layer (linear probe) on frozen MobileCLIP image vectors for 30 Vietnamese dishes | free, ~20 min |
 | `llm_test.py` | The same photos through Gemini flash-lite | **paid**, under 1 US cent for ~90 photos; needs `GEMINI_API_KEY` |
+| `build_coreml.py` | Builds the app's camera files: Core ML encoder (8-bit), label vectors, food layer, into `EnglishTranslation/EnglishTranslation/Resources/Vision/` | free, ~25 min |
 | `fetch_photos.py` | Test photos from Wikimedia Commons | free; **blocked from cloud IPs** (403), works from a Mac |
 
 ## Test data (not in git)
@@ -68,14 +69,36 @@ Best: cơm tấm and cá kho tộ 100%, bánh mì and bánh pía 98%. The layer 
 Caveat: train and test photos come from the same dataset, so real camera photos will score lower.
 The layer was only shown food photos; how often it calls a non-food photo a dish is not measured yet.
 
-### 3. Vision LLM (Gemini)
+### 3. Vision LLM (Gemini 3.5 flash-lite)
 
-Not run yet: the cloud session had no `GEMINI_API_KEY`. Next session: `llm_test.py --per-class 3`.
+`llm_test.py --per-class 3`, 2026-11-02: 171 photos (81 objects, 90 dishes, the same photo sets as above), cost well under
+1 US cent. Latency **4.2 s per photo** from the cloud session (the phone: about 3 frames a second, no network).
 
-## Recommended cascade (to confirm after step 3)
+| Group | Photos | Script score (exact or contains the label) | By hand (plurals and synonyms accepted) |
+|---|---|---|---|
+| Objects | 81 | 57% | 68% |
+| Vietnamese food | 90 | 69% | 73% |
+
+"By hand" accepts bananas, scooter, sneaker, clock, coffee mug, bookshelf, barber chair and typos like "cao lao".
+Misses: Gemini names the **main thing in the scene**, not the ImageNet class: tennis player (racket), man (sunglasses),
+cook (wok), computers (computer mouse). Dishes: look-alikes again (phở vs hủ tiếu and bánh canh, canh chua vs bún riêu).
+
+| Way | Objects top-1 | Dishes top-1 | Speed | Cost |
+|---|---|---|---|---|
+| MobileCLIP zero-shot (phone) | 57% | 38% | ~0.3 s | free |
+| Food layer (phone) | n/a | **87%** (98% at ≥ 0.7) | ~0.3 s | free |
+| Gemini (backend) | 68% | 73% | 4.2 s | paid, needs sign-in |
+
+So the LLM is **not** better than the food layer on dishes, and only somewhat better than zero-shot on objects. It is
+the right fallback when the phone is unsure (it can name things outside the 5,149 labels), not the first step.
+
+## Recommended cascade (confirmed; built in TASK-121)
 
 1. MobileCLIP image vector on the phone, once per photo.
 2. If the top zero-shot label is a food word or a dish, run the food layer; **≥ 0.7** shows the dish card (about 64% of food photos, 98% right).
 3. Else, if zero-shot is **≥ 0.7**, show that word's card from the dictionary (no LLM call).
 4. Else show the top 3 labels as chips (top-5 is right 77% of the time for objects) and an "ask AI" button,
    which sends the photo to the backend vision LLM (through `limits/ClaudeGate`); cache its answer like words and sentences.
+
+Built in F8 (TASK-121, doc-25): `build_coreml.py` makes the phone files (MobileCLIP2-S2 as Core ML with 8-bit weights,
+36 MB; 5,149 label vectors; the food layer), the backend endpoint is `POST /api/vision/identify`.
