@@ -6,7 +6,7 @@ learning Swift and English at the same time.
 
 | Part | Stack | Job | Feature docs |
 |---|---|---|---|
-| `EnglishTranslation/` | SwiftUI, iOS 18 | The app, plus the Share and Translation extensions (they compile the app folder); accounts, word and sentence results, History and Liked, App Intents (Explain copied text, Quick explain) | doc-4, doc-5, doc-10, doc-17, doc-21, doc-22 |
+| `EnglishTranslation/` | SwiftUI, iOS 18 | The app, plus the Share and Translation extensions (they compile the app folder); accounts, word and sentence results, History and Liked, App Intents (Explain copied text, Quick explain) | doc-4, doc-5, doc-10, doc-17, doc-21, doc-22, doc-25 |
 | `EnglishTranslation/SaynataMac/` | SwiftUI + AppKit, macOS 15 | Menu-bar Mac app with a floating panel (⌥⇧Space) and Services; shares the iOS app folder | doc-20 |
 | `backend/` | Spring Boot 4, Java 17, Postgres, Flyway; `deepseek-flash` direct (Gemini 3.5 flash-lite as fallback; Codex writes picture scenes) | Word and sentence API with a shared cache-first DB, accounts and limits (`limits/ClaudeGate`), language lines, liked items, prefill queue, admin API, AI pictures | doc-4, doc-5, doc-11, doc-13, doc-15, doc-17, doc-18 |
 | `pipeline/` | Python 3.12, uv, Claude Sonnet 5.5 (through `llm.py`), Codex CLI | Builds the bundled dictionary and media, AI pictures, prefill and local collection, book words (books convert, collect, review), language lines | doc-6, doc-15, doc-18 |
