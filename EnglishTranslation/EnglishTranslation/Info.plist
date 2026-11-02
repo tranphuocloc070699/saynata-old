@@ -26,6 +26,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Saynata uses the camera to read English text and to name the things you point it at, so it can explain them in simple English.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Saynata reads the photo you pick to find English text or the thing in it, so it can explain it in simple English.</string>
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
 	<key>com.apple.developer.translation-ui-provider.network-access</key>
