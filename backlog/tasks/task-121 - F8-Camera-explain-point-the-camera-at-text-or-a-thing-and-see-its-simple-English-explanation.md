@@ -3,10 +3,11 @@ id: TASK-121
 title: >-
   F8 Camera explain: point the camera at text or a thing and see its simple
   English explanation
-status: To Do
+status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02T15:51:00Z'
+updated_date: '2026-11-02T16:26:00Z'
 labels:
   - ios
   - backend
