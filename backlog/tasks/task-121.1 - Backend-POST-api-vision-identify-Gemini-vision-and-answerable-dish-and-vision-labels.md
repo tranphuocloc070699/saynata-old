@@ -3,10 +3,11 @@ id: TASK-121.1
 title: >-
   Backend: POST /api/vision/identify (Gemini vision) and answerable dish and
   vision labels
-status: To Do
+status: In Progress
 assignee:
-  - '@claude'
+  - '@implementer'
 created_date: '2026-11-02T15:51:00Z'
+updated_date: '2026-11-02T15:59:00Z'
 labels:
   - backend
 dependencies: []
@@ -34,3 +35,21 @@ When the phone is unsure, it sends one photo to the backend. Gemini names the th
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Feature.VISION + GeminiClient.describeImage (image_url data URI on the OpenAI-compatible endpoint, same Reply).
+2. Flyway V40 vision_identify (hash+prompt version unique, label, kind, confidence, model, created_at; no photo).
+3. vision package: VisionController (multipart image, 2 MB, JPEG/PNG), VisionService (cache first, then ClaudeGate, Gemini, usage record), VisionLabels (dishes.txt allow-list + stored labels).
+4. WordService: dish alias to accented form; dish or vision label acts like a wordMatch.
+5. Tests VisionIdentifyApiTest, VisionLabelsTest; docs doc-24, doc-7; check_docs.
+<!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Built: Feature.VISION, GeminiClient.describeImage (image_url data URI on the OpenAI-compatible endpoint), Flyway V40 vision_identify, package vision/ (controller, service, VisionLabels), WordService treats dishes (accent alias) and stored vision labels like a wordMatch. Tests: Vision* and Word* pass (58 tests). Docs: doc-24, doc-5, doc-7.
+
+Test it: curl -F image=@photo.jpg with a Bearer token to POST /api/vision/identify gives {label,kind,confidence}; same photo again is a cache hit; GET /api/words/phở and /pho describe the dish; guest 401 sign_in_required, over 2 MB 413 file_too_large, not an image 400 invalid_image. Automated: cd backend && ./mvnw -B test -Dtest='Vision*,Word*'.
+<!-- SECTION:NOTES:END -->
