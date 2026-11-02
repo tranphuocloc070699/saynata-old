@@ -89,6 +89,15 @@ struct CameraTextStoreTests {
         #expect(store.isReading == false)
     }
 
+    @Test func allTextPicksEveryLineThenClears() async {
+        let store = CameraTextStore(reader: FakeReader(result: .success([line(0, "Wet floor."), line(1, "Mind the step.")])))
+        await store.readPhoto(image())
+        store.toggleAll()
+        #expect(store.pickedText == "Wet floor. Mind the step.")
+        store.toggleAll()
+        #expect(store.pickedText == nil)
+    }
+
     @Test func liveLinesDropPicksThatAreGone() {
         let store = CameraTextStore(reader: FakeReader(result: .success([])))
         store.showLive([line(0, "EXIT"), line(1, "Push")])
