@@ -11,6 +11,10 @@ import VisionKit
 
 struct LiveTextScanner: UIViewControllerRepresentable {
     let store: CameraTextStore
+    /// True while a line's explanation is open: the picture stops, so the bubble stays next to its line.
+    var isPaused = false
+    /// A tap on a line (TASK-121.7: opens its explanation).
+    var onTap: (RecognizedLine) -> Void = { _ in }
 
     /// False on devices without the Neural Engine features VisionKit needs, and in the simulator.
     static var isSupported: Bool { DataScannerViewController.isSupported }
@@ -36,7 +40,14 @@ struct LiveTextScanner: UIViewControllerRepresentable {
         return scanner
     }
 
-    func updateUIViewController(_ scanner: DataScannerViewController, context: Context) {}
+    func updateUIViewController(_ scanner: DataScannerViewController, context: Context) {
+        context.coordinator.onTap = onTap
+        if isPaused, scanner.isScanning {
+            scanner.stopScanning()
+        } else if !isPaused, !scanner.isScanning {
+            try? scanner.startScanning()
+        }
+    }
 
     static func dismantleUIViewController(_ scanner: DataScannerViewController, coordinator: Coordinator) {
         scanner.stopScanning()
@@ -46,6 +57,7 @@ struct LiveTextScanner: UIViewControllerRepresentable {
 
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         private let store: CameraTextStore
+        var onTap: (RecognizedLine) -> Void = { _ in }
         /// VisionKit ids are UUIDs; the store numbers lines, and a line keeps its number while it stays on screen.
         private var numbers: [RecognizedItem.ID: Int] = [:]
         private var nextNumber = 0
@@ -70,7 +82,7 @@ struct LiveTextScanner: UIViewControllerRepresentable {
 
         func dataScanner(_ scanner: DataScannerViewController, didTapOn item: RecognizedItem) {
             guard let number = numbers[item.id], let line = store.lines.first(where: { $0.id == number }) else { return }
-            store.toggle(line)
+            onTap(line)
         }
 
         /// Boxes are made 0...1 with the origin at the bottom left, like Vision's, so one overlay draws both.

@@ -3,7 +3,7 @@ id: doc-25
 title: Camera explain
 type: other
 created_date: '2026-11-02T16:10:00Z'
-updated_date: '2026-11-02T16:45:00Z'
+updated_date: '2026-11-02T17:09:00Z'
 ---
 # Camera explain
 
@@ -57,8 +57,9 @@ sequenceDiagram
 | Camera button | [TranslateInputView.swift:38](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L38) | icon-only `camera` button left of Explain; [TranslateView.swift:60](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L60) opens `CameraScreen` as a full-screen cover |
 | Screen | [CameraScreen.swift:33](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L33) | asks for the camera once, mode switch ([:162](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L162)), photo picker ([:231](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L231)); the feed runs only in object mode with no photo while the app is active ([:223](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L223)); a result closes the screen and hands off ([:216](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L216)) |
 | Live text | [LiveTextScanner.swift:70](../../../EnglishTranslation/EnglishTranslation/Views/Camera/LiveTextScanner.swift#L70) | VisionKit `DataScannerViewController` (the same languages, as far as the phone supports them; highlighting on); lines numbered and made 0...1 like Vision's boxes; a tap picks a line ([:64](../../../EnglishTranslation/EnglishTranslation/Views/Camera/LiveTextScanner.swift#L64)) |
+| Text in place (TASK-121.7, mockup 6A) | [InPlaceText.swift](../../../EnglishTranslation/EnglishTranslation/Camera/InPlaceText.swift), [CameraText.swift:151](../../../EnglishTranslation/EnglishTranslation/Camera/CameraText.swift#L151), [CameraScreen.swift:94](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L94) | NaturalLanguage tells each new line's language; lines in vi, zh, ja, ko, fr, es, de wait per language, the screen's `.translationTask` (Apple Translation, on the phone) makes their English, and `TextLinesOverlay` ([CameraPreview.swift:32](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraPreview.swift#L32)) draws it on a white box over the line. The eye button (top right) shows the original. A tap on a line ([CameraText.swift:163](../../../EnglishTranslation/EnglishTranslation/Camera/CameraText.swift#L163)) pauses the live camera and opens `LineExplanationCallout` ([LineExplanationCallout.swift](../../../EnglishTranslation/EnglishTranslation/Views/Camera/LineExplanationCallout.swift)) under or above the line: the sentence answer's simple English, Listen, the language row last, and a button for the full result. Tap outside to close |
 | Camera frames | [CameraFeed.swift:74](../../../EnglishTranslation/EnglishTranslation/Camera/CameraFeed.swift#L74) | `AVCaptureSession` 1280×720, at most 4 frames a second turned into `CGImage` off the main thread |
-| Bottom card | [CameraPanels.swift:34](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraPanels.swift#L34), [:74](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraPanels.swift#L74) | text: picked text, "Use all text", Explain; objects: sure row, 3 chips and "Ask AI what this is" |
+| Bottom card | [CameraPanels.swift:34](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraPanels.swift#L34), [:74](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraPanels.swift#L74) | text: a caption and "Explain all text"; objects: sure row, 3 chips and "Ask AI what this is" |
 | Image vector | [ImageEmbedding.swift:35](../../../EnglishTranslation/EnglishTranslation/Camera/ImageEmbedding.swift#L35) | `MobileCLIPEmbedder` loads `MobileCLIPImage.mlmodelc` once (compute units `.all`), center-crops to 256×256, returns the length-1 vector |
 | Label scores | [VisionLabels.swift:73](../../../EnglishTranslation/EnglishTranslation/Camera/VisionLabels.swift#L73) | `LabelIndex.top`: cosine with every label vector (vDSP), softmax at temperature 100 (the spike's scale) |
 | Dish score | [VisionLabels.swift:117](../../../EnglishTranslation/EnglishTranslation/Camera/VisionLabels.swift#L117) | `FoodLayer.best`: softmax(weights · vector + bias) over 30 dishes |
@@ -118,6 +119,7 @@ Run: `xcodebuild test -project EnglishTranslation/EnglishTranslation.xcodeproj -
 ## Known gaps
 
 - Not compiled or run in CI (there is no iOS job): build and test on the Mac before merging.
+- The first time a language is drawn in English, iOS asks to download it (Apple Translation); until then the line stays as it is.
 - Live text needs a phone that supports VisionKit's DataScanner; the simulator has no camera, so only library photos work there.
 - The 8-bit model was checked against PyTorch with the same rounding on Linux, not run on a device yet.
 - The food layer is trained on 30VNFoods (CC BY-NC-SA): retrain before the App Store (TASK-122). How often it calls a non-food photo a dish is not measured.

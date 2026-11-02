@@ -92,13 +92,99 @@ final class CameraTextStore {
     /// Shown when a photo has no text or reading failed.
     private(set) var message: String?
 
-    private let reader: any PhotoTextReading
+    // Text in place (TASK-121.7)
+    /// English for a line's text, made on the phone. Kept by text, so a line that moves keeps its English.
+    private(set) var englishByText: [String: String] = [:]
+    /// The language whose lines wait for English; the view runs a translation task for it.
+    private(set) var englishRequest: EnglishRequest?
+    /// The eye button: show the original text instead of the English over it.
+    var showsOriginal = false
+    /// The tapped line and its explanation (mockup 6A). While a line is open the live camera pauses.
+    private(set) var selectedLine: RecognizedLine?
+    private(set) var explanation: LineExplanation = .idle
 
-    init(reader: any PhotoTextReading = VisionTextReader()) {
+    private let reader: any PhotoTextReading
+    private let detector: any LanguageDetecting
+    private let explainer: (any Translating)?
+    /// Texts already checked (English, unclear, or English made), so a live frame does not check them again.
+    private var checked: Set<String> = []
+    private var waiting: [String: [String]] = [:]
+    private var requestCount = 0
+
+    init(reader: any PhotoTextReading = VisionTextReader(),
+         detector: any LanguageDetecting = NLLanguageDetector(),
+         explainer: (any Translating)? = nil) {
         self.reader = reader
+        self.detector = detector
+        self.explainer = explainer
+    }
+
+    /// True when at least one line on screen has English drawn over it (the eye button shows then).
+    var hasEnglishOverlay: Bool {
+        lines.contains { englishByText[$0.text] != nil }
+    }
+
+    /// The English to draw over a line, or nil to show the line as it is.
+    func overlayText(for line: RecognizedLine) -> String? {
+        showsOriginal ? nil : englishByText[line.text]
+    }
+
+    /// Finds the language of new lines and queues the non-English ones for English.
+    private func queueEnglish(for newLines: [RecognizedLine]) {
+        for line in newLines where !checked.contains(line.text) {
+            checked.insert(line.text)
+            guard let language = detector.language(of: line.text), language != "en",
+                  InPlaceText.sourceLanguages.contains(language) else { continue }
+            waiting[language, default: []].append(line.text)
+        }
+        requestNextLanguage()
+    }
+
+    private func requestNextLanguage() {
+        guard englishRequest == nil, let language = waiting.keys.sorted().first else { return }
+        requestCount += 1
+        englishRequest = EnglishRequest(language: language, id: requestCount)
+    }
+
+    /// Called by the view's translation task: makes English for the waiting lines of the requested language.
+    /// A failure (language not downloaded, no network for the first download) leaves those lines as they are.
+    func makeEnglish(with maker: any EnglishMaking) async {
+        guard let request = englishRequest else { return }
+        let texts = waiting[request.language] ?? []
+        waiting[request.language] = nil
+        if !texts.isEmpty, let english = try? await maker.english(for: texts), english.count == texts.count {
+            for (text, line) in zip(texts, english) where !line.isEmpty { englishByText[text] = line }
+        }
+        englishRequest = nil
+        requestNextLanguage()
+    }
+
+    /// A tap on a line: open its explanation under it (the sentence answer, cache first; new text needs sign-in).
+    func select(_ line: RecognizedLine, language: TargetLanguage) async {
+        selectedLine = line
+        explanation = .loading
+        guard let explainer else {
+            explanation = .failed(Self.noExplanationMessage)
+            return
+        }
+        do {
+            let answer = try await explainer.explain(line.text, translatingTo: language)
+            guard selectedLine?.id == line.id else { return }
+            explanation = .loaded(answer)
+        } catch {
+            guard selectedLine?.id == line.id else { return }
+            explanation = .failed((error as? LocalizedError)?.errorDescription ?? error.localizedDescription)
+        }
+    }
+
+    /// Tap outside: close the explanation; the live camera goes on.
+    func closeExplanation() {
+        selectedLine = nil
+        explanation = .idle
     }
 
     static let noTextMessage = "No text found in this photo."
+    static let noExplanationMessage = "Saynata could not explain this line. Try again."
 
     /// Reads a library photo. The old lines and picks are cleared first.
     func readPhoto(_ image: CGImage, orientation: CGImagePropertyOrientation = .up) async {
@@ -109,6 +195,7 @@ final class CameraTextStore {
         do {
             lines = try await reader.lines(in: image, orientation: orientation)
             if lines.isEmpty { message = Self.noTextMessage }
+            queueEnglish(for: lines)
         } catch {
             lines = []
             message = Self.noTextMessage
@@ -117,7 +204,9 @@ final class CameraTextStore {
 
     /// Live text from the camera: the newest lines replace the old ones; picks of lines that are gone are dropped.
     func showLive(_ newLines: [RecognizedLine]) {
+        guard selectedLine == nil else { return } // paused while an explanation is open
         lines = newLines
+        queueEnglish(for: newLines)
         picked = picked.filter { id in newLines.contains { $0.id == id } }
         message = nil
     }
@@ -148,6 +237,8 @@ final class CameraTextStore {
     func clear() {
         lines = []
         picked = []
+        selectedLine = nil
+        explanation = .idle
         message = nil
     }
 }
