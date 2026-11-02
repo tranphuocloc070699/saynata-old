@@ -257,6 +257,24 @@ struct BackendClientTests {
         #expect(entry.ipa == "/ˈɡɹeɪvˌjɑɹd/")
     }
 
+    /// TASK-118: the backend answers a form ("contaminated") with its base word and `matchedForm`.
+    @Test func wordReplyForAFormPutsMatchedFormOnTheEntry() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"word":"contaminate","cached":true,"ipa":null,"matchedForm":{"text":"contaminated","type":"past tense"},"entry":{"senses":[]}}"#.utf8)
+
+        let entry = try await client.entry(forWord: "contaminated")
+
+        #expect(entry.word == "contaminate")
+        #expect(entry.matchedForm == MatchedForm(text: "contaminated", type: "past tense"))
+    }
+
+    @Test func wordReplyWithoutMatchedFormHasNone() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = wordBody
+
+        #expect(try await client.entry(forWord: "serendipity").matchedForm == nil)
+    }
+
     @Test func wordReplyWithNullOrMissingIpaHasNoIpa() async throws {
         StubURLProtocol.status = 200
         // Null: the backend does not know the IPA of this word.

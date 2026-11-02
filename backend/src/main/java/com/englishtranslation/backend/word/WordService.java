@@ -42,14 +42,16 @@ public class WordService {
     private final BundledEntryReader bundledReader;
     private final ClaudeGate gate;
     private final SentenceSourceAliasRepository aliases;
+    private final WordForms forms;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
             BackendWordMediaService mediaService, SenseMediaReader mediaReader,
             DictionaryWordRepository bundled, BundledEntryReader bundledReader, ClaudeGate gate,
-            SentenceSourceAliasRepository aliases) {
+            SentenceSourceAliasRepository aliases, WordForms forms) {
         this.aliases = aliases;
+        this.forms = forms;
         this.gate = gate;
         this.bundled = bundled;
         this.bundledReader = bundledReader;
@@ -113,6 +115,10 @@ public class WordService {
         // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
         // Nothing is saved, so a later update of the word list can fix a missing word.
         if (!fromWordMatch && !englishWords.contains(normalized)) {
+            Optional<WordAnswer> asForm = timing.time("lookup", () -> formAnswer(normalized));
+            if (asForm.isPresent()) {
+                return asForm.get();
+            }
             log.debug("'{}' is not on the English word list, Claude not called", normalized);
             return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
                     WordAnswer.Origin.NOT_A_WORD);
@@ -124,6 +130,11 @@ public class WordService {
         if (saved.isPresent()) {
             return new WordAnswer(response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId())),
                     WordAnswer.Origin.CACHED);
+        }
+        // A form of a bundled or cached word ("ran", "contaminated"): the lemma's entry, and Claude is not called.
+        Optional<WordAnswer> asForm = timing.time("lookup", () -> formAnswer(normalized));
+        if (asForm.isPresent()) {
+            return asForm.get();
         }
         if (cachedOnly) {
             throw new NotCachedException();
@@ -164,8 +175,38 @@ public class WordService {
 
     private WordAnswer cachedPhrase(String phrase) {
         String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), phrase);
-        WordLookup saved = repository.findByCacheKey(cacheKey).orElseThrow(NotCachedException::new);
-        return new WordAnswer(response(phrase, readEntry(saved), true, mediaOf(saved.getId())), WordAnswer.Origin.CACHED);
+        Optional<WordLookup> saved = repository.findByCacheKey(cacheKey);
+        if (saved.isPresent()) {
+            return new WordAnswer(response(phrase, readEntry(saved.get()), true, mediaOf(saved.get().getId())),
+                    WordAnswer.Origin.CACHED);
+        }
+        // "gave up": the cached entry of "give up" (TASK-118).
+        return formAnswer(phrase).orElseThrow(NotCachedException::new);
+    }
+
+    /**
+     * TASK-118: the entry of the first lemma of this form that has one, with matchedForm ("ran", "past tense").
+     * Bundled lemmas are tried first. Empty when the text is not a form, or none of its lemmas has an entry yet:
+     * then the old flow goes on (a form is never sent to Claude in place of its lemma).
+     */
+    private Optional<WordAnswer> formAnswer(String form) {
+        for (WordForms.Match match : forms.find(form)) {
+            if (match.bundled()) {
+                Optional<DictionaryWord> word = bundled.findWithSensesByLemma(match.lemma());
+                if (word.isPresent()) {
+                    return Optional.of(new WordAnswer(bundledResponse(match.lemma(), word.get())
+                            .withMatchedForm(form, match.type()), WordAnswer.Origin.BUNDLED));
+                }
+            } else {
+                String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), match.lemma());
+                Optional<WordLookup> saved = repository.findByCacheKey(cacheKey);
+                if (saved.isPresent()) {
+                    WordResponse reply = response(match.lemma(), readEntry(saved.get()), true, mediaOf(saved.get().getId()));
+                    return Optional.of(new WordAnswer(reply.withMatchedForm(form, match.type()), WordAnswer.Origin.CACHED));
+                }
+            }
+        }
+        return Optional.empty();
     }
 
     /** The reply for a bundled word: its entry and media from Postgres, cached = true (nothing was generated). */
