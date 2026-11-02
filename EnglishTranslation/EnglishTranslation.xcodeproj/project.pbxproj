@@ -99,6 +99,7 @@
 		7A0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "ShareExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Camera,
 				ContentView.swift,
 				DesignSystem/DesignSystemGallery.swift,
 				EnglishTranslationApp.swift,
@@ -112,6 +113,8 @@
 				Lessons/L4_Environment.swift,
 				Lessons/L5_AsyncState.swift,
 				Lessons/L6_Escaping.swift,
+				Resources/Vision,
+				Views/Camera,
 				Views/Translate/Subviews/TranslateInputView.swift,
 				Views/Translate/Subviews/TranslateOptionsView.swift,
 				Views/Translate/TranslateView.swift,
@@ -128,6 +131,7 @@
 		7B0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "TranslationExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Camera,
 				ContentView.swift,
 				DesignSystem/DesignSystemGallery.swift,
 				EnglishTranslationApp.swift,
@@ -141,6 +145,8 @@
 				Lessons/L4_Environment.swift,
 				Lessons/L5_AsyncState.swift,
 				Lessons/L6_Escaping.swift,
+				Resources/Vision,
+				Views/Camera,
 				Views/Translate/Subviews/TranslateInputView.swift,
 				Views/Translate/Subviews/TranslateOptionsView.swift,
 				Views/Translate/TranslateView.swift,
@@ -157,6 +163,7 @@
 		7C0000000000000000000005 /* Exceptions for "EnglishTranslation" folder in "SaynataMac" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Camera,
 				ContentView.swift,
 				DesignSystem/DesignSystemGallery.swift,
 				EnglishTranslationApp.swift,
@@ -170,6 +177,8 @@
 				Lessons/L4_Environment.swift,
 				Lessons/L5_AsyncState.swift,
 				Lessons/L6_Escaping.swift,
+				Resources/Vision,
+				Views/Camera,
 				Views/Translate/Subviews/TranslateInputView.swift,
 				Views/Translate/Subviews/TranslateOptionsView.swift,
 				Views/Translate/TranslateView.swift,
