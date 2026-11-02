@@ -58,6 +58,15 @@ private final class FakeWordLookup: WordLooking, @unchecked Sendable {
         phraseAskedFor = phrase
         return phrases[phrase]
     }
+
+    /// What `GET /api/terms` answers (TASK-119.6), and the word it was asked about.
+    var termsForWord: [Term] = []
+    var termsAskedFor: String?
+
+    func terms(for word: String) async -> [Term] {
+        termsAskedFor = word
+        return termsForWord
+    }
 }
 
 @MainActor
@@ -294,6 +303,43 @@ struct TranslationStoreTests {
     }
 
     // MARK: - One word or a sentence (TASK-19)
+
+    /// TASK-119.6: a bundled word never asks the backend, so its terms come from `GET /api/terms` after the card shows.
+    @Test func aBundledWordGetsItsTermsAfterTheCardIsShown() async {
+        let lookup = FakeWordLookup(.success(.run))
+        lookup.bundled = ["swift": .run]
+        lookup.termsForWord = [Term(name: "Swift", field: "programming language", officialUrl: "https://www.swift.org")]
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .failure(BackendError.streamEnded)) },
+            makeWordLookup: { lookup })
+        store.inputText = "swift"
+        await store.translate()
+
+        #expect(lookup.termsAskedFor == "swift")
+        guard case let .loadedWord(entry) = store.state else {
+            Issue.record("Expected .loadedWord, got \(store.state)")
+            return
+        }
+        #expect(entry.senses == WordEntry.run.senses)
+        #expect(entry.shownTerms.map(\.name) == ["Swift"])
+    }
+
+    @Test func aBackendWordDoesNotAskForTermsAgain() async {
+        let lookup = FakeWordLookup(.success(.run))
+        lookup.termsForWord = [Term(name: "Should not show")]
+        let store = TranslationStore(
+            makeTranslator: { FakeTranslator(result: .failure(BackendError.streamEnded)) },
+            makeWordLookup: { lookup })
+        store.inputText = "serendipity"
+        await store.translate()
+
+        #expect(lookup.termsAskedFor == nil)
+        guard case let .loadedWord(entry) = store.state else {
+            Issue.record("Expected .loadedWord, got \(store.state)")
+            return
+        }
+        #expect(entry.terms == nil)
+    }
 
     @Test func oneWordGoesToTheWordLookupNotTheSentenceTranslator() async {
         let lookup = FakeWordLookup(.success(.run))

@@ -16,7 +16,7 @@ private struct TranslationResponse: Decodable {
     let explanation: Explanation
 }
 
-/// The part of the `GET /api/words/{word}` reply we need: `{ word, entry: { senses }, cached, ipa, matchedForm? }`.
+/// The part of the `GET /api/words/{word}` reply we need: `{ word, entry: { senses }, cached, ipa, matchedForm?, terms? }`.
 private struct WordResponse: Decodable {
     let word: String
     let entry: Body
@@ -25,14 +25,21 @@ private struct WordResponse: Decodable {
     /// Set when the text was a form of the word ("ran" for "run", TASK-118); then `word` is the base form.
     /// Missing in older replies and for a base word.
     let matchedForm: MatchedForm?
+    /// Named things written like the text (TASK-119). Missing when there are none and in older replies.
+    let terms: [Term]?
 
     struct Body: Decodable {
         let senses: [Sense]
     }
 
     var wordEntry: WordEntry {
-        WordEntry(word: word, ipa: ipa, senses: entry.senses, matchedForm: matchedForm)
+        WordEntry(word: word, ipa: ipa, senses: entry.senses, matchedForm: matchedForm, terms: terms)
     }
+}
+
+/// The reply of `GET /api/terms/{text}` (TASK-119.6): `{ text, terms }`.
+private struct TermsResponse: Decodable {
+    let terms: [Term]
 }
 
 /// The `meaning` event of `POST /api/translations/stream`.
@@ -309,6 +316,14 @@ struct BackendClient: Translating, WordFetching {
         let response = try JSONDecoder().decode(WordResponse.self, from: data)
         await cache?.save(data, forKey: key, kind: .word)
         return response.wordEntry
+    }
+
+    /// Only the terms of a text, for a word the phone answered from its own dictionary (TASK-119.6). The server
+    /// sends `Cache-Control: max-age=86400`, so URLSession's cache answers a second ask. Public, no Claude call.
+    func terms(forText text: String) async throws -> [Term] {
+        let url = baseURL.appending(path: "api/terms").appending(component: CacheKeys.normalizeWord(text))
+        let data = try await sendChecked(URLRequest(url: url))
+        return try JSONDecoder().decode(TermsResponse.self, from: data).terms
     }
 
     // MARK: - Warm-up and prefetch (TASK-83.5)
