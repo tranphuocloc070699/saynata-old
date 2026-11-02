@@ -29,7 +29,7 @@ final class CameraObjectStore {
     static let stableCount = 2
 
     private let embedder: any ImageEmbedding
-    private let makeCascade: @Sendable () throws -> ObjectCascade
+    private let makeCascade: () throws -> ObjectCascade
     private let identifier: (any VisionIdentifying)?
     private let now: () -> Date
 
@@ -40,7 +40,7 @@ final class CameraObjectStore {
     private var latestFrame: (image: CGImage, orientation: CGImagePropertyOrientation)?
 
     init(embedder: any ImageEmbedding,
-         makeCascade: @escaping @Sendable () throws -> ObjectCascade,
+         makeCascade: @escaping () throws -> ObjectCascade,
          identifier: (any VisionIdentifying)?,
          now: @escaping () -> Date = Date.init) {
         self.embedder = embedder
@@ -49,7 +49,13 @@ final class CameraObjectStore {
         self.now = now
     }
 
-    /// The real model and label files from the app bundle.
+    /// The real model and label files from the app bundle, and "ask AI" through our backend with the sign-in token.
+    static func live() -> CameraObjectStore {
+        let backend = try? BackendClient(baseURL: AppConfig.backendBaseURL(), cache: ResultCache.shared,
+                                         auth: AccountStore.shared)
+        return live(identifier: backend)
+    }
+
     static func live(identifier: (any VisionIdentifying)?) -> CameraObjectStore {
         CameraObjectStore(embedder: MobileCLIPEmbedder(), makeCascade: {
             ObjectCascade(labels: try LabelIndex.load(), food: try? FoodLayer.load())
