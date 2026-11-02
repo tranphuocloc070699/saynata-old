@@ -4,7 +4,7 @@
  * (number, simple explanation, level chip, picture), with Examples, How to use it and the target language
  * as closed rows, the target language last (product rule: explain first, translate last).
  */
-import { SaynataApi, type Sense, type WordResponse } from "@/lib/api";
+import { SaynataApi, type Sense, type Term, type WordResponse } from "@/lib/api";
 import { browserTokens } from "@/lib/auth";
 import {
   hasLanguageRow,
@@ -105,7 +105,51 @@ export function WordCard({ word, targetLang }: { word: WordResponse; targetLang:
           showTranslation={showTranslation}
         />
       ))}
+      {word.terms && word.terms.length > 0 && (
+        <TermList terms={word.terms} title={word.entry.senses.length > 0 ? "Also a name" : "A name"} />
+      )}
     </article>
+  );
+}
+
+/**
+ * Named things written like the word (TASK-119.3): name, what it is, one simple sentence and the links. Below the
+ * senses, so "swift" still means fast first. The links come from Wikidata, never from the model.
+ */
+function TermList({ terms, title }: { terms: Term[]; title: string }) {
+  return (
+    <section data-reveal aria-label={title} className="flex flex-col gap-3 border-t border-hairline pt-3">
+      <h3 className="text-xs font-semibold tracking-wide text-muted uppercase">{title}</h3>
+      {terms.map((term) => (
+        <div key={`${term.name}|${term.wikipediaUrl ?? ""}`} className="flex flex-col gap-1.5">
+          <p className="flex flex-wrap items-baseline gap-x-2">
+            <span className="text-lg font-semibold">{term.name}</span>
+            {term.field && <span className="text-sm text-muted">{term.field}</span>}
+          </p>
+          {term.simpleDefinition && <p className="font-serif text-[1.0625rem] leading-snug">{term.simpleDefinition}</p>}
+          {(term.officialUrl || term.wikipediaUrl) && (
+            <p className="flex flex-wrap gap-2 text-sm">
+              {term.officialUrl && <TermLink href={term.officialUrl}>Official site</TermLink>}
+              {term.wikipediaUrl && <TermLink href={term.wikipediaUrl}>Wikipedia</TermLink>}
+            </p>
+          )}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+function TermLink({ href, children }: { href: string; children: string }) {
+  if (!/^https?:\/\//.test(href)) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="rounded-full bg-tag px-2.5 py-0.5 font-medium text-ink-2 hover:text-ink"
+    >
+      {children} ↗
+    </a>
   );
 }
 

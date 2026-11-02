@@ -191,6 +191,35 @@ describe("word card", () => {
     });
   });
 
+  it("shows a term-only answer instead of the not-English message (TASK-119.6)", () => {
+    const nuxt = {
+      ...wordResponse,
+      word: "nuxtjs",
+      entry: { senses: [] },
+      terms: [{ name: "Nuxt", field: "JavaScript framework", officialUrl: "https://nuxt.com", wikipediaUrl: "javascript:alert(1)" }],
+    } as WordResponse;
+    const card = renderCard(applyEvent(initialState("nuxtjs", "word", "vi", false), { type: "word", response: nuxt }), actions());
+    expect(card.textContent).not.toContain("This doesn't look like an English word.");
+    expect(card.querySelector(".terms .label")?.textContent).toBe("A name");
+    expect(card.querySelector(".term b")?.textContent).toBe("Nuxt");
+    const site = card.querySelector('a[aria-label="Open the official site of Nuxt"]') as HTMLAnchorElement;
+    expect(site.href).toBe("https://nuxt.com/");
+    expect(site.target).toBe("_blank");
+    expect(site.rel).toContain("noopener");
+    // Only http(s) links are drawn.
+    expect(card.querySelector('a[aria-label="Open Nuxt on Wikipedia"]')).toBeNull();
+  });
+
+  it("shows terms below the senses (TASK-119.6)", () => {
+    const withTerm = { ...wordResponse, terms: [{ name: "Swift", field: "programming language" }] } as WordResponse;
+    const card = renderCard(applyEvent(initialState("swift", "word", "en", false), { type: "word", response: withTerm }), actions());
+    const sense = card.querySelector(".sense");
+    const terms = card.querySelector(".terms");
+    expect(sense).not.toBeNull();
+    expect(terms?.querySelector(".label")?.textContent).toBe("Also a name");
+    expect(sense!.compareDocumentPosition(terms!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("says when the word is not English", () => {
     const empty = { ...wordResponse, entry: { senses: [] } } as WordResponse;
     const state = applyEvent(initialState("runk", "word", "vi", false), { type: "word", response: empty });

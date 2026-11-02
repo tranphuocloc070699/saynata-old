@@ -12,6 +12,8 @@ import com.englishtranslation.backend.dictionary.DictionaryWordRepository;
 import com.englishtranslation.backend.media.BackendWordMediaService;
 import com.englishtranslation.backend.media.SenseMedia;
 import com.englishtranslation.backend.media.SenseMediaReader;
+import com.englishtranslation.backend.term.Term;
+import com.englishtranslation.backend.term.TermService;
 import com.englishtranslation.backend.translation.SentenceSourceAliasRepository;
 import java.util.List;
 import java.util.Map;
@@ -43,13 +45,15 @@ public class WordService {
     private final ClaudeGate gate;
     private final SentenceSourceAliasRepository aliases;
     private final WordForms forms;
+    private final TermService terms;
 
     public WordService(WordLookupRepository repository, ClaudeService claude, LlmProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
             BackendWordMediaService mediaService, SenseMediaReader mediaReader,
             DictionaryWordRepository bundled, BundledEntryReader bundledReader, ClaudeGate gate,
-            SentenceSourceAliasRepository aliases, WordForms forms) {
+            SentenceSourceAliasRepository aliases, WordForms forms, TermService terms) {
+        this.terms = terms;
         this.aliases = aliases;
         this.forms = forms;
         this.gate = gate;
@@ -78,7 +82,7 @@ public class WordService {
     public WordAnswer lookUp(String word, boolean cachedOnly) {
         WordTiming timing = new WordTiming();
         try {
-            WordAnswer answer = lookUp(word, cachedOnly, timing);
+            WordAnswer answer = withTerms(lookUp(word, cachedOnly, timing), word, timing);
             timing.ok(answer.origin());
             return answer;
         } catch (RuntimeException e) {
@@ -109,7 +113,12 @@ public class WordService {
         // (TASK-83.9), unless it is a wordMatch. Otherwise it never calls Claude and is never "not a word": a miss is
         // 404 not_cached, and the app then explains the text as a sentence.
         if (normalized.contains(" ") && !fromWordMatch) {
-            return timing.time("lookup", () -> cachedPhrase(normalized));
+            try {
+                return timing.time("lookup", () -> cachedPhrase(normalized));
+            } catch (NotCachedException e) {
+                // "nuxt js", "machine learning": a term alias is answered with its terms (TASK-119.1).
+                return termAnswer(normalized, timing).orElseThrow(() -> e);
+            }
         }
 
         // The cache is read before the word list (TASK-83.16): the local collection pushes tech terms such as "vue"
@@ -131,6 +140,11 @@ public class WordService {
         // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
         // Nothing is saved, so a later update of the word list can fix a missing word.
         if (!fromWordMatch && !englishWords.contains(normalized)) {
+            // "nuxtjs", "node.js": not an English word, but a term (TASK-119.1). Its terms are the answer.
+            Optional<WordAnswer> asTerm = termAnswer(normalized, timing);
+            if (asTerm.isPresent()) {
+                return asTerm.get();
+            }
             log.debug("'{}' is not on the English word list and not cached, Claude not called", normalized);
             return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
                     WordAnswer.Origin.NOT_A_WORD);
@@ -206,6 +220,41 @@ public class WordService {
             }
         }
         return Optional.empty();
+    }
+
+    /**
+     * TASK-119.1: a text that is not an English word but is written like a term ("nuxtjs"): no senses, only the
+     * terms. Empty when no term has this alias. Claude is never called.
+     */
+    private Optional<WordAnswer> termAnswer(String text, WordTiming timing) {
+        List<Term> found = findTerms(text, timing);
+        if (found.isEmpty()) {
+            return Optional.empty();
+        }
+        WordResponse reply = new WordResponse(text, new WordEntryView(List.of()), true, null).withTerms(found);
+        return Optional.of(new WordAnswer(reply, WordAnswer.Origin.TERM));
+    }
+
+    /**
+     * TASK-119.1: adds the terms written like the typed text below any answer ("swift" = fast, plus Swift the
+     * language). The English senses are never changed. A term-only answer already has them.
+     */
+    private WordAnswer withTerms(WordAnswer answer, String typed, WordTiming timing) {
+        if (answer.origin() == WordAnswer.Origin.TERM) {
+            return answer;
+        }
+        List<Term> found = findTerms(CacheKeys.normalizeWord(typed), timing);
+        return found.isEmpty() ? answer : new WordAnswer(answer.response().withTerms(found), answer.origin());
+    }
+
+    /** The terms of this text. A problem reading them is logged and ignored: the word must still answer. */
+    private List<Term> findTerms(String text, WordTiming timing) {
+        try {
+            return timing.time("lookup", () -> terms.find(text));
+        } catch (RuntimeException e) {
+            log.warn("Could not read the terms of '{}': {}", text, e.toString());
+            return List.of();
+        }
     }
 
     /** The reply for a bundled word: its entry and media from Postgres, cached = true (nothing was generated). */

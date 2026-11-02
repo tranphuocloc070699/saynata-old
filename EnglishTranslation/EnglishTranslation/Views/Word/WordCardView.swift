@@ -43,6 +43,11 @@ struct WordCardView: View {
             ForEach(Array(entry.senses.enumerated()), id: \.offset) { index, sense in
                 senseCard(sense, index: index)
             }
+
+            // Named things written like the word (TASK-119.6), always after the English senses.
+            if !entry.shownTerms.isEmpty {
+                TermSection(terms: entry.shownTerms, followsSenses: !entry.senses.isEmpty)
+            }
         }
     }
 
@@ -135,6 +140,29 @@ struct WordCardView: View {
     ScrollView { WordCardView(entry: .ran).padding() }
         .background(Theme.Colors.background)
         .environment(SpeechPlayer.silent())
+}
+
+#Preview("With a term: swift") {
+    ScrollView {
+        WordCardView(entry: WordEntry.apple.withTerms([
+            Term(name: "Apple Inc.", field: "American technology company", officialUrl: "https://www.apple.com",
+                 wikipediaUrl: "https://en.wikipedia.org/wiki/Apple_Inc."),
+        ]))
+        .padding()
+    }
+    .background(Theme.Colors.background)
+    .environment(SpeechPlayer.silent())
+}
+
+#Preview("Term only: nuxtjs") {
+    ScrollView {
+        WordCardView(entry: WordEntry(word: "nuxtjs", ipa: nil, senses: [], terms: [
+            Term(name: "Nuxt", field: "JavaScript framework", officialUrl: "https://nuxt.com"),
+        ]))
+        .padding()
+    }
+    .background(Theme.Colors.background)
+    .environment(SpeechPlayer.silent())
 }
 
 #Preview("Two senses: apple") {

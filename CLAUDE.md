@@ -88,6 +88,12 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
 
 ## Working with the developer
 
+- **More than 3 commands = one script** (developer's rule, 2026-11-02). When the developer must run more than 3
+  commands for one job (deploy, data import, branch moves...), write them into a script they start with one command,
+  instead of listing the steps. Put it next to what it works on (`scripts/`, `exports/<thing>/`, `backend/scripts/`),
+  with `set -euo pipefail`, a header comment (what it does, where to run it, that it is safe to run again), a short
+  progress line per step, and a check that stops before anything is changed when an input looks wrong. Commit it in
+  the same change. Example: `backend/scripts/deploy.sh`. Up to 3 commands may still be given one per block.
 - **Feature status with every "please test".** When you ask the developer to test, start with a short status
   table of all features (F1-F4 and other user-facing tasks): done and merged, ready to test now, in progress,
   not started. Say exactly which ones this build contains, so they do not test something that is not built.

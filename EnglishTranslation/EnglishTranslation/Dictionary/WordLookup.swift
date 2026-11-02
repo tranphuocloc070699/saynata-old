@@ -24,6 +24,10 @@ protocol WordLooking: Sendable {
     /// Asks only for an answer the server already has, and keeps it in the phone cache (TASK-83.5). Skips bundled words.
     /// Never causes a Claude call, never throws. A miss changes nothing.
     func prefetchCached(_ word: String) async
+
+    /// Only the terms of a word, from the server (TASK-119.6), for a word the bundle answered. Empty when there are
+    /// none, offline, or on any error. Never causes a Claude call.
+    func terms(for word: String) async -> [Term]
 }
 
 extension WordLooking {
@@ -38,6 +42,9 @@ extension WordLooking {
 
     /// Tests use this default: nothing to prefetch.
     func prefetchCached(_ word: String) async {}
+
+    /// Tests use this default: no terms.
+    func terms(for word: String) async -> [Term] { [] }
 }
 
 /// The second step of a word lookup: the local cache and our backend. `BackendClient` is the real one.
@@ -49,11 +56,17 @@ protocol WordFetching: Sendable {
     /// The cached entry for a phrase: the local cache, then `GET /api/words/{phrase}?cachedOnly=true`.
     /// Nil when the server says 404 `not_cached`.
     func cachedEntry(forPhrase phrase: String) async throws -> WordEntry?
+
+    /// Only the terms of a text, `GET /api/terms/{text}` (TASK-119.6). Empty when there are none.
+    func terms(forText text: String) async throws -> [Term]
 }
 
 extension WordFetching {
     /// Tests use this default: no phrase is cached.
     func cachedEntry(forPhrase phrase: String) async throws -> WordEntry? { nil }
+
+    /// Tests use this default: no terms.
+    func terms(forText text: String) async throws -> [Term] { [] }
 }
 
 /// Why a word has no entry. The message is shown to the user as it is.
@@ -88,8 +101,14 @@ struct WordLookup: WordLooking {
     }
 
     func phraseEntry(for phrase: String) async -> WordEntry? {
-        guard let entry = try? await backend.cachedEntry(forPhrase: phrase), !entry.senses.isEmpty else { return nil }
+        guard let entry = try? await backend.cachedEntry(forPhrase: phrase), entry.hasContent else { return nil }
         return entry
+    }
+
+    func terms(for word: String) async -> [Term] {
+        let cleaned = CacheKeys.trimmingWordPunctuation(word)
+        guard !cleaned.isEmpty else { return [] }
+        return (try? await backend.terms(forText: cleaned)) ?? []
     }
 
     func prefetchCached(_ word: String) async {
@@ -116,7 +135,8 @@ struct WordLookup: WordLooking {
         } catch BackendError.badStatus(400, _) {
             throw WordLookupError.notOneWord
         }
-        guard !entry.senses.isEmpty else {
+        // An entry with terms only ("nuxtjs", TASK-119.6) is an answer: the card shows the terms.
+        guard entry.hasContent else {
             throw WordLookupError.notAnEnglishWord(CacheKeys.normalizeWord(word))
         }
         return entry

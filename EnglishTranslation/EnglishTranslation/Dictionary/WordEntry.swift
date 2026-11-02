@@ -15,12 +15,60 @@ struct WordEntry: Codable, Equatable, Sendable {
     let senses: [Sense]
     /// Set when the user typed a form of the word ("ran" for "run"). Nil when they typed the base form.
     let matchedForm: MatchedForm?
+    /// Named things written like the word ("swift": Swift the language, TASK-119), shown below the senses.
+    /// Nil in older saved entries, for bundled words until they arrive, and when the backend has none.
+    let terms: [Term]?
 
-    init(word: String, ipa: String?, senses: [Sense], matchedForm: MatchedForm? = nil) {
+    init(word: String, ipa: String?, senses: [Sense], matchedForm: MatchedForm? = nil, terms: [Term]? = nil) {
         self.word = word
         self.ipa = ipa
         self.senses = senses
         self.matchedForm = matchedForm
+        self.terms = terms
+    }
+
+    /// The terms to show; empty when there are none.
+    var shownTerms: [Term] { terms ?? [] }
+
+    /// True when there is something to show: senses, or terms only ("nuxtjs" is not a word, but it is a term).
+    var hasContent: Bool { !senses.isEmpty || !shownTerms.isEmpty }
+
+    /// The same entry with these terms (a bundled word gets them from the server after it is shown).
+    func withTerms(_ newTerms: [Term]) -> WordEntry {
+        WordEntry(word: word, ipa: ipa, senses: senses, matchedForm: matchedForm, terms: newTerms.isEmpty ? nil : newTerms)
+    }
+}
+
+/// A named thing from any field (Node.js, Nuxt, Stoicism), from Wikidata (TASK-119). The links never come from a model.
+struct Term: Codable, Equatable, Sendable, Identifiable {
+    /// As written, for example "Node.js".
+    let name: String
+    /// What it is, for example "JavaScript runtime".
+    let field: String?
+    /// One simple English sentence. Nil until the server has written one.
+    let simpleDefinition: String?
+    let officialUrl: String?
+    let wikipediaUrl: String?
+
+    init(name: String, field: String? = nil, simpleDefinition: String? = nil,
+         officialUrl: String? = nil, wikipediaUrl: String? = nil) {
+        self.name = name
+        self.field = field
+        self.simpleDefinition = simpleDefinition
+        self.officialUrl = officialUrl
+        self.wikipediaUrl = wikipediaUrl
+    }
+
+    var id: String { "\(name)|\(wikipediaUrl ?? officialUrl ?? "")" }
+
+    /// The official site, only when it is an http(s) address.
+    var officialURL: URL? { Self.webURL(officialUrl) }
+    var wikipediaURL: URL? { Self.webURL(wikipediaUrl) }
+
+    private static func webURL(_ text: String?) -> URL? {
+        guard let text, let url = URL(string: text), let scheme = url.scheme?.lowercased(),
+              scheme == "https" || scheme == "http" else { return nil }
+        return url
     }
 }
 
