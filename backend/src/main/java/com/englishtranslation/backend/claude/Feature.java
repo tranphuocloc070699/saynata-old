@@ -11,5 +11,7 @@ public enum Feature {
     /** The nightly prefill job (TASK-83.1). It has its own cap and does not count toward the users' daily budget. */
     PREFILL,
     /** The language line for a short text (TASK-106.2, POST /api/translate-lines). Counts toward the users' budget. */
-    LINE
+    LINE,
+    /** The photo label (TASK-121.1, POST /api/vision/identify, Gemini with an image). Counts toward the users' budget. */
+    VISION
 }
