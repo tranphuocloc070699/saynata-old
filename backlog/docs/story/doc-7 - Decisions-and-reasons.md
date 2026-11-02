@@ -2,8 +2,8 @@
 id: doc-7
 title: Decisions and reasons
 type: guide
-created_date: '2026-10-11 08:52'
-updated_date: '2026-11-02 15:24'
+created_date: 2026-10-11 08:52
+updated_date: '2026-11-02T15:57:00Z'
 ---
 # Decisions and reasons
 
@@ -47,6 +47,7 @@ Quotes are the developer's words, with spelling fixed.
 | 11-02 | **Camera recognition is a cascade of all three ways** (TASK-120 spike): MobileCLIP on the phone with the dictionary nouns as labels, a small trained layer for Vietnamese dishes, and a vision LLM on the backend when the phone is unsure | "I want to combine all three ways to make sure the results are accurate, fast, and varied" (focus on Vietnamese things like bánh mì, phở) | One way only: COCO YOLO or ML Kit (no "desk", no Vietnamese dishes), LLM only (slow, paid per photo), on-device only (weak on look-alike dishes) | Claude proposed, developer chose |
 
 | 10-22 | An unrecognized single word or compound tries the existing text explanation after its word lookup returns no senses (TASK-94); known words still use word cards | "Users don't know about it, and I want to translate as much as possible rather than require users to follow my rules." The word list misses some useful compounds, so its miss must not end the user's request. | Stop with "not an English word" when the word list misses; add every possible compound to the word list | Developer |
+| 11-02 | **Dish and vision labels are answerable through an allow-list plus the labels the vision endpoint returned** (TASK-121.1): `GET /api/words/{label}` may describe the 30 Vietnamese dishes in `words/dishes.txt` (with or without accents) and every label stored in `vision_identify` for the current vision prompt version, in `VisionLabels`, like a sentence `wordMatch` | Same rule as TASK-114.5: the backend decides what may reach the LLM, so a client cannot spend money on any text. The dishes are 30VNFoods classes, the labels are what Gemini named in a signed-in user's photo. | Dishes as bundled dictionary entries (needs a paid pipeline pass and an app release); terms (TASK-119 terms are named things with official links, not foods); allowing any label from the client (anyone could call the LLM with any text) | Claude, from the task brief |
 
 ## Design
 
