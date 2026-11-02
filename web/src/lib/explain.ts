@@ -70,7 +70,7 @@ export async function fetchResult(
 const NOTHING_TO_EXPLAIN = ["not_a_word", "a_name"];
 
 /**
- * One word: the word API first. When it has nothing (200 without senses, 404 or 422), the sentence API tries it:
+ * One word: the word API first. When it has nothing (200 without senses or terms, 404 or 422), the sentence API tries it:
  * "buồn" is not an English word, but it has a meaning. Throws the error the page should show.
  */
 async function explainWord(
@@ -85,7 +85,7 @@ async function explainWord(
   let wordError: unknown = null;
   try {
     const answer = await api.lookUpWord(word, signal);
-    if (answer.entry?.senses?.length) {
+    if (answer.entry?.senses?.length || answer.terms?.length) {
       report(() => ({ kind: "word", query: raw, word: answer }));
       return;
     }
