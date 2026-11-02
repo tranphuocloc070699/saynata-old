@@ -268,6 +268,34 @@ struct BackendClientTests {
         #expect(entry.matchedForm == MatchedForm(text: "contaminated", type: "past tense"))
     }
 
+    /// TASK-119: the reply may have `terms`; a reply without them (older JSON, most words) has none.
+    @Test func wordReplyDecodesTermsAndOlderRepliesHaveNone() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"word":"nuxtjs","cached":true,"ipa":null,"entry":{"senses":[]},"terms":[{"name":"Nuxt","field":"JavaScript framework","officialUrl":"https://nuxt.com","wikipediaUrl":"https://en.wikipedia.org/wiki/Nuxt.js"}]}"#.utf8)
+
+        let entry = try await client.entry(forWord: "nuxtjs")
+
+        #expect(entry.hasContent)
+        #expect(entry.shownTerms == [Term(name: "Nuxt", field: "JavaScript framework", officialUrl: "https://nuxt.com",
+                                          wikipediaUrl: "https://en.wikipedia.org/wiki/Nuxt.js")])
+        #expect(entry.shownTerms.first?.officialURL == URL(string: "https://nuxt.com"))
+
+        StubURLProtocol.body = wordBody
+        #expect(try await client.entry(forWord: "serendipity").terms == nil)
+    }
+
+    /// TASK-119.6: `GET /api/terms/{text}` for a word the phone answered itself.
+    @Test func termsAreAskedFromTheTermsEndpoint() async throws {
+        StubURLProtocol.status = 200
+        StubURLProtocol.body = Data(#"{"text":"swift","terms":[{"name":"Swift","officialUrl":"https://www.swift.org"}]}"#.utf8)
+
+        let terms = try await client.terms(forText: "Swift")
+
+        #expect(terms.map(\.name) == ["Swift"])
+        let request = try #require(StubURLProtocol.lastRequest)
+        #expect(request.url?.path() == "/api/terms/swift")
+    }
+
     @Test func wordReplyWithoutMatchedFormHasNone() async throws {
         StubURLProtocol.status = 200
         StubURLProtocol.body = wordBody

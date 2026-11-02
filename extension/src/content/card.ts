@@ -3,7 +3,7 @@
  * Order follows the product rule (CLAUDE.md): the text, the simple English meaning, the words,
  * and the target-language row last, closed unless the Show translation setting says otherwise.
  */
-import { MESSAGES, type ApiErrorKind, type Sense, type TranslationResponse, type WordResponse } from "../shared/api";
+import { MESSAGES, type ApiErrorKind, type Sense, type Term, type TranslationResponse, type WordResponse } from "../shared/api";
 import { parseSummary } from "../shared/summary";
 import { languageName, type LanguageCode } from "../shared/languages";
 import { hasLanguageRow, rowContent, type LineState, type RowContent } from "../shared/lines";
@@ -291,9 +291,12 @@ function sentenceBody(state: CardState, actions: CardActions): HTMLElement[] {
 function wordBody(state: CardState, actions: CardActions): HTMLElement[] {
   if (!state.word) return [h("div", { class: "section", "aria-busy": "true" }, ...skeleton(3))];
   const senses = state.word.entry.senses ?? [];
-  if (senses.length === 0) {
+  const terms = state.word.terms ?? [];
+  if (senses.length === 0 && terms.length === 0) {
     return [messageBlock(null, "This doesn't look like an English word.", null, true)];
   }
+  // "nuxtjs": not an English word, but a term (TASK-119.6). Only the terms, and no language row.
+  if (senses.length === 0) return [termSection(terms, "A name")];
   const parts: HTMLElement[] = [];
   senses.forEach((sense, index) => {
     parts.push(
@@ -322,7 +325,42 @@ function wordBody(state: CardState, actions: CardActions): HTMLElement[] {
     );
     parts.push(fold(languageName(state.targetLang), languageRowNodes(content, senses.length > 1, actions), state.rowOpen, actions));
   }
+  // Named things written like the word ("swift": Swift the language), after the senses and the language row.
+  if (terms.length > 0) parts.push(termSection(terms, "Also a name"));
   return parts;
+}
+
+/** Terms (TASK-119.6): name, what it is, a simple sentence, and icon links to the official site and Wikipedia. */
+function termSection(terms: Term[], title: string): HTMLElement {
+  return h(
+    "div",
+    { class: "section terms", role: "group", "aria-label": title },
+    h("div", { class: "label", style: "margin-bottom: 4px" }, title),
+    ...terms.map((term) =>
+      h(
+        "div",
+        { class: "term" },
+        h(
+          "div",
+          { class: "term-text" },
+          h("b", {}, term.name),
+          term.field ? h("span", { class: "term-field" }, term.field) : null,
+          term.simpleDefinition ? h("div", { class: "definition" }, term.simpleDefinition) : null,
+        ),
+        termLink(term.officialUrl, ICONS.globe, `Open the official site of ${term.name}`),
+        termLink(term.wikipediaUrl, ICONS.book, `Open ${term.name} on Wikipedia`),
+      ),
+    ),
+  );
+}
+
+/** An icon-only link that opens in a new tab. Only http(s) addresses; anything else draws nothing. */
+function termLink(url: string | undefined, icon: string, label: string): HTMLElement | null {
+  if (!url || !/^https?:\/\//i.test(url)) return null;
+  const link = h("a", { class: "icon small term-link", href: url, target: "_blank", rel: "noopener noreferrer", "aria-label": label, title: label });
+  link.innerHTML = icon;
+  link.addEventListener("click", (event) => event.stopPropagation());
+  return link;
 }
 
 function languageRowNodes(content: RowContent, numbered: boolean, actions: CardActions): (string | HTMLElement)[] {

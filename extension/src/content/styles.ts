@@ -69,6 +69,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   padding: 1px 8px; white-space: nowrap; flex: none; }
 
 .sense { display: flex; gap: 8px; align-items: flex-start; padding: 6px 14px 4px; }
+.terms { border-top: 1px solid var(--hairline); padding-top: 10px; }
+.term { display: flex; gap: 4px; align-items: flex-start; padding: 4px 0; }
+.term-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.term-field { color: var(--muted); font-size: 13px; }
+.term-link { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
 .num { width: 20px; height: 20px; border-radius: 50%; background: var(--chip); color: var(--accent); font-size: 11px;
   font-weight: 600; display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 2px; }
 .definition { flex: 1; font: 15px/1.5 var(--serif); }

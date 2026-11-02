@@ -140,7 +140,9 @@ final class TranslationStore {
         do {
             let wordLookup = try makeWordLookup()
             lookup = wordLookup
-            await showWord(try await wordLookup.lookUp(word))
+            let entry = try await wordLookup.lookUp(word)
+            await showWord(entry)
+            await addTermsToBundledWord(entry, typed: word, lookup: wordLookup)
         } catch BackendError.signInRequired {
             askForSignIn(text: word)
         } catch WordLookupError.notAnEnglishWord {
@@ -155,6 +157,16 @@ final class TranslationStore {
     private func showWord(_ entry: WordEntry) async {
         state = .loadedWord(entry)
         await history?.record(SavedItem(entry: entry))
+    }
+
+    /// A bundled word never asks the server, so its terms ("swift": Swift the language) come from `GET /api/terms`
+    /// after the card is shown (TASK-119.6). They are added only if the same card is still on screen; offline or on
+    /// an error nothing changes. History is not written again.
+    private func addTermsToBundledWord(_ entry: WordEntry, typed word: String, lookup: any WordLooking) async {
+        guard entry.terms == nil, lookup.bundledEntry(for: word) != nil else { return }
+        let terms = await lookup.terms(for: word)
+        guard !terms.isEmpty, case let .loadedWord(shown) = state, shown == entry else { return }
+        state = .loadedWord(entry.withTerms(terms))
     }
 
     /// The word card for the English word or phrase the backend matched to non-English text (TASK-114).

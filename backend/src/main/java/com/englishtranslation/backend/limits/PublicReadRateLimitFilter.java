@@ -28,7 +28,7 @@ public class PublicReadRateLimitFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return !(path.startsWith("/api/translations") || path.startsWith("/api/words/")
+        return !(path.startsWith("/api/translations") || path.startsWith("/api/words/") || path.startsWith("/api/terms/")
                 || path.equals("/api/suggest") || path.equals("/api/translate-lines"));
     }
 

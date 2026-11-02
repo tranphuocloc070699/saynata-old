@@ -3,11 +3,11 @@ id: doc-19
 title: Browser extension
 type: specification
 created_date: '2026-10-16 09:35'
-updated_date: '2026-10-25 12:38'
+updated_date: '2026-11-02 11:40'
 ---
 # Browser extension
 
-> Status: **built** (TASK-86.1 API client, stream, tests, CI; 86.2 selection icon and card; 86.4 settings popup; 86.3 email-code sign-in). Checked with unit tests and a browser harness that fakes `chrome.*`; not yet loaded unpacked in Brave against the real server. Last traced from code: 2026-10-25 (a word with no senses also goes to the sentence API; 422 codes `not_a_word`/`a_name`, TASK-114.4); before that 2026-10-25 (non-English input: English version as the headline, wordMatch opens the word card, TASK-114.4; before that language row shows the translated headword, TASK-106.8; before that 2026-10-24: language row, TASK-106.4; before that 2026-10-16: sign-in in a tab, saved step, six code boxes: the developer's Brave test found that the popup closed while they read the code).
+> Status: **built** (TASK-86.1 API client, stream, tests, CI; 86.2 selection icon and card; 86.4 settings popup; 86.3 email-code sign-in). Checked with unit tests and a browser harness that fakes `chrome.*`; not yet loaded unpacked in Brave against the real server. Last traced from code: 2026-11-02 (terms: a word card shows "Also a name" below the senses, a term-only answer such as "nuxtjs" shows "A name" instead of the not-English message, icon links to the official site and Wikipedia, only http(s); dotted words like "Node.js" go to the word API: TASK-119.6, [card.ts termSection:334](../../../extension/src/content/card.ts#L334)); before that 2026-10-25 (a word with no senses also goes to the sentence API; 422 codes `not_a_word`/`a_name`, TASK-114.4); before that 2026-10-25 (non-English input: English version as the headline, wordMatch opens the word card, TASK-114.4; before that language row shows the translated headword, TASK-106.8; before that 2026-10-24: language row, TASK-106.4; before that 2026-10-16: sign-in in a tab, saved step, six code boxes: the developer's Brave test found that the popup closed while they read the code).
 > Plan: [doc-16](../doc-16%20-%20Plan-Mac-menu-bar-app-and-browser-extension.md) Part 2, option A. Related: [Sentence translation](doc-4%20-%20Sentence-translation.md) (the stream), [Word lookup](doc-5%20-%20Word-lookup.md), [Accounts and limits](doc-17%20-%20Accounts-and-limits.md).
 
 ## What it does

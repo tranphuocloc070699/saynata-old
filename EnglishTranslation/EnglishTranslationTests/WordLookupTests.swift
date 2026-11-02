@@ -30,6 +30,15 @@ private final class FakeBackend: WordFetching, @unchecked Sendable {
         cachedCalls.append(phrase)
         return try cachedResult.get()
     }
+
+    /// What `GET /api/terms` answers (TASK-119.6), and the texts it was asked about.
+    var termsResult: Result<[Term], Error> = .success([])
+    var termsCalls: [String] = []
+
+    func terms(forText text: String) async throws -> [Term] {
+        termsCalls.append(text)
+        return try termsResult.get()
+    }
 }
 
 private let backendEntry = WordEntry(
@@ -93,6 +102,29 @@ struct WordLookupTests {
         }
         #expect(WordLookupError.notAnEnglishWord("asdkj").localizedDescription
             == "\"asdkj\" is not an English word. Check the spelling.")
+    }
+
+    /// TASK-119.6: "nuxtjs" is not an English word, but it is a term: the entry with terms only is an answer.
+    @Test func anEntryWithOnlyTermsIsAnAnswer() async throws {
+        let nuxt = WordEntry(word: "nuxtjs", ipa: nil, senses: [], terms: [Term(name: "Nuxt", officialUrl: "https://nuxt.com")])
+        let lookup = WordLookup(dictionary: try makeDictionary(), backend: FakeBackend(.success(nuxt)))
+
+        let entry = try await lookup.lookUp("Nuxtjs")
+
+        #expect(entry.senses.isEmpty)
+        #expect(entry.shownTerms.map(\.name) == ["Nuxt"])
+    }
+
+    @Test func termsOfAWordComeFromTheBackendAndAnErrorGivesNone() async throws {
+        let backend = FakeBackend(.success(backendEntry))
+        backend.termsResult = .success([Term(name: "Swift")])
+        let lookup = WordLookup(dictionary: try makeDictionary(), backend: backend)
+
+        #expect(await lookup.terms(for: "Swift!").map(\.name) == ["Swift"])
+        #expect(backend.termsCalls == ["Swift"])
+
+        backend.termsResult = .failure(URLError(.notConnectedToInternet))
+        #expect(await lookup.terms(for: "swift").isEmpty)
     }
 
     @Test func punctuationIsRemovedBeforeEveryStep() async throws {

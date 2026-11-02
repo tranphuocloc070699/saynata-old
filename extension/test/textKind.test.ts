@@ -21,6 +21,11 @@ describe("wordQuery", () => {
     expect(wordQuery("well-known")).toBe("well-known");
   });
 
+  it("keeps dots inside a word, so a term like Node.js is one word (TASK-119.6)", () => {
+    expect(wordQuery("Node.js")).toBe("node.js");
+    expect(wordQuery("node..js")).toBeNull();
+  });
+
   it("is null for two words, or a word with digits", () => {
     expect(wordQuery("big dog")).toBeNull();
     expect(wordQuery("a big dog")).toBeNull();
