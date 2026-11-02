@@ -7,7 +7,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-02 15:19'
-updated_date: '2026-11-02 15:24'
+updated_date: '2026-11-02 15:40'
 labels:
   - ios
   - backend
@@ -24,8 +24,8 @@ The developer wants a camera feature: point the phone at a thing (a desk, a bowl
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 scripts/vision_spike has runnable uv scripts for the zero-shot test and the food layer, with a README of results
-- [ ] #2 README reports top-1/top-5 accuracy and confidence vs. coverage for objects and for Vietnamese dishes
+- [x] #1 scripts/vision_spike has runnable uv scripts for the zero-shot test and the food layer, with a README of results
+- [x] #2 README reports top-1/top-5 accuracy and confidence vs. coverage for objects and for Vietnamese dishes
 - [ ] #3 README compares MobileCLIP with a vision LLM (Gemini) on the same photos
 - [ ] #4 README ends with a recommended cascade and thresholds for the iOS feature
 <!-- AC:END -->
@@ -50,4 +50,6 @@ The developer wants a camera feature: point the phone at a thing (a desk, a bowl
 
 <!-- SECTION:NOTES:BEGIN -->
 Wikimedia Commons blocks the cloud IP (403), so photos come from Hugging Face (30VNFoods CC BY-NC-SA 4.0, ImageNet research-only); none are committed. Zero-shot: objects 57% top-1 / 77% top-5, food 38% / 66%; ≥0.6 confidence answers 40% of photos at 68%. clip_test.py needs NLTK_ALLOW_PROXIED_URLOPEN=1 in cloud sessions. Commit 55eb7e4 used the non-standard type 'research'; not rewritten (no force-push).
+
+Food probe (MobileCLIP2-S2, 2,989 train / 2,515 test photos): 87% top-1 / 98% top-5 vs 49% / 76% zero-shot on the 30 names; confidence ≥0.7 answers 64% at 98%. Results and recommended cascade in scripts/vision_spike/README.md. Remaining: Gemini comparison (AC 3) and final cascade (AC 4).
 <!-- SECTION:NOTES:END -->
