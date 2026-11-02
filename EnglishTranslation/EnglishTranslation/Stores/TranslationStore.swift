@@ -243,6 +243,25 @@ final class TranslationStore {
         await translate()
     }
 
+    /// Camera text mode (TASK-121.3): the picked text goes into the input and through the normal flow (a word card for
+    /// one word, else the sentence result). It came from elsewhere, so the result does not offer a fix.
+    func explainFromCamera(_ text: String) async {
+        useTextFromElsewhere(text)
+        await translate()
+    }
+
+    /// Camera object mode (TASK-121.4): a label ("desk", "bánh mì") always opens a word card, even with a space in it,
+    /// so a dish is not sent down the phrase or sentence path. Same lookup, History and sign-in rules as a typed word.
+    func lookUpCameraLabel(_ label: String) async {
+        let word = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !word.isEmpty else { return }
+        useTextFromElsewhere(word)
+        prefetchTask?.cancel()
+        state = .loading
+        textNeedingSignIn = nil
+        await lookUpWord(word)
+    }
+
     /// The full word card for a word in a sentence result. Uses the bundled entry when there is one,
     /// otherwise the normal lookup (local cache, then backend). The sentence result stays on screen.
     func wordEntry(for word: SentenceWordInfo) async throws -> WordEntry {
