@@ -2,8 +2,8 @@
 id: doc-7
 title: Decisions and reasons
 type: guide
-created_date: '2026-10-11 08:52'
-updated_date: '2026-11-02 11:40'
+created_date: 2026-10-11 08:52
+updated_date: '2026-11-02T16:20:00Z'
 ---
 # Decisions and reasons
 
@@ -63,6 +63,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-23 | **New logo: two cat heads on a teal tile (TASK-95)**: a light cat with a serif Latin "S" and a sage cat with the Japanese "さ" (sa, how Saynata starts), no speech tail, only `Theme.Colors` (Accent tile, Background and ChipFill cats). A cozy, Studio Ghibli feel inspired by the CatMegaBundle pixel cats; no sprite from that paid pack is used. Letters are outlines from SIL OFL fonts (DM Serif Display, Noto Serif JP), made by `scripts/logo/build_logo.py` | "Right now the logo doesn't show that this is a translation app." The developer wanted a Studio Ghibli vibe, cat faces, "a beautiful S from Japanese or another language", and colours from the app palette. Mobbin: two bubbles or two scripts (Google Translate, Apple Translate) say "language". The tail was dropped because it "felt unnatural" | Today's serif S in a circle; a speech bubble with S; pixel, chibi and book cats; one cat-ear bubble with "Aa"; English A and Vietnamese Ă; cats with eyes; a curved or cat-shaped tail; a cream or chip tile; Korean ㅅ, Greek σ, Thai ส, Georgian ს | Developer (cat, Ghibli, two scripts, さ, no tail), Claude (drawings, teal tile, さ) |
 | 10-23 | **Web homepage = direction B**: one reading column, the composer card with a pixel cat on its edge, the result below (TASK-102.1) | The developer asked to build the homepage with GSAP after the brainstorm (artifact P4yQXKHykS8zMhFkFKtHyA), so the recommended direction was taken: it matches the new iOS home (TASK-97), looks like a teacher, not a translator, and the result is the same screen as the future word page. The web cat is our own pixel drawing, because the paid sprite pack would be served to everyone on a public site. | A: two panes like DeepL | Claude, accepted |
 | 10-24 | **The web cat is a Mochi sprite, one per visit, served from the server, never from git** (Dance, Sleeping, Excited, Sick 1 or Box; Box picks one of three) | The developer asked for the purchased Mochi cats on the web, like iOS. The pack has no right to redistribute and the repo is public, and the web build runs in GitHub Actions without a copy, so `scripts/upload-web-cats.sh` puts the 7 PNGs in `/var/lib/saynata/web-cats` and Caddy serves `/cats/`. Without them the site shows its own pixel cat. CSS `steps()` for the loop, so no timer re-renders the page. | PNGs in `web/public` (they would be in git and in every build); keep only the own pixel cat | Developer |
+| 11-02 | **Grammar fix for text the user writes in other apps: option A, the Fix card in the Translate sheet** (mockup `docs/design/mockups/translate-fix-option-a.html`). When the host app allows replacing the selection, the sheet shows the sentence answer's own `better` + `betterWhy` (TASK-110) on top with a Replace button (`context.finish`), the explanation below. Saynata replaces only with corrected English, never with a translation | Reason: not recorded | B: a Saynata keyboard (fewer taps, no paid account, but a new target and little room for the reason); a new `/api/sentence/fix` endpoint with one reason per change (not needed: `better` already exists) | Developer (options by Claude) |
 
 ## Stack
 
@@ -250,3 +251,4 @@ go here as questions.
 - 10-24: Why copy the web build to the VPS (like the admin) instead of pushing an image to GHCR, and is the web app on the root domain loffy.me for good? Reason not recorded (TASK-102.2).
 - 10-25: Why web header option B (History icon + avatar menu) over A and C (TASK-102.8)? Reason not recorded.
 - 10-25: Why replace all Pixabay pictures with AI pictures, and why drop verb clips (TASK-115)? Reason not recorded.
+- 11-02: Why option A (Fix card in the Translate sheet) over B (a Saynata keyboard) for fixing text written in Telegram or Discord? Reason not recorded.
