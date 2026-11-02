@@ -50,6 +50,23 @@ DISHES = {
 }
 
 
+def patch_coremltools_int_cast() -> None:
+    """coremltools fails on `int()` of a 1-element tensor in the traced MobileCLIP2 graph; cast its single value."""
+    import numpy as _np
+    from coremltools.converters.mil.frontend.torch import ops
+    from coremltools.converters.mil import Builder as mb
+    original = ops._cast
+
+    def _cast(context, node, dtype, dtype_name):
+        x = context[node.inputs[0]] if len(node.inputs) == 1 else None
+        if x is not None and x.val is not None and _np.ndim(x.val) > 0 and _np.size(x.val) == 1:
+            context.add(mb.const(val=dtype(_np.asarray(x.val).reshape(())), name=node.name))
+            return
+        return original(context, node, dtype, dtype_name)
+
+    ops._cast = _cast
+
+
 class ImageEncoder(torch.nn.Module):
     """The visual tower plus the length-1 step, so the phone gets a ready vector."""
 
@@ -128,7 +145,9 @@ def main() -> None:
                                     a.train.parent / f"build_{a.model}_{a.per_class}.npy")
 
     print("3/4 Core ML", flush=True)
-    enc = ImageEncoder(model).eval()
+    patch_coremltools_int_cast()
+    from timm.utils.model import reparameterize_model
+    enc = ImageEncoder(reparameterize_model(model)).eval()  # fold the training branches: same output, faster
     traced = torch.jit.trace(enc, torch.rand(1, 3, 256, 256))
     ml = ct.convert(
         traced,
