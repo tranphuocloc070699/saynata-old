@@ -67,7 +67,7 @@ struct CameraTextPanel: View {
 
     private var caption: String {
         if liveTextMissing && store.lines.isEmpty { return "Live text is not available here. Choose a photo." }
-        return store.lines.isEmpty ? "Point the camera at English text" : "Tap the text you want"
+        return store.lines.isEmpty ? "Point the camera at text" : "Tap the text you want"
     }
 }
 
