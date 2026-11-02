@@ -1,0 +1,294 @@
+<title>Saynata Fix Keyboard</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single reading column; the 4-step phone strip and the data-flow diagram break out wider. Colours from Saynata Theme assets. */
+:root{
+  --bg:#F3F5F1; --surface:#FFFFFF; --hair:#D9E0DA; --chip:#DCEBE4;
+  --fg:#1F2A26; --muted:#5F6E67; --accent:#2F6F62; --on-accent:#FFFFFF;
+  --err:#B4432F; --err-bg:#F7E3DE; --ok:#1F6B5F;
+  --kb:#D3D8D4; --key:#FFFFFF; --key-alt:#ABB4AE; --tg:#E7EEF2; --bubble:#EFFDDE;
+  --f-display:"DM Serif Display", Georgia, serif;
+  --f-body:"Figtree", -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141A17; --surface:#1D2521; --hair:#2E3A34; --chip:#24392F;
+  --fg:#E6ECE8; --muted:#9AA9A1; --accent:#5FB3A0; --on-accent:#0E1512;
+  --err:#E58A75; --err-bg:#3A231E; --ok:#6CC3AE;
+  --kb:#2A302D; --key:#4A524E; --key-alt:#3A413D; --tg:#18222A; --bubble:#2B3D26; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141A17; --surface:#1D2521; --hair:#2E3A34; --chip:#24392F;
+  --fg:#E6ECE8; --muted:#9AA9A1; --accent:#5FB3A0; --on-accent:#0E1512;
+  --err:#E58A75; --err-bg:#3A231E; --ok:#6CC3AE;
+  --kb:#2A302D; --key:#4A524E; --key-alt:#3A413D; --tg:#18222A; --bubble:#2B3D26; color-scheme:dark}
+
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:40px 64px}
+.wrap{max-width:1040px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+.col{max-width:680px}
+h1,h2{font-family:var(--f-display);font-weight:400;text-wrap:balance;margin:0;line-height:1.15}
+h1{font-size:clamp(2rem,5vw,2.8rem)}
+h2{font-size:1.6rem}
+p{margin:0}
+.eyebrow{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.lede{color:var(--muted);font-size:1.075rem;margin-top:12px}
+section{display:flex;flex-direction:column;gap:20px}
+code,.mono{font-family:var(--f-mono);font-size:.85em}
+
+/* ---------- Phone strip ---------- */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:24px}
+.step{display:flex;flex-direction:column;gap:12px;min-width:0}
+.step-cap{display:flex;gap:10px;align-items:baseline}
+.step-n{font-family:var(--f-mono);font-size:.8rem;color:var(--accent);font-weight:500}
+.step-cap b{font-weight:600}
+.step-cap span{color:var(--muted);font-size:.9rem}
+.phone{background:var(--surface);border:1px solid var(--hair);border-radius:34px;padding:10px;max-width:260px;width:100%;box-shadow:0 1px 0 var(--hair)}
+.screen{border-radius:26px;overflow:hidden;background:var(--tg);display:flex;flex-direction:column;height:470px}
+.chat-head{padding:14px 14px 10px;font-size:.78rem;font-weight:600;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--hair);background:var(--surface)}
+.avatar{width:22px;height:22px;border-radius:50%;background:var(--chip)}
+.msgs{flex:1;padding:10px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px}
+.bub{align-self:flex-start;background:var(--surface);border-radius:12px;padding:6px 10px;font-size:.74rem;max-width:80%}
+.input{margin:0 8px 8px;background:var(--surface);border:1px solid var(--hair);border-radius:16px;padding:8px 10px;font-size:.78rem;line-height:1.4;min-height:44px}
+.caret{display:inline-block;width:1.5px;height:1em;background:var(--accent);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.input .bad{background:var(--err-bg);color:var(--err);border-radius:3px;padding:0 2px}
+.input .good{background:var(--chip);color:var(--ok);border-radius:3px;padding:0 2px;font-weight:600}
+.input.dim{color:var(--muted)}
+.shimmer{background:linear-gradient(90deg,transparent,var(--chip),transparent);background-size:200% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+
+/* keyboards */
+.kb{background:var(--kb);padding:6px 4px 10px;display:flex;flex-direction:column;gap:5px}
+.row{display:flex;gap:4px;justify-content:center}
+.k{background:var(--key);border-radius:5px;height:28px;flex:1;max-width:20px;font-size:.62rem;display:grid;place-items:center;color:var(--fg)}
+.k.w{max-width:none;flex:1.6;background:var(--key-alt)}
+.k.space{max-width:none;flex:5}
+.k.glow{outline:2px solid var(--accent);outline-offset:1px;background:var(--chip)}
+.bar{display:flex;align-items:center;gap:6px;padding:2px 4px 4px}
+.ib{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--key);border:1px solid var(--hair);color:var(--fg);flex:none}
+.ib.main{width:38px;height:38px;background:var(--accent);color:var(--on-accent);border:none}
+.ib.main.pulse{box-shadow:0 0 0 0 var(--accent);animation:pulse 1.6s infinite}
+@keyframes pulse{70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.ib svg{width:16px;height:16px}
+.bar .grow{flex:1;font-size:.66rem;color:var(--muted);text-align:center}
+.spin{width:16px;height:16px;border:2px solid var(--on-accent);border-right-color:transparent;border-radius:50%;animation:rot .8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.changes{display:flex;flex-direction:column;gap:5px;padding:0 4px 4px}
+.chg{background:var(--key);border-radius:8px;padding:5px 8px;font-size:.64rem;line-height:1.35}
+.chg s{color:var(--err)}
+.chg strong{color:var(--ok)}
+.chg em{display:block;font-style:normal;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important}}
+
+/* ---------- Flow diagram ---------- */
+.flow-scroll{overflow-x:auto;padding-bottom:4px}
+.flow{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:0;align-items:stretch;min-width:820px}
+.node{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.node.hl{border-color:var(--accent)}
+.node h3{margin:0;font-size:.95rem;font-weight:600}
+.node p{font-size:.82rem;color:var(--muted)}
+.node .where{font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.link{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:4px;padding:0 6px;font-family:var(--f-mono);font-size:.68rem;color:var(--muted);text-align:center}
+.link .ar{color:var(--accent);font-size:1rem;line-height:1}
+.flow-row{display:contents}
+.flow{grid-template-columns:minmax(150px,1fr) 90px minmax(150px,1fr) 90px minmax(150px,1fr) 90px minmax(150px,1fr)}
+
+/* ---------- Code + table ---------- */
+pre{margin:0;background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:16px 18px;overflow-x:auto;font-family:var(--f-mono);font-size:.8rem;line-height:1.6;color:var(--fg)}
+pre .c{color:var(--muted)}
+pre .kw{color:var(--accent);font-weight:500}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:.92rem}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--hair);vertical-align:top}
+th{font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td:first-child{font-weight:600;white-space:nowrap}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--chip);color:var(--ok)}
+.pill.warn{background:var(--err-bg);color:var(--err)}
+.note{font-size:.9rem;color:var(--muted)}
+</style>
+
+<div class="wrap">
+
+<header class="col">
+  <div class="eyebrow">Option B · mockup for discussion · not built</div>
+  <h1>Saynata Fix Keyboard</h1>
+  <p class="lede">A Saynata keyboard for iPhone. You write in Telegram or Discord, switch to this keyboard, and tap one button. Saynata reads what you wrote, fixes it, puts the fixed sentence back in the text box, and tells you what changed and why.</p>
+</header>
+
+<section>
+  <div class="col">
+    <h2>What you see</h2>
+  </div>
+  <div class="steps">
+
+    <!-- 1 -->
+    <div class="step">
+      <div class="step-cap"><span class="step-n">1</span><div><b>Type as usual</b><br><span>Normal keyboard. Hold the globe key to switch.</span></div></div>
+      <div class="phone"><div class="screen">
+        <div class="chat-head"><span class="avatar"></span>Minh · Telegram</div>
+        <div class="msgs"><div class="bub">What did you do last weekend?</div></div>
+        <div class="input">I has went to the market yesterday and buy some apple<span class="caret"></span></div>
+        <div class="kb">
+          <div class="row"><span class="k">q</span><span class="k">w</span><span class="k">e</span><span class="k">r</span><span class="k">t</span><span class="k">y</span><span class="k">u</span><span class="k">i</span><span class="k">o</span><span class="k">p</span></div>
+          <div class="row"><span class="k">a</span><span class="k">s</span><span class="k">d</span><span class="k">f</span><span class="k">g</span><span class="k">h</span><span class="k">j</span><span class="k">k</span><span class="k">l</span></div>
+          <div class="row"><span class="k w">⇧</span><span class="k">z</span><span class="k">x</span><span class="k">c</span><span class="k">v</span><span class="k">b</span><span class="k">n</span><span class="k">m</span><span class="k w">⌫</span></div>
+          <div class="row"><span class="k w glow" aria-label="Switch keyboard">🌐</span><span class="k space">space</span><span class="k w">⏎</span></div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 2 -->
+    <div class="step">
+      <div class="step-cap"><span class="step-n">2</span><div><b>Saynata keyboard</b><br><span>Same letters, plus one fix button on top.</span></div></div>
+      <div class="phone"><div class="screen">
+        <div class="chat-head"><span class="avatar"></span>Minh · Telegram</div>
+        <div class="msgs"><div class="bub">What did you do last weekend?</div></div>
+        <div class="input">I has went to the market yesterday and buy some apple<span class="caret"></span></div>
+        <div class="kb">
+          <div class="bar">
+            <span class="ib" aria-label="Undo fix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></span>
+            <span class="grow">Saynata</span>
+            <span class="ib main pulse" aria-label="Fix grammar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg></span>
+          </div>
+          <div class="row"><span class="k">q</span><span class="k">w</span><span class="k">e</span><span class="k">r</span><span class="k">t</span><span class="k">y</span><span class="k">u</span><span class="k">i</span><span class="k">o</span><span class="k">p</span></div>
+          <div class="row"><span class="k">a</span><span class="k">s</span><span class="k">d</span><span class="k">f</span><span class="k">g</span><span class="k">h</span><span class="k">j</span><span class="k">k</span><span class="k">l</span></div>
+          <div class="row"><span class="k w">⇧</span><span class="k">z</span><span class="k">x</span><span class="k">c</span><span class="k">v</span><span class="k">b</span><span class="k">n</span><span class="k">m</span><span class="k w">⌫</span></div>
+          <div class="row"><span class="k w">🌐</span><span class="k space">space</span><span class="k w">⏎</span></div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 3 -->
+    <div class="step">
+      <div class="step-cap"><span class="step-n">3</span><div><b>Tap ✓, Saynata checks</b><br><span>About 1–2 s. The text stays until the fix is ready.</span></div></div>
+      <div class="phone"><div class="screen">
+        <div class="chat-head"><span class="avatar"></span>Minh · Telegram</div>
+        <div class="msgs"><div class="bub">What did you do last weekend?</div></div>
+        <div class="input dim shimmer">I has went to the market yesterday and buy some apple</div>
+        <div class="kb">
+          <div class="bar">
+            <span class="ib" aria-label="Undo fix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></span>
+            <span class="grow">Checking…</span>
+            <span class="ib main" aria-label="Checking"><span class="spin"></span></span>
+          </div>
+          <div class="row"><span class="k">q</span><span class="k">w</span><span class="k">e</span><span class="k">r</span><span class="k">t</span><span class="k">y</span><span class="k">u</span><span class="k">i</span><span class="k">o</span><span class="k">p</span></div>
+          <div class="row"><span class="k">a</span><span class="k">s</span><span class="k">d</span><span class="k">f</span><span class="k">g</span><span class="k">h</span><span class="k">j</span><span class="k">k</span><span class="k">l</span></div>
+          <div class="row"><span class="k w">⇧</span><span class="k">z</span><span class="k">x</span><span class="k">c</span><span class="k">v</span><span class="k">b</span><span class="k">n</span><span class="k">m</span><span class="k w">⌫</span></div>
+          <div class="row"><span class="k w">🌐</span><span class="k space">space</span><span class="k w">⏎</span></div>
+        </div>
+      </div></div>
+    </div>
+
+    <!-- 4 -->
+    <div class="step">
+      <div class="step-cap"><span class="step-n">4</span><div><b>Fixed in place + why</b><br><span>Send it, or tap undo. Start typing to get the letters back.</span></div></div>
+      <div class="phone"><div class="screen">
+        <div class="chat-head"><span class="avatar"></span>Minh · Telegram</div>
+        <div class="msgs"><div class="bub">What did you do last weekend?</div></div>
+        <div class="input">I <span class="good">went</span> to the market yesterday and <span class="good">bought</span> some <span class="good">apples</span>.<span class="caret"></span></div>
+        <div class="kb">
+          <div class="bar">
+            <span class="ib" aria-label="Undo fix"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></span>
+            <span class="grow">3 fixes</span>
+            <span class="ib main" aria-label="Fix grammar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L20 7"/></svg></span>
+          </div>
+          <div class="changes">
+            <div class="chg"><s>has went</s> → <strong>went</strong><em>"Yesterday" is finished time: use the past simple.</em></div>
+            <div class="chg"><s>buy</s> → <strong>bought</strong><em>Both actions are in the past.</em></div>
+            <div class="chg"><s>apple</s> → <strong>apples</strong><em>"Some" + a countable noun: use the plural.</em></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+
+  </div>
+  <p class="note col">In step 4 the keyboard swaps its letters for the change list. Tapping any letter area or the ✓ again brings the keys back. Highlights in the text box are only for this mockup: a keyboard can't colour text inside another app.</p>
+</section>
+
+<section>
+  <div class="col">
+    <h2>How it works inside</h2>
+    <p class="lede">iOS gives a keyboard one door into the text box: <code>textDocumentProxy</code>. It can read the text around the cursor, delete characters, and insert text. That's enough to swap the sentence.</p>
+  </div>
+  <div class="flow-scroll">
+    <div class="flow">
+      <div class="node">
+        <span class="where">Telegram / Discord</span>
+        <h3>Text box</h3>
+        <p>The other app owns it. Saynata never sees the app itself, only the text near the cursor.</p>
+      </div>
+      <div class="link"><span>read</span><span class="ar">⇄</span><span>delete + insert</span></div>
+      <div class="node hl">
+        <span class="where">New target · iPhone</span>
+        <h3>SaynataKeyboard</h3>
+        <p>Keyboard extension. Reads the text before and after the cursor, shows ✓, and swaps the text when the fix comes back.</p>
+      </div>
+      <div class="link"><span>HTTPS</span><span class="ar">→</span><span>needs Full Access</span></div>
+      <div class="node">
+        <span class="where">backend · new</span>
+        <h3>POST /api/sentence/fix</h3>
+        <p>Checks the limits first (<code>ClaudeGate</code>), then asks the model. No cache, since every sentence is different.</p>
+      </div>
+      <div class="link"><span>prompt</span><span class="ar">→</span><span>JSON</span></div>
+      <div class="node">
+        <span class="where">LLM</span>
+        <h3>deepseek-flash</h3>
+        <p>Returns the fixed sentence and a list of changes, each with a short B1-level reason.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col" style="display:flex;flex-direction:column;gap:12px">
+    <p class="eyebrow">The swap, in Swift (sketch)</p>
+<pre><span class="kw">let</span> proxy  = textDocumentProxy
+<span class="kw">let</span> before = proxy.documentContextBeforeInput ?? ""
+<span class="kw">let</span> after  = proxy.documentContextAfterInput  ?? ""
+<span class="kw">let</span> fix    = <span class="kw">try await</span> api.fixSentence(before + after)
+
+<span class="c">// put the cursor at the end, then delete the old text</span>
+proxy.adjustTextPosition(byCharacterOffset: after.count)
+<span class="kw">for</span> _ <span class="kw">in</span> 0..&lt;(before.count + after.count) { proxy.deleteBackward() }
+proxy.insertText(fix.corrected)
+
+<span class="c">// keep the old text, so the undo button can swap it back</span>
+lastOriginal = before + after</pre>
+    <p class="eyebrow" style="margin-top:8px">Backend answer</p>
+<pre>{
+  "corrected": "I went to the market yesterday and bought some apples.",
+  "changes": [
+    { "from": "has went", "to": "went",   "why": "\"Yesterday\" is finished time: use the past simple." },
+    { "from": "buy",      "to": "bought", "why": "Both actions are in the past." },
+    { "from": "apple",    "to": "apples", "why": "\"Some\" + a countable noun: use the plural." }
+  ]
+}</pre>
+  </div>
+</section>
+
+<section>
+  <div class="col"><h2>The catches</h2></div>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Topic</th><th>What happens</th><th>Impact</th></tr></thead>
+      <tbody>
+        <tr><td>How much text</td><td>iOS gives the keyboard only the text near the cursor, usually the current paragraph. Fine for chat messages; long messages may be cut.</td><td><span class="pill ok">fine for chat</span></td></tr>
+        <tr><td>Full Access</td><td>A keyboard needs "Allow Full Access" to use the network. iOS shows a scary warning when you turn it on.</td><td><span class="pill warn">one-time setup</span></td></tr>
+        <tr><td>Where it can't run</td><td>Password fields, phone-number pads, and apps that block third-party keyboards. Telegram and Discord allow them.</td><td><span class="pill ok">fine</span></td></tr>
+        <tr><td>Sign-in</td><td>The keyboard needs your account token. Sharing it with the app needs App Groups / keychain sharing, which needs the paid account (<code>PAID_ACCOUNT=1</code>). With a free Apple ID, the keyboard has to sign in on its own.</td><td><span class="pill warn">check this first</span></td></tr>
+        <tr><td>Memory</td><td>Keyboard extensions have a tight memory limit. Keep it small: no word cards or pictures inside it, only the fix and the change list.</td><td><span class="pill ok">design for it</span></td></tr>
+        <tr><td>App Store</td><td>Apple expects a keyboard to actually type, so it needs a full set of letters, not just the ✓ button. Not an issue on your own phone.</td><td><span class="pill warn">more work to ship</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="col">
+  <h2>What gets built</h2>
+  <p>1. Backend: <code>POST /api/sentence/fix</code> with a new prompt and prompt version, through <code>ClaudeGate</code>. The Mac Service and option A reuse it.<br>
+  2. iOS: a new <code>SaynataKeyboard</code> target with the letter keys, the ✓ and undo buttons, and the change list. Both buttons are icon-only with VoiceOver labels.<br>
+  3. Settings page in the app: "Add the Saynata keyboard" steps (Settings → General → Keyboard → Keyboards → Add, then Allow Full Access).</p>
+</section>
+
+</div>
