@@ -1,0 +1,78 @@
+# TASK-119.2: terms to fetch from Wikidata. One name per line; a name that means several things takes a hint after "|"
+# that its Wikidata description must contain. Build: cd pipeline && uv run python -m pipeline.terms
+
+# Software: languages
+JavaScript | programming language
+TypeScript | programming language
+Python | programming language
+Java | programming language
+Kotlin | programming language
+Swift | programming language
+Rust | programming language
+Go | programming language
+Ruby | programming language
+PHP | language
+C++ | programming language
+C# | programming language
+Dart | programming language
+SQL | language
+
+# Software: frameworks, runtimes and tools
+Node.js
+Deno | runtime
+Bun | runtime
+React | JavaScript
+Vue.js
+Nuxt | framework
+Next.js
+Angular | framework
+Svelte | framework
+Django | framework
+Flask | framework
+Laravel | framework
+Spring Framework
+Spring Boot
+Ruby on Rails
+Express.js
+Tailwind CSS
+Vite | build
+webpack
+Docker | software
+Kubernetes
+PostgreSQL
+MySQL
+Redis | database
+MongoDB
+Git | version control
+GitHub
+Linux | kernel
+SwiftUI
+Flutter | software
+GraphQL
+Elasticsearch
+Nginx
+Terraform | software
+
+# Psychology
+cognitive dissonance
+confirmation bias
+Dunning–Kruger effect
+impostor syndrome
+cognitive behavioral therapy
+Maslow's hierarchy of needs
+growth mindset
+placebo | effect
+Stockholm syndrome
+flow | psychology
+
+# Philosophy
+Stoicism
+existentialism
+nihilism
+utilitarianism
+epistemology
+Occam's razor
+trolley problem
+categorical imperative
+absurdism
+determinism
