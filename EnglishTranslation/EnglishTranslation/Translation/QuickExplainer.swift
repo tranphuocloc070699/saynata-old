@@ -12,7 +12,7 @@ enum QuickExplainResult: Equatable, Sendable {
     case word(WordEntry)
     /// A sentence and its explanation.
     case sentence(String, Explanation)
-    /// Text the app does not explain (empty, too long, not English). Shown as a title and a short message.
+    /// Text the app does not explain (empty, too long, or a 422 from the server). Shown as a title and a short message.
     case problem(title: String, message: String)
     /// A guest asked for an answer that is not cached (401 `sign_in_required`). `localWords` are the sentence's
     /// bundled dictionary words, shown so the card is not empty.
@@ -63,10 +63,6 @@ struct QuickExplainer {
         case .word, .sentence:
             break
         }
-        guard Self.looksLikeEnglish(cleaned) else {
-            return .problem(title: "Not English", message: "Saynata explains English text. Type or paste some English, then try again.")
-        }
-
         let lookup = try? makeWordLookup()
         if let word = CacheKeys.wordQuery(cleaned) {
             return await explainWord(word, lookup: lookup)
@@ -126,6 +122,11 @@ struct QuickExplainer {
             let language = language
             // `explain` answers from the phone cache first, so a cached sentence never waits for the network.
             let explanation = try await withTimeLimit { try await translator.explain(sentence, translatingTo: language) }
+            // One non-English word or idiom: show the word card. A failed or empty lookup keeps the sentence card.
+            if let match = explanation.wordMatchQuery,
+               let entry = try? await withTimeLimit({ try await lookup?.lookUp(match) }), !entry.senses.isEmpty {
+                return .word(entry)
+            }
             return .sentence(sentence, explanation)
         } catch {
             return result(for: error, text: sentence, localWords: localWords)
@@ -164,20 +165,6 @@ struct QuickExplainer {
             // The first task to finish wins; the other one is cancelled.
             return try await group.next()!
         }
-    }
-
-    /// False for text that is clearly not English, so it never costs a backend call: no Latin letters at all
-    /// ("你好"), or three or more words that the on-device recognizer is sure are another language
-    /// ("Tôi muốn đi học"). Short or mixed text gets the benefit of the doubt; the server checks again.
-    nonisolated static func looksLikeEnglish(_ text: String) -> Bool {
-        let hasLatinLetter = text.unicodeScalars.contains { ("a"..."z").contains($0) || ("A"..."Z").contains($0) }
-        guard hasLatinLetter else { return false }
-
-        guard text.split(whereSeparator: \.isWhitespace).count >= 3 else { return true }
-        let recognizer = NLLanguageRecognizer()
-        recognizer.processString(text)
-        guard let (language, confidence) = recognizer.languageHypotheses(withMaximum: 1).first else { return true }
-        return language == .english || confidence < 0.9
     }
 }
 

@@ -12,7 +12,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.englishtranslation.backend.cache.CacheKeys;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.claude.NotEnglishException;
 import com.englishtranslation.backend.lines.LineTranslationRepository;
@@ -44,7 +44,7 @@ class OtherLanguageSentenceTest {
     @Autowired
     LineTranslationRepository lines;
     @Autowired
-    ClaudeProperties properties;
+    LlmProperties properties;
     @Autowired
     JsonMapper jsonMapper;
 
@@ -65,7 +65,7 @@ class OtherLanguageSentenceTest {
 
     @Test
     void vietnameseSentenceAnswersWithTheEnglishVersionFirstAndKeepsTheTypedText() {
-        when(claude.explainSentence(SAD_TODAY)).thenReturn(vietnameseSentence());
+        when(claude.explainSentence(eq(SAD_TODAY), any())).thenReturn(vietnameseSentence());
         when(claude.translateLinesAllLanguages(List.of(SAD_TODAY))).thenReturn(LinesFixtures.every("Hôm nay tôi buồn"));
 
         TranslationResponse response = service.translate(SAD_TODAY, TargetLanguage.JA);
@@ -81,8 +81,8 @@ class OtherLanguageSentenceTest {
 
     @Test
     void theJsonHasEnglishAndSourceLangFirstAndEnglishInputIsUnchanged() {
-        when(claude.explainSentence(SAD_TODAY)).thenReturn(vietnameseSentence());
-        when(claude.explainSentence("Hello there")).thenReturn(new Explanation("A hello.", List.of(), ""));
+        when(claude.explainSentence(eq(SAD_TODAY), any())).thenReturn(vietnameseSentence());
+        when(claude.explainSentence(eq("Hello there"), any())).thenReturn(new Explanation("A hello.", List.of(), ""));
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(LinesFixtures.every("x"));
 
         String vietnamese = jsonMapper.writeValueAsString(service.translate(SAD_TODAY, TargetLanguage.VI));
@@ -98,7 +98,7 @@ class OtherLanguageSentenceTest {
     @Test
     void japaneseSentenceIsAnsweredTheSameWay() {
         String typed = "ありがとうございます";
-        when(claude.explainSentence(typed)).thenReturn(new Explanation("Thank you very much.", "ja", null,
+        when(claude.explainSentence(eq(typed), any())).thenReturn(new Explanation("Thank you very much.", "ja", null,
                 "The person says thanks politely.", List.of(), null, null, ""));
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(LinesFixtures.every("Cảm ơn"));
 
@@ -111,7 +111,7 @@ class OtherLanguageSentenceTest {
 
     @Test
     void singleWordWithAMatchReturnsTheWordMatch() {
-        when(claude.explainSentence("buồn")).thenReturn(new Explanation("sad", "vi", "sad", "Feeling unhappy.",
+        when(claude.explainSentence(eq("buồn"), any())).thenReturn(new Explanation("sad", "vi", "sad", "Feeling unhappy.",
                 List.of(), null, null, ""));
 
         TranslationResponse response = service.translate("buồn", TargetLanguage.VI);
@@ -125,7 +125,7 @@ class OtherLanguageSentenceTest {
 
     @Test
     void theWordMatchComesBackFromTheCacheToo() {
-        when(claude.explainSentence("buồn")).thenReturn(new Explanation("sad", "vi", "sad", "Feeling unhappy.",
+        when(claude.explainSentence(eq("buồn"), any())).thenReturn(new Explanation("sad", "vi", "sad", "Feeling unhappy.",
                 List.of(), null, null, ""));
 
         service.translate("buồn", TargetLanguage.VI);
@@ -134,13 +134,13 @@ class OtherLanguageSentenceTest {
         assertThat(again.cached()).isTrue();
         assertThat(again.explanation().wordMatch()).isEqualTo("sad");
         assertThat(again.explanation().sourceLang()).isEqualTo("vi");
-        verify(claude, times(1)).explainSentence(anyString());
+        verify(claude, times(1)).explainSentence(anyString(), any());
     }
 
     @Test
     void singleWordWithoutAMatchHasNoWordMatchAndTheSentenceResultIsReturned() {
         String typed = "nhớ nhà";
-        when(claude.explainSentence(typed)).thenReturn(new Explanation("I miss home.", "vi", null,
+        when(claude.explainSentence(eq(typed), any())).thenReturn(new Explanation("I miss home.", "vi", null,
                 "The person wants to be home.", List.of(), null, null, ""));
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(LinesFixtures.every("x"));
 
@@ -153,7 +153,7 @@ class OtherLanguageSentenceTest {
 
     @Test
     void codeAndGibberishAreRejectedAndNothingIsCached() {
-        when(claude.explainSentence("asdkj qwe zzxq")).thenThrow(NotEnglishException.notAWord());
+        when(claude.explainSentence(eq("asdkj qwe zzxq"), any())).thenThrow(NotEnglishException.notAWord());
 
         assertThatThrownBy(() -> service.translate("asdkj qwe zzxq", TargetLanguage.VI))
                 .isInstanceOf(NotEnglishException.class)
@@ -166,9 +166,9 @@ class OtherLanguageSentenceTest {
 
     @Test
     void twoWordingsWithTheSameEnglishShareOneEnglishPart() {
-        when(claude.explainSentence(SAD_TODAY)).thenReturn(vietnameseSentence());
+        when(claude.explainSentence(eq(SAD_TODAY), any())).thenReturn(vietnameseSentence());
         // The second wording gets the same English back, but its own summary text must not replace the saved one.
-        when(claude.explainSentence(SAD_TODAY_OTHER_WORDS)).thenReturn(new Explanation("I feel sad today.", "vi", null,
+        when(claude.explainSentence(eq(SAD_TODAY_OTHER_WORDS), any())).thenReturn(new Explanation("I feel sad today.", "vi", null,
                 "Someone is very sad now.", List.of(), null, null, ""));
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(LinesFixtures.every("x"));
 
@@ -186,7 +186,7 @@ class OtherLanguageSentenceTest {
 
     @Test
     void theSameTypedTextAgainIsAHitWithoutCallingClaude() {
-        when(claude.explainSentence(SAD_TODAY)).thenReturn(vietnameseSentence());
+        when(claude.explainSentence(eq(SAD_TODAY), any())).thenReturn(vietnameseSentence());
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(LinesFixtures.every("x"));
 
         service.translate(SAD_TODAY, TargetLanguage.JA);
@@ -195,12 +195,12 @@ class OtherLanguageSentenceTest {
         assertThat(again.cached()).isTrue();
         assertThat(again.explanation().english()).isEqualTo("I feel sad today.");
         assertThat(again.explanation().sourceLang()).isEqualTo("vi");
-        verify(claude, times(1)).explainSentence(anyString());
+        verify(claude, times(1)).explainSentence(anyString(), any());
     }
 
     @Test
     void anEnglishLearnerTypingTheEnglishVersionGetsNoLanguageFields() {
-        when(claude.explainSentence(SAD_TODAY)).thenReturn(vietnameseSentence());
+        when(claude.explainSentence(eq(SAD_TODAY), any())).thenReturn(vietnameseSentence());
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(LinesFixtures.every("x"));
         service.translate(SAD_TODAY, TargetLanguage.JA);
 
@@ -214,7 +214,7 @@ class OtherLanguageSentenceTest {
 
     @Test
     void cachedOnlyFindsATypedTextBySavedAliasButNeverAsksClaude() {
-        when(claude.explainSentence(SAD_TODAY)).thenReturn(vietnameseSentence());
+        when(claude.explainSentence(eq(SAD_TODAY), any())).thenReturn(vietnameseSentence());
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(LinesFixtures.every("x"));
         service.translate(SAD_TODAY, TargetLanguage.JA);
 
@@ -223,12 +223,12 @@ class OtherLanguageSentenceTest {
         assertThat(hit.explanation().english()).isEqualTo("I feel sad today.");
         assertThatThrownBy(() -> service.translate("Một câu khác", TargetLanguage.JA, true))
                 .isInstanceOf(com.englishtranslation.backend.cache.NotCachedException.class);
-        verify(claude, times(1)).explainSentence(anyString());
+        verify(claude, times(1)).explainSentence(anyString(), any());
     }
 
     @Test
     void streamingGivesTheMeaningEventsAndEnglishFieldsInTheDonePayload() {
-        when(claude.explainSentenceStreaming(eq(SAD_TODAY), any())).thenAnswer(call -> {
+        when(claude.explainSentenceStreaming(eq(SAD_TODAY), any(), any())).thenAnswer(call -> {
             java.util.function.Consumer<String> onText = call.getArgument(1);
             onText.accept("{\"sourceLang\":\"vi\",\"english\":\"I feel sad today.\",\"wordMatch\":\"\",");
             onText.accept("\"summary\":\"The person feels unhappy today.\",\"better\":\"\"}");

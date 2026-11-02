@@ -2,7 +2,7 @@ package com.englishtranslation.backend.word;
 
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.cache.NotCachedException;
-import com.englishtranslation.backend.claude.ClaudeProperties;
+import com.englishtranslation.backend.claude.LlmProperties;
 import com.englishtranslation.backend.claude.ClaudeService;
 import com.englishtranslation.backend.limits.ClaudeGate;
 import com.englishtranslation.backend.limits.PrefillContext;
@@ -30,7 +30,7 @@ public class WordService {
 
     private final WordLookupRepository repository;
     private final ClaudeService claude;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
     private final JsonMapper jsonMapper;
 
     private final EnglishWords englishWords;
@@ -44,7 +44,7 @@ public class WordService {
     private final SentenceSourceAliasRepository aliases;
     private final WordForms forms;
 
-    public WordService(WordLookupRepository repository, ClaudeService claude, ClaudeProperties properties,
+    public WordService(WordLookupRepository repository, ClaudeService claude, LlmProperties properties,
             JsonMapper jsonMapper, EnglishWords englishWords,
             IpaDictionary ipaDictionary, SimpleWords simpleWords,
             BackendWordMediaService mediaService, SenseMediaReader mediaReader,
@@ -112,18 +112,8 @@ public class WordService {
             return timing.time("lookup", () -> cachedPhrase(normalized));
         }
 
-        // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
-        // Nothing is saved, so a later update of the word list can fix a missing word.
-        if (!fromWordMatch && !englishWords.contains(normalized)) {
-            Optional<WordAnswer> asForm = timing.time("lookup", () -> formAnswer(normalized));
-            if (asForm.isPresent()) {
-                return asForm.get();
-            }
-            log.debug("'{}' is not on the English word list, Claude not called", normalized);
-            return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
-                    WordAnswer.Origin.NOT_A_WORD);
-        }
-
+        // The cache is read before the word list (TASK-83.16): the local collection pushes tech terms such as "vue"
+        // that are not on the list, and they must be answered. Claude is still never called for such a word.
         String cacheKey = CacheKeys.key("word", properties.wordPromptVersion(), normalized);
 
         Optional<WordLookup> saved = timing.time("lookup", () -> repository.findByCacheKey(cacheKey));
@@ -131,10 +121,19 @@ public class WordService {
             return new WordAnswer(response(normalized, readEntry(saved.get()), true, mediaOf(saved.get().getId())),
                     WordAnswer.Origin.CACHED);
         }
-        // A form of a bundled or cached word ("ran", "contaminated"): the lemma's entry, and Claude is not called.
+        // A form of a bundled or cached word ("ran", "contaminated"): the lemma's entry, and Claude is not called
+        // (TASK-118). It is checked after the exact cache, so a word with its own entry ("glasses") keeps it.
         Optional<WordAnswer> asForm = timing.time("lookup", () -> formAnswer(normalized));
         if (asForm.isPresent()) {
             return asForm.get();
+        }
+
+        // Not a real word: answer "no senses" (the app shows "not an English word") without calling Claude.
+        // Nothing is saved, so a later update of the word list can fix a missing word.
+        if (!fromWordMatch && !englishWords.contains(normalized)) {
+            log.debug("'{}' is not on the English word list and not cached, Claude not called", normalized);
+            return new WordAnswer(new WordResponse(normalized, new WordEntryView(List.of()), false, null),
+                    WordAnswer.Origin.NOT_A_WORD);
         }
         if (cachedOnly) {
             throw new NotCachedException();

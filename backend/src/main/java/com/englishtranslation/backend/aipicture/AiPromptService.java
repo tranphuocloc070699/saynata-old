@@ -3,12 +3,12 @@ package com.englishtranslation.backend.aipicture;
 import com.englishtranslation.backend.admin.AdminWord;
 import com.englishtranslation.backend.admin.AdminWordId;
 import com.englishtranslation.backend.admin.AdminWordService;
-import com.englishtranslation.backend.claude.ClaudeService;
-import com.englishtranslation.backend.claude.ClaudeUsageService;
 import com.englishtranslation.backend.common.ApiException;
-import com.englishtranslation.backend.limits.ClaudeGate;
 import com.englishtranslation.backend.word.WordEntry;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -29,8 +29,8 @@ import tools.jackson.databind.json.JsonMapper;
  * The prompt the admin edits before an AI picture is drawn (TASK-91). Two ways to get it:
  * <ul>
  * <li>{@link #prompt}: the newest media-ai scene of the sense, else the template (no Claude call, no cost);</li>
- * <li>{@link #newScene}: the wand. Claude Sonnet 5.5 writes a new scene (about $0.02), through the Claude gate and a
- * daily cap of its own.</li>
+ * <li>{@link #newScene}: the wand. Codex writes a new scene (TASK-117: no API money; the pictures-per-day cap
+ * protects the ChatGPT plan).</li>
  * </ul>
  * The prompt is the INNER image prompt. The Codex wrapper text is added by the server when it runs Codex.
  */
@@ -64,22 +64,18 @@ public class AiPromptService {
 
     private final AdminWordService words;
     private final JdbcClient jdbc;
-    private final ClaudeService claude;
-    private final ClaudeGate gate;
-    private final ClaudeUsageService claudeUsage;
+    private final SceneWriter sceneWriter;
     private final AiPictureProperties properties;
     private final AiPictureJobs jobs;
     private final JsonMapper json;
     private final String sceneVersion;
 
-    public AiPromptService(AdminWordService words, JdbcClient jdbc, ClaudeService claude, ClaudeGate gate,
-            ClaudeUsageService claudeUsage, AiPictureProperties properties, AiPictureJobs jobs, JsonMapper json,
+    public AiPromptService(AdminWordService words, JdbcClient jdbc, SceneWriter sceneWriter,
+            AiPictureProperties properties, AiPictureJobs jobs, JsonMapper json,
             @Value("${app.claude.scene-prompt-version:" + AiPrompts.VERSION + "}") String sceneVersion) {
         this.words = words;
         this.jdbc = jdbc;
-        this.claude = claude;
-        this.gate = gate;
-        this.claudeUsage = claudeUsage;
+        this.sceneWriter = sceneWriter;
         this.properties = properties;
         this.jobs = jobs;
         this.json = json;
@@ -118,20 +114,18 @@ public class AiPromptService {
     }
 
     /**
-     * POST: Claude Sonnet writes a new scene. Checks the users' daily budget (ClaudeGate) and the wand's own daily
-     * cap (ADMIN spend today under app.media.ai.scene-daily-usd) before the call. A method "none" (the sense cannot be
+     * POST: Codex writes a new scene (no API money; the pictures-per-day cap protects the ChatGPT plan). A method "none" (the sense cannot be
      * drawn) is a 422 not_drawable.
      */
     public PromptAnswer newScene(String wordId, int position) {
         SenseView view = sense(wordId, position);
-        gate.checkBudget();
-        if (claudeUsage.adminSpentToday().compareTo(properties.sceneDailyUsd()) >= 0) {
-            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "ai_budget_reached",
-                    "The wand has reached today's limit ($" + properties.sceneDailyUsd().toPlainString()
-                            + "). Edit the prompt by hand, or try again tomorrow.");
+        String answer;
+        try {
+            answer = sceneWriter.write(AiPrompts.SCENE_SYSTEM,
+                    AiPrompts.sceneMessage(view.word(), view.sense(), view.others()));
+        } catch (DrawException e) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "ai_scene_failed", e.getMessage());
         }
-        String answer = claude.writePictureScene(AiPrompts.SCENE_SYSTEM,
-                AiPrompts.sceneMessage(view.word(), view.sense(), view.others()));
         JsonNode scene = parseScene(answer);
         String method = text(scene, "method").strip().toLowerCase(Locale.ROOT);
         if (!AiPrompts.METHODS.contains(method)) {
@@ -150,10 +144,15 @@ public class AiPromptService {
                 null, usage());
     }
 
+    private static Instant startOfToday() {
+        return LocalDate.now(ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC);
+    }
+
     /** The caps of the day, in the shape the dialog shows. */
     public Usage usage() {
-        return new Usage(jobs.countSince(claudeUsage.startOfToday()), properties.picturesPerDay(),
-                claudeUsage.adminSpentToday(), properties.sceneDailyUsd());
+        // The scene is written by Codex now (TASK-117): no dollars. The two fields stay so the admin page keeps working.
+        return new Usage(jobs.countSince(startOfToday()), properties.picturesPerDay(), BigDecimal.ZERO,
+                BigDecimal.ZERO);
     }
 
     // ---- helpers ----

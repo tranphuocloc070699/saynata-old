@@ -210,20 +210,30 @@ class AdminSourcesTest {
     }
 
     @Test
-    void queueRefusesItemsThatAreNotInTheUploadNamesAndEmptyPicks() throws Exception {
+    void queueRefusesItemsThatAreNotInTheUploadAndEmptyPicks() throws Exception {
         long id = idOf(uploadBook());
 
         mockMvc.perform(post("/api/admin/sources/" + id + "/queue").cookie(cookie)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"kind\":\"word\",\"text\":\"zebra\"}]}"))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(post("/api/admin/sources/" + id + "/queue").cookie(cookie)
-                .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"kind\":\"name\",\"text\":\"alice\"}]}"))
-                .andExpect(status().isBadRequest());
+                .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"kind\":\"word\",\"text\":\"alice\"}]}"))
+                .andExpect(status().isBadRequest()); // alice is a name in this upload, not a word
         mockMvc.perform(post("/api/admin/sources/" + id + "/queue").cookie(cookie)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[]}")).andExpect(status().isBadRequest());
         mockMvc.perform(post("/api/admin/sources/99999/queue").cookie(cookie)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"kind\":\"word\",\"text\":\"a\"}]}"))
                 .andExpect(status().isNotFound());
         assertThat(queue.count()).isEqualTo(1); // only the "wander" row of the test setup
+    }
+
+    @Test
+    void aPickedNameIsQueuedAsAWord() throws Exception {
+        long id = idOf(uploadBook());
+
+        mockMvc.perform(post("/api/admin/sources/" + id + "/queue").cookie(cookie)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"items\":[{\"kind\":\"name\",\"text\":\"alice\"}]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.queued").value(1));
+        assertThat(queue.findByKindAndTextAndTargetLang(PrefillItem.WORD, "alice", "")).isPresent();
     }
 }

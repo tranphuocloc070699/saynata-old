@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-10-25 15:23'
+updated_date: '2026-10-26 10:44'
 ---
 # Decisions and reasons
 
@@ -214,6 +214,9 @@ Quotes are the developer's words, with spelling fixed.
 | 10-25 | Web home chips = the user's recent words plus hot words (looked up by 2+ people lately), no duplicates; sentences are left out | Reason: not recorded. | Newest History items of any kind | Developer |
 | 10-25 | **Replace every Pixabay picture with an AI picture on production** (TASK-115): verbs also get a still AI picture and their clips are dropped; senses that fail the meaning check get a hand upload or `image_type none`, never a Pixabay fallback; backend words are included; old Pixabay files stay on the server until most users run the new app | Reason: not recorded. Developer asked for the plan and accepted the recommendations. Lost options: keep clips for verbs, Pixabay fallback for failed senses |
 | 10-25 | **New backend words get no picture** after Pixabay is off (TASK-115.1): `PIXABAY_API_KEY` stays empty on production and the admin Pick another button is removed; a capped AI picture job for new words can come later | Reason: not recorded. Chosen by the agent as the default; no capped job was built. Lost option: capped AI job per new word | Agent (confirm with developer) |
+| 10-25 | **The backend jar is built in GitHub Actions and copied to the VPS with rsync; the Dockerfile is only the JRE runtime stage. The three deploy jobs run in parallel after a `prepare` job, and unchanged parts are skipped** (`fix/deploy-speed`) | Deploys failed twice on 2026-10-24: the prune of build cache (1 GB kept) also deleted the JDK stage and the Maven layer, so the VPS pulled the 348 s JDK image again at 0.4 MB/s and passed the 360 s limit. Deploys went from 2-3 minutes to 7-13. Building on GitHub (Maven cache) leaves only a ~10 s `COPY` on the server | Push the image to GHCR and pull it on the server (needs a registry login on the VPS, and the pull is still slow); keep more build cache (the disk filled up on 2026-10-24); a bigger disk | Reason: not recorded in the developer's words (plan approved by the developer) |
+| 10-25 | **A person's name alone gets its own message** (TASK-114.6): text that is only a person's name is a 422 with code `a_name` ("This looks like a person's name, so there is nothing to explain."); code and gibberish are a 422 with code `not_a_word`. Everything else is explained in any language | The developer asked for it: say clearly when the text is not a word, and when it is only a name. | One shared message for names and gibberish | Developer |
+| 10-26 | **Backend LLMs: DeepSeek direct is the main model, Gemini the fallback, Codex writes the picture scenes** (TASK-117): a benchmark on 2026-10-26 showed DeepSeek direct with thinking off is fastest (first text 0.6-0.8 s, total 1.3-1.5 s) with Vietnamese quality equal to Gemini; Gemini 3.5 flash-lite answers when DeepSeek fails before any text is streamed; Codex with the ChatGPT login is free and already draws the pictures. The `.env` is grouped into five sections by job and the six `CLAUDE_*` keys are gone | The developer wanted the speed, the setup clear at a glance, and no money spent on picture scenes. | STEYG with Haiku (slow first text, 3.4 s); Gemini as the main model (first byte up to 2.2 s, no Anthropic endpoint); Claude Sonnet for scenes (costs money) | Developer |
 
 ## Questions answered
 

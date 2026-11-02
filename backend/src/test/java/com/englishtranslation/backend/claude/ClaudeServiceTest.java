@@ -55,7 +55,7 @@ class ClaudeServiceTest {
     @Test
     void sentencePromptWritesOnlyEnglish() {
         assertThat(onOneLine(ClaudeService.SENTENCE_PROMPT))
-                .contains("You write only English")
+                .contains("You write English, except for the line field")
                 .doesNotContain("translation of the text itself");
     }
 
@@ -85,7 +85,7 @@ class ClaudeServiceTest {
         assertThat(schema).contains("sourceLang", "english", "wordMatch", "summary", "better", "betterWhy")
                 .doesNotContain("words", "isEnglish");
         assertThat(SentenceAnswer.class.getRecordComponents()).extracting(c -> c.getName())
-                .containsExactly("sourceLang", "english", "wordMatch", "summary", "better", "betterWhy");
+                .containsExactly("sourceLang", "english", "wordMatch", "summary", "better", "betterWhy", "line");
     }
 
     @Test

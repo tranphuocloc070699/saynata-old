@@ -25,18 +25,18 @@ public class ClaudeWarmUp {
     private static final Logger log = LoggerFactory.getLogger(ClaudeWarmUp.class);
 
     private final ClaudeService claude;
-    private final ClaudeProperties properties;
+    private final LlmProperties properties;
     private final boolean enabled;
     private final Executor executor;
 
     @Autowired
-    public ClaudeWarmUp(ClaudeService claude, ClaudeProperties properties,
+    public ClaudeWarmUp(ClaudeService claude, LlmProperties properties,
             @Value("${app.claude.warm-up:true}") boolean enabled) {
         this(claude, properties, enabled, backgroundThread());
     }
 
     /** The executor can be replaced in a test. */
-    ClaudeWarmUp(ClaudeService claude, ClaudeProperties properties, boolean enabled, Executor executor) {
+    ClaudeWarmUp(ClaudeService claude, LlmProperties properties, boolean enabled, Executor executor) {
         this.claude = claude;
         this.properties = properties;
         this.enabled = enabled;

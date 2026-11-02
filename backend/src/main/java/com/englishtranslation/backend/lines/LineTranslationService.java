@@ -159,6 +159,32 @@ public class LineTranslationService {
         }
     }
 
+    /** True when a sentence call should also write the line for this language (not English, not too long). */
+    public boolean wantsLine(TargetLanguage lang, String normalizedText) {
+        return lang != null && lang != TargetLanguage.EN && !normalizedText.isEmpty()
+                && normalizedText.length() <= MAX_TEXT;
+    }
+
+    /**
+     * The line the sentence call wrote for this text (TASK-115): save it like a line from the line call, so a later
+     * {@link #lineFor} finds it, and return it. With {@code store} false (personal text) nothing is saved.
+     * A saved line is never replaced; when one exists, the saved one is returned.
+     */
+    public String keepLine(TargetLanguage lang, String normalizedText, String line, boolean store) {
+        if (!store) {
+            return line;
+        }
+        String hash = hash(normalizedText);
+        Optional<LineTranslation> saved = lines
+                .findByTargetLangAndPromptVersionAndTextHashIn(lang.code(), promptVersion, Set.of(hash)).stream()
+                .findFirst();
+        if (saved.isPresent()) {
+            return saved.get().getTranslation();
+        }
+        save(lang, hash, normalizedText, promptVersion, line);
+        return line;
+    }
+
     private void checkGate(boolean alreadyGated) {
         if (alreadyGated) {
             gate.checkBudget();

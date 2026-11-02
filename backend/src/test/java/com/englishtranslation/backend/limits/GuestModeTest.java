@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.limits;
 
+import static org.mockito.ArgumentMatchers.eq;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -67,8 +68,8 @@ class GuestModeTest {
         sentences.deleteAll();
         usageRows.deleteAll();
         rateLimiter.reset();
-        when(claude.explainSentence(anyString())).thenReturn(EXPLANATION);
-        when(claude.explainSentenceStreaming(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentence(anyString(), any())).thenReturn(EXPLANATION);
+        when(claude.explainSentenceStreaming(anyString(), any(), any())).thenReturn(EXPLANATION);
     }
 
     private ResultActions guestTranslate(String text, String ip) throws Exception {
@@ -83,7 +84,7 @@ class GuestModeTest {
         guestTranslate("A brand new sentence", "203.0.113.1").andExpect(status().isOk())
                 .andExpect(jsonPath("$.cached").value(false));
 
-        verify(claude).explainSentence(anyString());
+        verify(claude).explainSentence(anyString(), any());
     }
 
     @Test
@@ -96,7 +97,7 @@ class GuestModeTest {
                 .andExpect(header().exists("Retry-After"))
                 .andExpect(jsonPath("$.code").value("rate_limited"));
 
-        verify(claude, times(2)).explainSentence(anyString());
+        verify(claude, times(2)).explainSentence(anyString(), any());
         // Another guest IP is not affected, and a cache hit never counts.
         guestTranslate("Third new sentence", "203.0.113.2").andExpect(status().isOk());
         guestTranslate("First new sentence", "203.0.113.1").andExpect(status().isOk());
