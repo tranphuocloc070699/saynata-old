@@ -2,7 +2,7 @@
 //  LiveTextScanner.swift
 //  EnglishTranslation
 //
-//  Live camera text for text mode (TASK-121.3): VisionKit's DataScannerViewController finds English lines; each
+//  Live camera text for text mode (TASK-121.3): VisionKit's DataScannerViewController finds lines of text; each
 //  update goes to `CameraTextStore` and a tap on a line picks it.
 //
 
@@ -15,9 +15,16 @@ struct LiveTextScanner: UIViewControllerRepresentable {
     /// False on devices without the Neural Engine features VisionKit needs, and in the simulator.
     static var isSupported: Bool { DataScannerViewController.isSupported }
 
+    /// `CameraText.languages` that this phone's live text knows (TASK-121.6); English when none is listed.
+    static var languages: [String] {
+        let known = Set(DataScannerViewController.supportedTextRecognitionLanguages)
+        let wanted = CameraText.languages.filter { known.contains($0) }
+        return wanted.isEmpty ? ["en-US"] : wanted
+    }
+
     func makeUIViewController(context: Context) -> DataScannerViewController {
         let scanner = DataScannerViewController(
-            recognizedDataTypes: [.text(languages: ["en-US"])],
+            recognizedDataTypes: [.text(languages: Self.languages)],
             qualityLevel: .balanced,
             recognizesMultipleItems: true,
             isHighFrameRateTrackingEnabled: false,

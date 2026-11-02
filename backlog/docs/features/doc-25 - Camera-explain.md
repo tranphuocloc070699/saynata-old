@@ -3,7 +3,7 @@ id: doc-25
 title: Camera explain
 type: other
 created_date: '2026-11-02T16:10:00Z'
-updated_date: '2026-11-02T16:33:00Z'
+updated_date: '2026-11-02T16:45:00Z'
 ---
 # Camera explain
 
@@ -56,7 +56,7 @@ sequenceDiagram
 |---|---|---|
 | Camera button | [TranslateInputView.swift:38](../../../EnglishTranslation/EnglishTranslation/Views/Translate/Subviews/TranslateInputView.swift#L38) | icon-only `camera` button left of Explain; [TranslateView.swift:60](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L60) opens `CameraScreen` as a full-screen cover |
 | Screen | [CameraScreen.swift:33](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L33) | asks for the camera once, mode switch ([:162](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L162)), photo picker ([:231](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L231)); the feed runs only in object mode with no photo while the app is active ([:223](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L223)); a result closes the screen and hands off ([:216](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraScreen.swift#L216)) |
-| Live text | [LiveTextScanner.swift:70](../../../EnglishTranslation/EnglishTranslation/Views/Camera/LiveTextScanner.swift#L70) | VisionKit `DataScannerViewController` (en-US, highlighting on); lines numbered and made 0...1 like Vision's boxes; a tap picks a line ([:64](../../../EnglishTranslation/EnglishTranslation/Views/Camera/LiveTextScanner.swift#L64)) |
+| Live text | [LiveTextScanner.swift:70](../../../EnglishTranslation/EnglishTranslation/Views/Camera/LiveTextScanner.swift#L70) | VisionKit `DataScannerViewController` (the same languages, as far as the phone supports them; highlighting on); lines numbered and made 0...1 like Vision's boxes; a tap picks a line ([:64](../../../EnglishTranslation/EnglishTranslation/Views/Camera/LiveTextScanner.swift#L64)) |
 | Camera frames | [CameraFeed.swift:74](../../../EnglishTranslation/EnglishTranslation/Camera/CameraFeed.swift#L74) | `AVCaptureSession` 1280×720, at most 4 frames a second turned into `CGImage` off the main thread |
 | Bottom card | [CameraPanels.swift:34](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraPanels.swift#L34), [:74](../../../EnglishTranslation/EnglishTranslation/Views/Camera/CameraPanels.swift#L74) | text: picked text, "Use all text", Explain; objects: sure row, 3 chips and "Ask AI what this is" |
 | Image vector | [ImageEmbedding.swift:35](../../../EnglishTranslation/EnglishTranslation/Camera/ImageEmbedding.swift#L35) | `MobileCLIPEmbedder` loads `MobileCLIPImage.mlmodelc` once (compute units `.all`), center-crops to 256×256, returns the length-1 vector |
@@ -66,7 +66,7 @@ sequenceDiagram
 | Throttle and steadiness | [CameraObjectStore.swift:66](../../../EnglishTranslation/EnglishTranslation/Camera/CameraObjectStore.swift#L66) | drops frames while busy or within 1/3 s; a new label must win 2 analyses in a row; missing model files → `isUnavailable` |
 | Ask AI | [CameraObjectStore.swift:100](../../../EnglishTranslation/EnglishTranslation/Camera/CameraObjectStore.swift#L100) | newest frame → `SmallJPEG` (long side ≤ 768 px, quality 0.7) → `identify`; errors become `message` (sign-in, limits) |
 | Upload | [VisionIdentifying.swift:31](../../../EnglishTranslation/EnglishTranslation/Camera/VisionIdentifying.swift#L31) | multipart field `image`, Bearer token through `sendChecked` |
-| Photo text | [CameraText.swift:29](../../../EnglishTranslation/EnglishTranslation/Camera/CameraText.swift#L29) | `VisionTextReader`: accurate, `en-US`, language correction; lines in reading order |
+| Photo text | [CameraText.swift:29](../../../EnglishTranslation/EnglishTranslation/Camera/CameraText.swift#L29) | `VisionTextReader`: accurate, language correction, the language detected among English and the app's target languages (`CameraText.languages`, TASK-121.6); lines in reading order. Text in another language goes to the sentence flow, which answers with the English version and its simple English explanation (prompt v12+) |
 | Joining | [CameraText.swift:57](../../../EnglishTranslation/EnglishTranslation/Camera/CameraText.swift#L57) | cut words joined ("exam-" + "ple"), spaces collapsed, cut at 500 characters at a sentence end |
 | Text hand-off | [TranslationStore.swift:248](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L248) | `explainFromCamera`: text from elsewhere (no "better version" offer), normal `translate()` |
 | Label hand-off | [TranslationStore.swift:255](../../../EnglishTranslation/EnglishTranslation/Stores/TranslationStore.swift#L255) | `lookUpCameraLabel`: always the word path, so "bánh mì" is not sent down the phrase or sentence path |
@@ -95,7 +95,7 @@ sequenceDiagram
 | Photo over 2 MB / not JPEG or PNG | `VisionService` | 413 `file_too_large` / 400 `invalid_image` | message under the chips (the app sends ≤ 768 px, so this should not happen) |
 | Gemini failed or no key | `VisionService` | 502 `vision_failed` / 503 `vision_unavailable` | message under the chips |
 | Model files missing or broken | `CameraObjectStore` | none | object mode unavailable, text mode still works |
-| No text in a photo | `CameraTextStore` | none | "No English text found in this photo." |
+| No text in a photo | `CameraTextStore` | none | "No text found in this photo." |
 
 ## Tests
 

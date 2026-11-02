@@ -43,6 +43,12 @@ struct CameraTextJoinTests {
         #expect(lines.map(\.id) == [0, 1, 2])
     }
 
+    @Test func readsEnglishFirstAndTheTargetLanguages() {
+        #expect(CameraText.languages.first == "en-US")
+        #expect(CameraText.languages.contains("vi-VT"))
+        #expect(CameraText.languages.contains("ko-KR"))
+    }
+
     @Test func cutWordsAreJoined() {
         #expect(CameraText.joined(["Please keep the exam-", "ple short."]) == "Please keep the example short.")
     }

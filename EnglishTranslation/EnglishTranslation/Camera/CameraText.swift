@@ -24,13 +24,16 @@ protocol PhotoTextReading: Sendable {
     func lines(in image: CGImage, orientation: CGImagePropertyOrientation) async throws -> [RecognizedLine]
 }
 
-/// iOS 18 Vision `RecognizeTextRequest`, accurate level, English with language correction.
+/// iOS 18 Vision `RecognizeTextRequest`, accurate level, with language correction. Vision finds the language itself
+/// (TASK-121.6): text in Vietnamese or Korean goes to the sentence flow, which gives the English version and its simple
+/// English explanation (prompt v12+), so nothing else changes.
 struct VisionTextReader: PhotoTextReading {
     func lines(in image: CGImage, orientation: CGImagePropertyOrientation) async throws -> [RecognizedLine] {
         var request = RecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = true
-        request.recognitionLanguages = [Locale.Language(identifier: "en-US")]
+        request.automaticallyDetectsLanguage = true
+        request.recognitionLanguages = CameraText.languages.map { Locale.Language(identifier: $0) }
         let observations = try await request.perform(on: image, orientation: orientation)
         let texts = observations.compactMap { observation -> (String, CGRect)? in
             guard let text = observation.topCandidates(1).first?.string else { return nil }
@@ -41,6 +44,9 @@ struct VisionTextReader: PhotoTextReading {
 }
 
 enum CameraText {
+    /// The languages the camera reads: English first, then the app's target languages (Vision and VisionKit codes).
+    static let languages = ["en-US", "vi-VT", "zh-Hans", "zh-Hant", "ja-JP", "ko-KR", "fr-FR", "es-ES", "de-DE"]
+
     /// Top to bottom, then left to right; ids follow that order.
     static func inReadingOrder(_ texts: [(String, CGRect)]) -> [RecognizedLine] {
         let sorted = texts.sorted { a, b in
@@ -92,7 +98,7 @@ final class CameraTextStore {
         self.reader = reader
     }
 
-    static let noTextMessage = "No English text found in this photo."
+    static let noTextMessage = "No text found in this photo."
 
     /// Reads a library photo. The old lines and picks are cleared first.
     func readPhoto(_ image: CGImage, orientation: CGImagePropertyOrientation = .up) async {
