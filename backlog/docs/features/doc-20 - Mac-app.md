@@ -14,7 +14,7 @@ updated_date: '2026-11-03T01:21:00Z'
 
 Saynata lives in the Mac menu bar, with no Dock icon. A click on the book icon opens a popover under it (420 × 560 pt). The shortcut ⌥⇧Space opens the same content in a floating panel near the top middle of the screen, like Spotlight. Both put the cursor in the input box. Type a word or a sentence and press Return: the result is the same as on the iPhone, the simple English explanation first, then the words, then the target language, folded.
 
-In any app, select text, then right-click → Services → **Explain with Saynata**: the popover opens and explains it. Settings → Start → **Open at login** starts Saynata with the Mac.
+In any app, select text, then right-click → Services → **Explain with Saynata**: the popover opens and explains it. Or select text and press **⌘⇧E** (the Services item's default shortcut, `NSKeyEquivalent` in Info.plist, 2026-11-03): no ⌘C, the clipboard is not touched, and it works in the sandbox. An app's own ⌘⇧E wins over it; the user can change the keys in System Settings → Keyboard → Keyboard Shortcuts → Services. Settings → Start → **Open at login** starts Saynata with the Mac.
 
 ## Big picture
 
@@ -62,7 +62,7 @@ Apple's Books guide lists no Services item in the right-click menu on a selectio
 1. **Select, ⌘C, ⌥⇧Space.** [CopiedTextWatcher.swift](../../../EnglishTranslation/SaynataMac/CopiedTextWatcher.swift) notes when the clipboard changes (it reads only the change count every half second). On the shortcut, a copy from the last 20 seconds is read once, cleaned by [CopiedText.swift](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedText.swift) (Books adds "Excerpt From … This material may be protected by copyright." and curly quotes), and explained. Saynata's own Copy button is ignored. Settings → Shortcut → **Explain copied text** turns it off.
 2. **Books menu → Services → Explain with Saynata** in the menu bar, when Books offers it for the selection.
 
-Reading the selection with no ⌘C would need Accessibility permission. Sandboxed apps cannot reliably get it (Apple forum reports), so it would mean turning off the sandbox. Not built.
+Reading the selection with no ⌘C would need Accessibility permission. Sandboxed apps cannot reliably get it (Apple forum reports), so it would mean turning off the sandbox. Not built: the app is meant for the Mac App Store (doc-7, 11-03). In apps with Services, ⌘⇧E reads the selection without the clipboard.
 
 ## Sign-in and storage
 

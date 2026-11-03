@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: 2026-10-11 08:52
-updated_date: '2026-11-03T00:20:00Z'
+updated_date: '2026-11-03T01:20:00Z'
 ---
 # Decisions and reasons
 
@@ -223,6 +223,7 @@ Quotes are the developer's words, with spelling fixed.
 | 11-02 | **More than 3 commands = one script** for the developer (CLAUDE.md, saynata-old only) | "Whenever you have more than 3 commands, compile them into a script that I can run with just one command." | Numbered steps, one command per block | Developer |
 | 11-02 | **Sentence result: simple first** (TASK-124, mockup B, iOS and web): the original is one grey line "Original: …" that opens on tap; the simple summary is the headline; "Better way to say it" is shown open | "I want to hide the original sentence, prioritize the simple version and the better version if there is one, but still show some text to expand the original, because right now seeing the original feels annoying"; then "I will go with option B" | A (original as a closed row above the language row); keep the original as the headline | Developer |
 | 11-03 | **The Mac app stays sandboxed, so no reading of the selection through Accessibility**: selected text reaches Saynata only through Services (a keyboard shortcut can be given to the Services item) or ⌘C then ⌥⇧Space | "I want to put it on the Mac App Store later" | Accessibility API with the sandbox off and a notarized download outside the App Store (how PopClip and Easydict work) | Developer |
+| 11-03 | **Mac: ⌘⇧E explains the selected text** (the Services item's default key); ⌥⇧Space keeps opening the panel | "Okay, so keep. I'll go with option A" (after hearing that an app can only suggest ⌘ shortcuts for Services and that ⌥⇧Space is the panel's key) | B: move the panel to ⌃⇧Space and let the user set ⌥⇧Space for Services in System Settings, with a hint in Saynata's settings | Developer |
 
 ## Questions answered
 
