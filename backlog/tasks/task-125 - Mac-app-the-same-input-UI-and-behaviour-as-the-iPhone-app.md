@@ -5,6 +5,7 @@ status: To Do
 assignee:
   - '@claude'
 created_date: '2026-11-03T00:22:00Z'
+updated_date: '2026-11-03T00:23:00Z'
 labels:
   - mac
 dependencies: []
@@ -31,3 +32,9 @@ The developer wants the Mac app (menu-bar popover and the ⌥⇧Space panel, Eng
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+11-03: the developer also asked for the Mac logo to match the iPhone. In git the Mac app icon (AppIcon mac-*.png) and the menu-bar icon (MenuBarIcon, template) are already the TASK-95 two-cat logo; an old icon on the Mac is usually a stale build or the macOS icon cache. If the developer means the in-app branding (the cat on the iPhone composer), include it in the mockup.
+<!-- SECTION:NOTES:END -->
