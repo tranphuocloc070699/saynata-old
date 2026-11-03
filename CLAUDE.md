@@ -35,6 +35,7 @@ force-push and pushes to main in every permission mode.
 Full test suites: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` (the Postgres tests need `TEST_DATABASE_URL`, else they are skipped) · `cd admin && npm test` · `cd extension && npm test` · `cd web && npm test` · iOS in Xcode (⌘U). While working, run only the tests of the part you changed (see "Saving time and tokens").
 Merge a PR when CI is green: `scripts/merge-when-green.sh <PR>` (no Claude chat needed).
 Install on the developer's real iPhone (build, then install or replace; open it by hand): `scripts/install-on-phone.sh` (free Apple ID: signs without App Groups and the default-translation-app capability; `PAID_ACCOUNT=1` for the real entitlements).
+Install the Mac app on this Mac (build, replace, register the Services item, open it): `scripts/install-on-mac.sh` (`CONFIG=Debug`, `INSTALL_DIR=/Applications`, `AD_HOC=1` when Apple ID signing fails).
 Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 
 **Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
@@ -164,4 +165,4 @@ and more expensive.
 - **Short briefs.** A subagent or new session gets a fresh, short brief (files, goal, what done looks like), not a
   fork of a long chat. Use Sonnet for mechanical work (merges, doc updates, backlog notes, small test fixes).
 - **Routine jobs are scripts.** Merging when CI is green, deploys and phone installs run from scripts
-  (`scripts/merge-when-green.sh`, `scripts/install-on-phone.sh`), not from a long chat.
+  (`scripts/merge-when-green.sh`, `scripts/install-on-phone.sh`, `scripts/install-on-mac.sh`), not from a long chat.
