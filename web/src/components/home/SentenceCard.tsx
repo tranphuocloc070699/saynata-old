@@ -1,6 +1,7 @@
 "use client";
 /**
- * The sentence result, like the iOS SentenceCard (TASK-89.2): the original with tappable words (a tap opens the
+ * The sentence result, like the iOS SentenceCard (TASK-89.2; TASK-124 mockup B: simple first, the original as one grey
+ * line that opens, the better version shown open): the original with tappable words (a tap opens the
  * word in WordSheet, over the result), the simple summary ("In simple words") that grows while it streams, the key
  * words, "Better way to say it" (closed, TASK-110) when the text has a real mistake, then the target language
  * closed and last. It mounts once the first meaning piece arrives; Home shows a skeleton before that, so a text
@@ -33,6 +34,8 @@ type Props = {
 export function SentenceCard({ text: typed, meaning, explanation, targetLang, translating = false, onWord }: Props) {
   const speech = useSpeech();
   const [copied, setCopied] = useState(false);
+  // TASK-124 (mockup B): the original starts as one grey line; the simple version is the headline.
+  const [originalOpen, setOriginalOpen] = useState(false);
   const [{ showTranslation }] = useSettings();
   const [startOpen] = useState(() => translationRowOpen(showTranslation));
   const streaming = explanation === null;
@@ -53,30 +56,54 @@ export function SentenceCard({ text: typed, meaning, explanation, targetLang, tr
   return (
     <div className="flex flex-col gap-1">
       <article className="flex flex-col gap-3 rounded-[22px] border border-hairline bg-surface p-4 shadow-[0_1px_2px_rgb(0_0_0/0.04),0_10px_30px_-12px_rgb(31_42_38/0.18)] sm:p-5">
-        <div data-reveal className="flex items-start gap-2">
-          <p className="flex-1 font-serif text-[1.25rem] leading-snug">
-            {tokens(text).map((token, i) =>
-              token.word ? (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => onWord(token.word!)}
-                  className="cursor-pointer rounded underline decoration-muted decoration-dotted underline-offset-4 hover:bg-chip hover:text-accent"
-                >
-                  {token.text}
-                </button>
-              ) : (
-                <span key={i}>{token.text}</span>
-              ),
-            )}
-          </p>
-          <ListenButton text={text} speech={speech} />
+        <div data-reveal className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={() => setOriginalOpen((open) => !open)}
+            aria-expanded={originalOpen}
+            className="flex min-h-11 w-full cursor-pointer items-center gap-1.5 text-left text-[0.8125rem] text-muted hover:text-ink-2"
+          >
+            <span className="shrink-0 font-semibold">Original:</span>
+            {!originalOpen && <span className="min-w-0 flex-1 truncate">{text}</span>}
+            {originalOpen && <span className="flex-1" />}
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className={`size-3 shrink-0 transition-transform ${originalOpen ? "rotate-180" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.6"
+              strokeLinecap="round"
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          {originalOpen && (
+            <div className="flex items-start gap-2">
+              <p className="flex-1 font-serif text-[1.0625rem] leading-relaxed">
+                {tokens(text).map((token, i) =>
+                  token.word ? (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => onWord(token.word!)}
+                      className="cursor-pointer rounded underline decoration-muted decoration-dotted underline-offset-4 hover:bg-chip hover:text-accent"
+                    >
+                      {token.text}
+                    </button>
+                  ) : (
+                    <span key={i}>{token.text}</span>
+                  ),
+                )}
+              </p>
+              <ListenButton text={text} speech={speech} />
+            </div>
+          )}
         </div>
-        <div className="h-px bg-hairline" />
         <div data-reveal className="flex flex-col gap-1" aria-live="polite" aria-busy={streaming}>
           <div className="flex items-start gap-2">
             {summary ? (
-              <Summary text={summary} streaming={streaming} />
+              <Summary text={summary} streaming={streaming} headline />
             ) : (
               <div className="flex flex-1 flex-col gap-2 py-1.5" aria-label="Writing the explanation">
                 <span className="h-3 w-11/12 animate-pulse rounded bg-meaning motion-reduce:animate-none" />
@@ -87,6 +114,15 @@ export function SentenceCard({ text: typed, meaning, explanation, targetLang, tr
           </div>
           <span className="text-xs text-muted">In simple words</span>
         </div>
+        {explanation?.better && (
+          <div data-reveal className="flex flex-col gap-1">
+            <div className="h-px bg-hairline" />
+            <span className="pt-2 text-[0.7rem] font-semibold tracking-wider text-muted uppercase">
+              Better way to say it
+            </span>
+            <BetterVersion text={typed} better={explanation.better} why={explanation.betterWhy} speech={speech} />
+          </div>
+        )}
         {explanation && explanation.words.length > 0 && (
           <div data-reveal className="flex flex-col gap-1">
             <span className="text-[0.7rem] font-semibold tracking-wider text-muted uppercase">Words</span>
@@ -105,13 +141,6 @@ export function SentenceCard({ text: typed, meaning, explanation, targetLang, tr
                 </li>
               ))}
             </ul>
-          </div>
-        )}
-        {explanation?.better && (
-          <div data-reveal>
-            <FoldedRow title="Better way to say it">
-              <BetterVersion text={typed} better={explanation.better} why={explanation.betterWhy} speech={speech} />
-            </FoldedRow>
           </div>
         )}
         {explanation && targetLang !== "en" && (translating || explanation.translation) && (
@@ -148,7 +177,7 @@ export function SentenceCard({ text: typed, meaning, explanation, targetLang, tr
 }
 
 /** The summary's small Markdown (bullets and bold) without its markers, like iOS SummaryMarkup. */
-function Summary({ text, streaming }: { text: string; streaming: boolean }) {
+function Summary({ text, streaming, headline = false }: { text: string; streaming: boolean; headline?: boolean }) {
   // Lines in order; bullets next to each other share one list.
   const blocks: SummaryLine[][] = [];
   for (const line of summaryLines(text)) {
@@ -168,7 +197,7 @@ function Summary({ text, streaming }: { text: string; streaming: boolean }) {
       ),
     );
   return (
-    <div className="flex flex-1 flex-col gap-1.5 font-serif text-[1.0625rem] leading-relaxed">
+    <div className={`flex flex-1 flex-col gap-1.5 font-serif ${headline ? "text-[1.25rem] leading-snug" : "text-[1.0625rem] leading-relaxed"}`}>
       {blocks.map((block, b) => {
         const caret = streaming && b === blocks.length - 1;
         return block[0].bullet ? (

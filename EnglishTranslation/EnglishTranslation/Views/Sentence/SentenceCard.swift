@@ -5,12 +5,11 @@
 
 import SwiftUI
 
-/// The sentence result (TASK-89.2, mockup Option B): one card with
-/// - the sentence the user typed (serif, larger) and its Listen button;
-/// - a hairline;
-/// - the simple summary (serif) with its own Listen button, and the small caption "In simple words";
-/// - when the text has a real mistake, the folded row "Better way to say it" (closed): the fixed text with the
-///   changed words in bold, its Listen and Copy buttons, and one line that says why (TASK-110);
+/// The sentence result (TASK-124, mockup B of 2026-11-02, simple first): one card with
+/// - one grey line "Original: …" (cut to one line); a tap opens the full sentence with its Listen button;
+/// - the simple summary as the headline (serif, larger) with Listen and Like, and the caption "In simple words";
+/// - when the text has a real mistake, "Better way to say it", shown open: the fixed text with the changed words in
+///   bold, its Listen and Copy buttons, and one line that says why (TASK-110);
 /// - the target language, folded and closed (CLAUDE.md "Product rule"), last.
 /// Under the card, on the right, one Copy button for the original sentence.
 ///
@@ -42,8 +41,8 @@ struct SentenceCard: View {
     @State private var isTranslationOpen = TranslationRowPreference().startsOpen
     /// True for a moment after Copy, so the icon shows a check mark.
     @State private var didCopy = false
-    /// "Better way to say it" starts closed, like the language row.
-    @State private var isBetterOpen = false
+    /// The original sentence starts as one grey line (TASK-124).
+    @State private var isOriginalOpen = false
     @State private var didCopyBetter = false
 
     private let sentenceSpeechID = "sentence"
@@ -64,26 +63,14 @@ struct SentenceCard: View {
 
     private var card: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
-            HStack(alignment: .top, spacing: Theme.Spacing.small) {
-                SentenceTextView(text: sentence, style: .original, language: language, loadWordEntry: loadWordEntry)
-                    .speechHighlight(isPlaying: speechPlayer.currentID == sentenceSpeechID)
-                    .padding(.top, Theme.Spacing.small)
-                HStack(spacing: Theme.Spacing.small) {
-                    listenButton(text: sentence, id: sentenceSpeechID, label: "Listen to the sentence")
-                    // Only for a finished answer: the summary is what the Liked list shows.
-                    if translation != nil {
-                        LikeButton(item: SavedItem(kind: .sentence, text: savedText ?? sentence, preview: SummaryMarkup(summary).plainText))
-                    }
-                }
-            }
-
-            HairlineDivider()
+            originalBlock
 
             summaryBlock
 
-            // Only with the finished answer, so the row does not appear in the middle of the stream.
+            // Only with the finished answer, so the block does not appear in the middle of the stream.
             if translation != nil, let better {
-                betterRow(better)
+                HairlineDivider()
+                betterBlock(better)
             }
 
             // No translation yet (the answer is still streaming): the row appears when the full result arrives.
@@ -106,6 +93,45 @@ struct SentenceCard: View {
         .cardSurface()
     }
 
+    /// "Original: …" in one grey line; a tap shows the whole sentence (words still tappable) and its Listen button.
+    @ViewBuilder
+    private var originalBlock: some View {
+        Button {
+            withAnimation(.snappy) { isOriginalOpen.toggle() }
+        } label: {
+            HStack(spacing: Theme.Spacing.xSmall) {
+                Text("Original:")
+                    .fontWeight(.semibold)
+                if !isOriginalOpen {
+                    Text(sentence)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .imageScale(.small)
+                    .rotationEffect(.degrees(isOriginalOpen ? 180 : 0))
+            }
+            .font(.footnote)
+            .foregroundStyle(Theme.Colors.textMuted)
+            .frame(minHeight: Theme.minTapTarget)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isOriginalOpen ? "Hide the original sentence" : "Original: \(sentence)")
+        .accessibilityHint(isOriginalOpen ? "" : "Shows the whole sentence")
+
+        if isOriginalOpen {
+            HStack(alignment: .top, spacing: Theme.Spacing.small) {
+                SentenceTextView(text: sentence, style: .summary, language: language, loadWordEntry: loadWordEntry)
+                    .speechHighlight(isPlaying: speechPlayer.currentID == sentenceSpeechID)
+                    .padding(.top, Theme.Spacing.small)
+                listenButton(text: sentence, id: sentenceSpeechID, label: "Listen to the sentence")
+            }
+            HairlineDivider()
+        }
+    }
+
     @ViewBuilder
     private var summaryBlock: some View {
         if summary.isEmpty {
@@ -117,20 +143,31 @@ struct SentenceCard: View {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                     // The summary grows word by word while it streams (TASK-73): the text view measures
                     // its height again each time, so the line count follows the text.
-                    SentenceTextView(text: summary, style: .summary, language: language, loadWordEntry: loadWordEntry)
+                    SentenceTextView(text: summary, style: .original, language: language, loadWordEntry: loadWordEntry)
                         .speechHighlight(isPlaying: speechPlayer.currentID == summarySpeechID)
                     Text("In simple words")
                         .font(.caption)
                         .foregroundStyle(Theme.Colors.textMuted)
                 }
                 .padding(.top, Theme.Spacing.small)
-                listenButton(text: SummaryMarkup(summary).plainText, id: summarySpeechID, label: "Listen to the simple version")
+                HStack(spacing: Theme.Spacing.small) {
+                    listenButton(text: SummaryMarkup(summary).plainText, id: summarySpeechID, label: "Listen to the simple version")
+                    // Only for a finished answer: the summary is what the Liked list shows.
+                    if translation != nil {
+                        LikeButton(item: SavedItem(kind: .sentence, text: savedText ?? sentence, preview: SummaryMarkup(summary).plainText))
+                    }
+                }
             }
         }
     }
 
-    private func betterRow(_ better: String) -> some View {
-        FoldedRow(title: "Better way to say it", isExpanded: $isBetterOpen) {
+    /// Shown open (TASK-124): the fix matters more than the text the user typed.
+    private func betterBlock(_ better: String) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+            Text("Better way to say it")
+                .font(.caption.weight(.semibold))
+                .textCase(.uppercase)
+                .foregroundStyle(Theme.Colors.textMuted)
             VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                 HStack(alignment: .top, spacing: Theme.Spacing.small) {
                     Text(BetterDiff(original: sentence, better: better).attributedString)
