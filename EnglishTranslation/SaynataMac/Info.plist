@@ -14,6 +14,11 @@
 				<key>default</key>
 				<string>Explain with Saynata</string>
 			</dict>
+			<key>NSKeyEquivalent</key>
+			<dict>
+				<key>default</key>
+				<string>E</string>
+			</dict>
 			<key>NSMessage</key>
 			<string>explainSelection</string>
 			<key>NSPortName</key>
