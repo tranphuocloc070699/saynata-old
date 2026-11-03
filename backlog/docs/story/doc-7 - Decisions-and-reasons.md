@@ -2,8 +2,8 @@
 id: doc-7
 title: Decisions and reasons
 type: guide
-created_date: '2026-10-11 08:52'
-updated_date: '2026-11-02 11:40'
+created_date: 2026-10-11 08:52
+updated_date: '2026-11-03T01:20:00Z'
 ---
 # Decisions and reasons
 
@@ -221,6 +221,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-26 | **Backend LLMs: DeepSeek direct is the main model, Gemini the fallback, Codex writes the picture scenes** (TASK-117): a benchmark on 2026-10-26 showed DeepSeek direct with thinking off is fastest (first text 0.6-0.8 s, total 1.3-1.5 s) with Vietnamese quality equal to Gemini; Gemini 3.5 flash-lite answers when DeepSeek fails before any text is streamed; Codex with the ChatGPT login is free and already draws the pictures. The `.env` is grouped into five sections by job and the six `CLAUDE_*` keys are gone | The developer wanted the speed, the setup clear at a glance, and no money spent on picture scenes. | STEYG with Haiku (slow first text, 3.4 s); Gemini as the main model (first byte up to 2.2 s, no Anthropic endpoint); Claude Sonnet for scenes (costs money) | Developer |
 | 11-02 | **No mockup for TASK-119.6** (terms on iOS and Mac): the agent builds the term section straight away, with the sense card's surface and icon-only buttons | "You're running in the cloud now, so I don't need a mockup. Just implement the task." | Mockup first (CLAUDE.md rule) | Developer |
 | 11-02 | **More than 3 commands = one script** for the developer (CLAUDE.md, saynata-old only) | "Whenever you have more than 3 commands, compile them into a script that I can run with just one command." | Numbered steps, one command per block | Developer |
+| 11-03 | **Mac: ⌘⇧E explains the selected text** (the Services item's default key); ⌥⇧Space keeps opening the panel | "Okay, so keep. I'll go with option A" (after hearing that an app can only suggest ⌘ shortcuts for Services and that ⌥⇧Space is the panel's key) | B: move the panel to ⌃⇧Space and let the user set ⌥⇧Space for Services in System Settings, with a hint in Saynata's settings | Developer |
 
 ## Questions answered
 
