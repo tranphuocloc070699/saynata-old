@@ -2,8 +2,8 @@
 id: doc-20
 title: Mac app
 type: guide
-created_date: '2026-10-16 09:43'
-updated_date: '2026-10-25 12:22'
+created_date: 2026-10-16 09:43
+updated_date: '2026-11-03T01:21:00Z'
 ---
 # Mac app
 
@@ -48,6 +48,10 @@ flowchart LR
 | Services | [AppDelegate.swift:188](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L188) | `NSServices` in [Info.plist](../../../EnglishTranslation/SaynataMac/Info.plist) declares "Explain with Saynata" for plain text; `NSApp.servicesProvider = self` at start. macOS calls `explainSelection` with the selected text on a pasteboard, which calls `explain(_:)`. No Accessibility permission |
 | Login | [MacSettingsSections.swift:52](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift#L52) | Settings → Start → Open at login: `SMAppService.mainApp.register()` / `unregister()`. If macOS wants approval, the footer says where |
 | Close | [AppDelegate.swift:175](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L175) | A click outside or Esc closes the popover; speech stops |
+
+## Build and install
+
+`scripts/install-on-mac.sh` (2026-11-03) builds the `SaynataMac` scheme (Release by default, `CONFIG=Debug`), quits the running copy, replaces `~/Applications/SaynataMac.app` (`INSTALL_DIR=/Applications`), registers it with Launch Services, runs `pbs -update` so the Services item and its ⌘⇧E key show at once, and opens it (`NO_OPEN=1` to skip). `AD_HOC=1` signs for this Mac only when Apple ID signing fails. The container (cache, settings) is kept. Safe to run again.
 
 ## Books and other apps without Services
 
