@@ -103,25 +103,68 @@ setup() {
   step "5/6 Python packages"
   uv sync --quiet
 
-  step "6/6 Checks: the gateway reads pictures, and what the run would cost"
+  step "6/6 Checks: the models the gateway has, a picture test, and what the run would cost"
   uv run python - <<'PY'
-import base64, io
+# Picks the models from what the gateway really offers (GET /v1/models): the configured one when it is there,
+# else the closest Claude model. The guess model must pass a picture test (a red square -> "red").
+# The picks are written into pipeline/.env, so the run uses them.
+import base64, io, re
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(".env")
 from PIL import Image
 from pipeline import llm, media_ai
-model = llm.model(media_ai.GUESS_MODEL, "CLAUDE_GUESS_MODEL")
+
+client = llm.client()
+want_scene = llm.model(media_ai.SCENE_MODEL, "CLAUDE_SCENE_MODEL")
+want_guess = llm.model(media_ai.GUESS_MODEL, "CLAUDE_GUESS_MODEL")
+try:
+    offered = [m.id for m in client.models.list()]
+except Exception as error:  # a gateway without the list: keep the configured models
+    print(f"(the gateway did not list its models: {error}; trying the configured ones)")
+    offered = []
+if offered:
+    print("the gateway offers: " + ", ".join(sorted(offered)))
+
+def ranked(want: str, order: list[str]) -> list[str]:
+    """The wanted model first (when offered or when nothing is listed), then Claude models by family order."""
+    if not offered:
+        return [want]
+    def rank(name: str) -> tuple:
+        family = next((i for i, f in enumerate(order) if f in name), len(order))
+        version = [-int(n) for n in re.findall(r"\d+", name)]  # newest first
+        return (0 if "claude" in name else 1, family, version)
+    same = lambda a, b: re.sub(r"[.\-_ ]", "", a.lower()) == re.sub(r"[.\-_ ]", "", b.lower())
+    match = [m for m in offered if same(m, want)]  # claude-opus-5-5 is the gateway's claude-opus-5.5
+    return match + sorted((m for m in offered if m not in match), key=rank)
+
 buffer = io.BytesIO(); Image.new("RGB", (64, 64), (220, 20, 20)).save(buffer, "JPEG")
 image = {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
                                      "data": base64.b64encode(buffer.getvalue()).decode()}}
-reply = llm.client().messages.create(model=model, max_tokens=20, messages=[{"role": "user", "content": [
-    image, {"type": "text", "text": "What colour fills this picture? Answer with one word."}]}])
-answer = "".join(getattr(block, "text", "") for block in reply.content).strip().lower()
-print(f"guess model {model}: '{answer}'")
-if "red" not in answer:
-    raise SystemExit(f"Stopped: {model} cannot read pictures. Set STEYG_GUESS_MODEL in the Mac's pipeline/.env.steyg "
-                     "(or CLAUDE_GUESS_MODEL in pipeline/.env) to a gateway model that reads images, then run setup again.")
-print(f"scene model {llm.model(media_ai.SCENE_MODEL, 'CLAUDE_SCENE_MODEL')}")
+
+def reads_pictures(model: str) -> bool:
+    try:
+        reply = client.messages.create(model=model, max_tokens=20, messages=[{"role": "user", "content": [
+            image, {"type": "text", "text": "What colour fills this picture? Answer with one word."}]}])
+    except Exception as error:
+        print(f"  {model}: {str(error)[:120]}")
+        return False
+    answer = "".join(getattr(block, "text", "") for block in reply.content).strip().lower()
+    print(f"  {model}: '{answer}'")
+    return "red" in answer
+
+print("picture test (cheapest first):")
+guess = next((m for m in ranked(want_guess, ["haiku", "sonnet", "opus"])[:6] if reads_pictures(m)), None)
+if not guess:
+    raise SystemExit("Stopped: no gateway model passed the picture test. Pick one from the list above and set "
+                     "STEYG_GUESS_MODEL in the Mac's pipeline/.env.steyg, then run again.")
+scene = ranked(want_scene, ["sonnet", "opus", "haiku"])[0]
+
+env = Path(".env")
+lines = [l for l in env.read_text().splitlines() if not l.startswith(("CLAUDE_SCENE_MODEL=", "CLAUDE_GUESS_MODEL="))]
+env.write_text("\n".join(lines + [f"CLAUDE_SCENE_MODEL={scene}", f"CLAUDE_GUESS_MODEL={guess}"]) + "\n")
+for role, wanted, got in (("scene", want_scene, scene), ("guess", want_guess, guess)):
+    print(f"{role} model: {got}" + ("" if got == wanted else f"   (instead of {wanted}, which the gateway does not offer)"))
 PY
   uv run pipeline media-ai --all --dry-run --workers "$WORKERS" --max-cost "$MAX_COST"
   echo "Setup done. Next: the Mac script's 'start'."
