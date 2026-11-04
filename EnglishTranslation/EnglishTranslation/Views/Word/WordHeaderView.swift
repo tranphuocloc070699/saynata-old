@@ -12,6 +12,9 @@ struct WordHeaderView<Actions: View>: View {
     let entry: WordEntry
     /// True while the word is read aloud (F3). The word then gets a soft highlight.
     var isSpeaking = false
+    /// When set, the IPA becomes a chip with a speaker that reads the word (TASK-126, mockup A, like the
+    /// Vocabulary app), so the header needs no separate Listen button. With no IPA the chip shows only the speaker.
+    var onListen: (() -> Void)?
     @ViewBuilder var actions: () -> Actions
 
     /// The word as typed (a form like "ran" stays "ran"). With a form, the pill shows the base word.
@@ -19,7 +22,7 @@ struct WordHeaderView<Actions: View>: View {
         HStack(alignment: .top, spacing: Theme.Spacing.small) {
             VStack(alignment: .leading, spacing: Theme.Spacing.small) {
                 if let pill = entry.formPillText {
-                    headword
+                    headwordWithChip(ipa: nil)
                     FormPill(text: pill)
                 } else if let ipa = entry.ipa {
                     // The developer's choice (TASK-83.10, mockup A): the IPA on the headword's line when it fits.
@@ -34,7 +37,7 @@ struct WordHeaderView<Actions: View>: View {
                         }
                     }
                 } else {
-                    headword
+                    headwordWithChip(ipa: nil)
                 }
             }
             Spacer()
@@ -51,11 +54,51 @@ struct WordHeaderView<Actions: View>: View {
             .speechHighlight(isPlaying: isSpeaking)
     }
 
-    private func ipaText(_ ipa: String) -> some View {
-        Text(ipa)
-            .font(.callout)
-            .foregroundStyle(Theme.Colors.textSecondary)
+    /// The headword with the speaker-only chip after it, when the card has a Listen action but no IPA to show.
+    @ViewBuilder
+    private func headwordWithChip(ipa: String?) -> some View {
+        if onListen != nil {
+            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.small) {
+                headword
+                ipaText(ipa)
+            }
+        } else {
+            headword
+        }
+    }
+
+    @ViewBuilder
+    private func ipaText(_ ipa: String?) -> some View {
+        if let onListen {
+            Button(action: onListen) {
+                HStack(spacing: Theme.Spacing.xSmall) {
+                    if let ipa {
+                        Text(ipa)
+                            .font(.callout)
+                            .foregroundStyle(Theme.Colors.textSecondary)
+                    }
+                    Image(systemName: isSpeaking ? "stop.fill" : "speaker.wave.2")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.Colors.accent)
+                }
+                .padding(.horizontal, Theme.Spacing.small)
+                .padding(.vertical, Theme.Spacing.xSmall)
+                .background(Theme.Colors.surface, in: Capsule())
+                .overlay { Capsule().strokeBorder(Theme.Colors.hairline, lineWidth: 1) }
+                // A taller tap area than the chip itself, toward the 44 pt minimum.
+                .padding(.vertical, Theme.Spacing.small)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
             .fixedSize()
+            .accessibilityLabel(isSpeaking ? "Stop" : "Listen to the word")
+            .accessibilityValue(ipa ?? "")
+        } else if let ipa {
+            Text(ipa)
+                .font(.callout)
+                .foregroundStyle(Theme.Colors.textSecondary)
+                .fixedSize()
+        }
     }
 }
 
