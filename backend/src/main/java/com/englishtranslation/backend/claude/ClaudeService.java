@@ -83,12 +83,16 @@ public class ClaudeService {
                              No headings, no numbered lists, no other Markdown. Put each bullet on its own line (\\n).
                         4. better: the English text with its real mistakes fixed, for a learner who wrote it. The default
                            is "". Always "" when the text is not English.
-                           - Fix only: grammar mistakes (tense, verb form, articles, plurals, word order), a wrong word,
-                             or a phrase a native speaker would never say ("open the light" -> "turn on the light").
+                           - Fix only: grammar mistakes (tense, verb form, articles, plurals, word order), a missing or
+                             extra word ("talk something" -> "talk about something"), a misspelled word ("somethig" ->
+                             "something"), a lower-case "i" used as a word, a wrong word, or a phrase a native speaker
+                             would never say ("open the light" -> "turn on the light").
+                           - Informal words ("gonna", "wanna") and slang are fine: keep them as they are, but still fix
+                             the other mistakes in the text. "Hi everyone, i wanna talk somethig" -> "Hi everyone, I wanna
+                             talk about something".
                            - Write "" when the text is correct, even if you would say it another way. Write "" for style,
-                             formality, commas, informal speech ("gonna", "wanna"), slang, headlines, old or literary
-                             language, and any text that reads like a book, the news or a website. Write "" when the text
-                             has more than 40 words.
+                             formality, commas, headlines, old or literary language, and any text that reads like a book,
+                             the news or a website. Write "" when the text has more than 40 words.
                            - Change as few words as possible and copy every other word exactly. Keep the meaning and the tone.
                         5. betterWhy: "" when better is "". Otherwise one short line (at most 12 words, B1 words) that says
                            why, for example: Use "have done" for a finished action that matters now.
