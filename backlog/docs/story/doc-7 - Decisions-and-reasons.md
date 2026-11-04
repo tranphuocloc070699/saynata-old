@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: '2026-10-11 08:52'
-updated_date: '2026-11-04 06:24'
+updated_date: '2026-11-04 06:54'
 ---
 # Decisions and reasons
 
@@ -65,6 +65,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-24 | **The web cat is a Mochi sprite, one per visit, served from the server, never from git** (Dance, Sleeping, Excited, Sick 1 or Box; Box picks one of three) | The developer asked for the purchased Mochi cats on the web, like iOS. The pack has no right to redistribute and the repo is public, and the web build runs in GitHub Actions without a copy, so `scripts/upload-web-cats.sh` puts the 7 PNGs in `/var/lib/saynata/web-cats` and Caddy serves `/cats/`. Without them the site shows its own pixel cat. CSS `steps()` for the loop, so no timer re-renders the page. | PNGs in `web/public` (they would be in git and in every build); keep only the own pixel cat | Developer |
 | 11-02 | **Grammar fix for text the user writes in other apps: option A, the Fix card in the Translate sheet** (mockup `docs/design/mockups/translate-fix-option-a.html`). When the host app allows replacing the selection, the sheet shows the sentence answer's own `better` + `betterWhy` (TASK-110) on top with a Replace button (`context.finish`), the explanation below. Saynata replaces only with corrected English, never with a translation | Reason: not recorded | B: a Saynata keyboard (fewer taps, no paid account, but a new target and little room for the reason); a new `/api/sentence/fix` endpoint with one reason per change (not needed: `better` already exists) | Developer (options by Claude) |
 | 11-04 | **Fewer buttons on result cards: mockup A** (`docs/design/mockups/fewer-buttons.html`): one quiet row of plain icons under the sentence summary (Listen, Like, Copy); Listen moves into the word's IPA chip; tap a sense explanation to hear it (TASK-126) | "too many buttons on UI" | B: one bottom bar with a ⋯ menu; C: Copy moved to long-press | Developer chose A from the mockup |
+| 11-04 | **As few animations as possible on iOS** (TASK-127 follow-up, PR 252): folded rows, the "Original:" line, the read-aloud highlight and the sign-in steps now change instantly; only the Like check animation and the cat sprite stay | "I want UX over visual effects, as few animations as possible" | Keep the `.snappy` / `.default` animations | Developer (list and proposal by Claude) |
 
 ## Stack
 
@@ -226,6 +227,7 @@ Quotes are the developer's words, with spelling fixed.
 | 11-03 | **The Mac app stays sandboxed, so no reading of the selection through Accessibility**: selected text reaches Saynata only through Services (a keyboard shortcut can be given to the Services item) or ⌘C then ⌥⇧Space | "I want to put it on the Mac App Store later" | Accessibility API with the sandbox off and a notarized download outside the App Store (how PopClip and Easydict work) | Developer |
 | 11-03 | **Mac: ⌘⇧E explains the selected text** (the Services item's default key); ⌥⇧Space keeps opening the panel | "Okay, so keep. I'll go with option A" (after hearing that an app can only suggest ⌘ shortcuts for Services and that ⌥⇧Space is the panel's key) | B: move the panel to ⌃⇧Space and let the user set ⌥⇧Space for Services in System Settings, with a hint in Saynata's settings | Developer |
 | 11-04 | **Like star: small plain rounded star with a "saved" check animation; Clear (x) in the input** (TASK-127, mockup `docs/design/mockups/like-star-and-clear.html`): the word-header star is a plain icon like the other result icons, drawn as a custom rounded `Shape`; liking pops the star away, draws a check, then shows the filled star (hand-made SwiftUI, no library). The x shows only with text; the iOS counter still appears only near 500 | "Star B, clear A". Reason: not recorded (the developer had said the big round star looked too heavy next to the small icons) | Star A: built-in SF Symbols `.replace` effect (keeps the sharp star, symbol effects only work on SF Symbols); Lottie or Rive (a new package and an animation file for a 1-second effect); clear B: the counter always on, like the web | Developer |
+| 11-04 | **`scripts/install-on-phone.sh` signs with the paid account by default**; `PAID_ACCOUNT=0` is the way back to a free Apple ID | "always add PAID_ACCOUNT". Reason: not recorded (likely: the paid account is set up, and Sign in with Apple and App Groups need it) | Free Apple ID by default, `PAID_ACCOUNT=1` to opt in | Developer |
 
 ## Questions answered
 
@@ -257,3 +259,4 @@ go here as questions.
 - 10-25: Why web header option B (History icon + avatar menu) over A and C (TASK-102.8)? Reason not recorded.
 - 10-25: Why replace all Pixabay pictures with AI pictures, and why drop verb clips (TASK-115)? Reason not recorded.
 - 11-02: Why option A (Fix card in the Translate sheet) over B (a Saynata keyboard) for fixing text written in Telegram or Discord? Reason not recorded.
+- 11-04: Why sign phone installs with the paid account by default? Reason not recorded.

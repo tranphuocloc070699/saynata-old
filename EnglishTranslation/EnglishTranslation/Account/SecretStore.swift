@@ -18,7 +18,7 @@ protocol SecretStoring: Sendable {
 ///
 /// On iOS the items live in the App Group's Keychain group (`ResultCache.appGroupID`; an App Group name works as a
 /// Keychain access group), so the app, the Share extension and the Translation extension share one sign-in.
-/// A build without App Groups (a free Apple ID, `scripts/install-on-phone.sh` without `PAID_ACCOUNT=1`) cannot use
+/// A build without App Groups (a free Apple ID, `scripts/install-on-phone.sh` with `PAID_ACCOUNT=0`) cannot use
 /// the group: each target then keeps its own items and the extensions act as guests, as before (doc-17).
 /// An item saved by an older build (the app's own group) is moved to the shared group the first time it is read.
 struct KeychainSecretStore: SecretStoring {
