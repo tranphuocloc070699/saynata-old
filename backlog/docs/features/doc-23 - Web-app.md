@@ -3,7 +3,7 @@ id: doc-23
 title: Web app
 type: other
 created_date: 2026-10-23 10:24
-updated_date: '2026-11-04T09:23:00Z'
+updated_date: '2026-11-04T09:24:00Z'
 ---
 # Web app
 
@@ -162,7 +162,7 @@ sequenceDiagram
 
 | Part | File | What it does |
 |---|---|---|
-| Form | [SignInForm.tsx:53](../../../web/src/components/auth/SignInForm.tsx#L53) | Apple and Google pills first, then under "or" the email field ("Email me a code"), then the 6-digit code ([sendCode:146](../../../web/src/components/auth/SignInForm.tsx#L153), [verify:172](../../../web/src/components/auth/SignInForm.tsx#L172)). No emailed link: it opens `saynata://`, so it is app-only. Guard: someone already signed in who opens `/sign-in` or `/sign-up` is sent on to `?next=` (or home) at once ([SignInForm.tsx:66](../../../web/src/components/auth/SignInForm.tsx#L66); the session is in localStorage, so the form can flash for a moment first) |
+| Form | [SignInForm.tsx:53](../../../web/src/components/auth/SignInForm.tsx#L53) | Apple and Google pills first, then under "or" the email field ("Email me a code"), then the 6-digit code ([sendCode:146](../../../web/src/components/auth/SignInForm.tsx#L153), [verify:172](../../../web/src/components/auth/SignInForm.tsx#L172)). No emailed link: it opens `saynata://`, so it is app-only. Guard: someone already signed in who opens `/sign-in` or `/sign-up` is sent on to `?next=` (or home) at once ([SignInForm.tsx:71](../../../web/src/components/auth/SignInForm.tsx#L71); the session is in localStorage, so the form can flash for a moment first) |
 | Google | [google:99](../../../web/src/components/auth/SignInForm.tsx#L99) | Redirect to Google with `response_type=id_token`; the state and raw nonce wait in sessionStorage (`saynata.google-sign-in`); back on `/sign-in` the ID token is read from the address hash |
 | Apple | [apple:121](../../../web/src/components/auth/SignInForm.tsx#L121) | AppleID JS in a popup with the Services ID |
 | Client | [auth.ts:52](../../../web/src/lib/auth.ts#L52) | `AuthApi`: email-code, verify, google, apple, refresh, sign-out. Auth errors (`invalid_code` etc.) show the server's text |
