@@ -88,7 +88,7 @@ struct MenuBarContentView: View {
                 .font(.headline)
                 .foregroundStyle(Theme.Colors.textPrimary)
             Spacer()
-            Picker("Translate into", selection: $store.targetLanguage) {
+            Picker("Translate into", selection: $store.pickedLanguage) {
                 ForEach(TargetLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }

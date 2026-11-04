@@ -12,12 +12,27 @@ import Observation
 @MainActor
 final class TranslationStore {
     var inputText = "" {
-        didSet { if inputText != oldValue { schedulePrefetch() } }
+        didSet {
+            guard inputText != oldValue else { return }
+            // New text is the user's own until a caller says where it came from (TASK-128.3).
+            source = baseSource
+            schedulePrefetch()
+        }
     }
     /// The language of the translation at the bottom of the result. Every change is saved (TASK-109),
     /// so the app, the extensions and Quick explain start with the language the learner picked.
     var targetLanguage: TargetLanguage {
         didSet { if targetLanguage != oldValue { languagePreference.language = targetLanguage } }
+    }
+    /// The language picker's value: the same as `targetLanguage`, but a change here is the learner's own pick, so it
+    /// sends `language_changed` (TASK-128.3). A language that came from the account (`SettingsSync`) sends nothing.
+    var pickedLanguage: TargetLanguage {
+        get { targetLanguage }
+        set {
+            guard newValue != targetLanguage else { return }
+            targetLanguage = newValue
+            analytics.track(.languageChanged(language: newValue))
+        }
     }
     private(set) var state: TranslationState = .idle
     /// While a sentence waits for Claude: the sentence, shown at once in its card (TASK-74, TASK-89.2).
@@ -49,6 +64,16 @@ final class TranslationStore {
     /// Where the picked language is saved.
     private let languagePreference: TargetLanguagePreference
 
+    /// Where text typed in this store's input comes from: `.app` in the iPhone app, `.panel` on the Mac,
+    /// `.share` or `.translateSheet` in the extensions (`lookup_done`, TASK-128.3).
+    let baseSource: LookupSource
+    /// Where the text in the input came from. Back to `baseSource` when the text changes.
+    private(set) var source: LookupSource
+    /// Usage events (`docs/analytics/events.md`). Never gets the text itself.
+    @ObservationIgnored private let analytics: Analytics
+    /// Tells `lookup_done` whether the language row starts open.
+    @ObservationIgnored private let rowPreference: TranslationRowPreference
+
     /// - Parameter makeTranslator: Builds the translator on each request, so a
     ///   missing setting shows as a `.failed` state instead of crashing at launch.
     init(
@@ -56,8 +81,15 @@ final class TranslationStore {
         makeWordLookup: @escaping @MainActor () throws -> any WordLooking = TranslatorFactory.makeWordLookup,
         history: (any HistoryStoring)? = SyncedHistory.shared,
         prefetchDelay: Duration = .milliseconds(400),
-        languagePreference: TargetLanguagePreference = .shared
+        languagePreference: TargetLanguagePreference = .shared,
+        source: LookupSource = .app,
+        analytics: Analytics = .shared,
+        rowPreference: TranslationRowPreference = TranslationRowPreference()
     ) {
+        self.baseSource = source
+        self.source = source
+        self.analytics = analytics
+        self.rowPreference = rowPreference
         self.languagePreference = languagePreference
         self.targetLanguage = languagePreference.language
         self.prefetchDelay = prefetchDelay
@@ -103,7 +135,7 @@ final class TranslationStore {
             await lookUpWord(word)
         } else if let phrase = CacheKeys.phraseQuery(trimmedInput),
                   let entry = await (try? makeWordLookup())?.phraseEntry(for: phrase) {
-            await showWord(entry)
+            await showWord(entry, kind: .phrase)
         } else {
             await explainSentence()
         }
@@ -141,22 +173,39 @@ final class TranslationStore {
             let wordLookup = try makeWordLookup()
             lookup = wordLookup
             let entry = try await wordLookup.lookUp(word)
-            await showWord(entry)
+            await showWord(entry, kind: .word)
             await addTermsToBundledWord(entry, typed: word, lookup: wordLookup)
         } catch BackendError.signInRequired {
+            trackFailure(kind: .word, error: BackendError.signInRequired)
             askForSignIn(text: word)
         } catch WordLookupError.notAnEnglishWord {
             // The word list is incomplete, especially for compounds. Let the text explainer try before giving up.
             await explainSentence(afterMissingWord: (word, lookup))
         } catch {
+            trackFailure(kind: .word, error: error)
             state = .failed(error.localizedDescription, spelling: spellingHelp(for: word, after: error, lookup: lookup))
         }
     }
 
     /// Shows a word or phrase card and adds it to History (TASK-93).
-    private func showWord(_ entry: WordEntry) async {
+    private func showWord(_ entry: WordEntry, kind: LookupKind) async {
         state = .loadedWord(entry)
+        trackLookup(kind: kind)
         await history?.record(SavedItem(entry: entry))
+    }
+
+    // MARK: - Usage events (TASK-128.3)
+
+    /// `lookup_done` for the text in the input: its kind, where it came from and a length bucket, never the text.
+    /// `text` and `source` are copied when the request starts; the user may type while it runs.
+    private func trackLookup(kind: LookupKind, text: String? = nil, source: LookupSource? = nil) {
+        analytics.track(.lookupDone(
+            kind: kind, source: source ?? self.source, length: LengthBucket(text: text ?? trimmedInput),
+            language: targetLanguage, rowStartsOpen: rowPreference.startsOpen))
+    }
+
+    private func trackFailure(kind: LookupKind, error: Error, source: LookupSource? = nil) {
+        analytics.track(.lookupFailed(kind: kind, source: source ?? self.source, reason: LookupFailReason(error: error)))
     }
 
     /// A bundled word never asks the server, so its terms ("swift": Swift the language) come from `GET /api/terms`
@@ -211,9 +260,18 @@ final class TranslationStore {
     }
 
     /// Puts text from another app in the input, so its result does not offer a fix (TASK-110).
-    func useTextFromElsewhere(_ text: String) {
+    /// - Parameter source: Where it came from, for `lookup_done`. Nil keeps `baseSource`.
+    func useTextFromElsewhere(_ text: String, source: LookupSource? = nil) {
         inputText = text
         textFromElsewhere = trimmedInput
+        if let source { self.source = source }
+    }
+
+    /// Puts text that another part of Saynata sent in the input, like the Share extension's "Open in Saynata" link.
+    /// Unlike `useTextFromElsewhere`, the result may still offer a fix.
+    func useText(_ text: String, from source: LookupSource) {
+        inputText = text
+        self.source = source
     }
 
     /// Back Tap opened the app (TASK-87, `CopiedTextLaunch`): copied text goes into the input and is explained.
@@ -226,7 +284,7 @@ final class TranslationStore {
         if case let .text(copied) = await clipboard.content() {
             let cleaned = CopiedText.cleaned(copied)
             if !cleaned.isEmpty {
-                useTextFromElsewhere(cleaned)
+                useTextFromElsewhere(cleaned, source: .copied)
                 await translate()
                 return false
             }
@@ -243,6 +301,7 @@ final class TranslationStore {
     func changeLanguage(to language: TargetLanguage) async {
         guard language != targetLanguage else { return }
         targetLanguage = language
+        analytics.track(.languageChanged(language: language))
         if case .loaded = state {
             await translate()
         }
@@ -250,6 +309,7 @@ final class TranslationStore {
 
     /// The user tapped a "did you mean" word: put it in the input and look it up.
     func lookUp(suggestion word: String) async {
+        analytics.track(.suggestionTapped)
         inputText = word
         await translate()
     }
@@ -257,6 +317,7 @@ final class TranslationStore {
     /// The full word card for a word in a sentence result. Uses the bundled entry when there is one,
     /// otherwise the normal lookup (local cache, then backend). The sentence result stays on screen.
     func wordEntry(for word: SentenceWordInfo) async throws -> WordEntry {
+        analytics.track(.sentenceWordOpened(hasEntry: word.entry != nil))
         if let entry = word.entry { return entry }
         return try await makeWordLookup().lookUp(word.word)
     }
@@ -289,6 +350,7 @@ final class TranslationStore {
         // Copy these first. The user can change the picker or the text while we wait.
         let sentence = trimmedInput
         let language = targetLanguage
+        let source = self.source
         meaningIsFinal = false
         pendingSentence = PendingSentence(sentence: sentence, language: language)
         // Loaded or failed: the loading card goes.
@@ -306,16 +368,19 @@ final class TranslationStore {
                 })
             // One non-English word or idiom ("buồn"): open the normal word card. Any failure keeps the sentence result.
             if let match = explanation.wordMatchQuery, let entry = await wordCard(forMatch: match) {
-                await showWord(entry)
+                await showWord(entry, kind: .word)
                 return
             }
             let result = SentenceResult(
                 sentence: sentence, explanation: explanation, language: language, isTyped: sentence != textFromElsewhere)
             state = .loaded(result)
+            trackLookup(kind: .sentence, text: sentence, source: source)
             await history?.record(SavedItem(result: result))
         } catch BackendError.signInRequired {
+            trackFailure(kind: .sentence, error: BackendError.signInRequired, source: source)
             askForSignIn(text: sentence)
         } catch {
+            trackFailure(kind: .sentence, error: error, source: source)
             let spelling = afterMissingWord.flatMap { missing in
                 spellingHelp(for: missing.text, after: WordLookupError.notAnEnglishWord(missing.text), lookup: missing.lookup)
             }

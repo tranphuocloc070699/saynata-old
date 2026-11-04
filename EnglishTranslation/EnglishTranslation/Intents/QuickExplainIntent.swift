@@ -36,6 +36,12 @@ struct QuickExplainIntent: AppIntent {
             makeTranslator: { try TranslatorFactory.makeTranslator() },
             language: TargetLanguagePreference.shared.language)
         let result = await explainer.explain(text)
+        // Usage events (TASK-128.3): the kind and a length bucket only, never the text.
+        Telemetry.start()
+        Analytics.shared.track(.quickExplainUsed)
+        if let event = result.usageEvent(text: text, language: explainer.language) {
+            Analytics.shared.track(event)
+        }
         let line = await explainer.languageLine(for: result)
         return .result(view: QuickExplainCard(result: result, language: explainer.language, wordLine: line))
     }

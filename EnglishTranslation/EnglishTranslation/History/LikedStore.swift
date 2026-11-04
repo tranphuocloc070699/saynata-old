@@ -65,6 +65,8 @@ final class LikedStore {
     @ObservationIgnored private let outbox: (any SyncOutboxing)?
     @ObservationIgnored private let isSignedIn: @MainActor () -> Bool
     @ObservationIgnored private let didQueue: @MainActor () -> Void
+    /// `item_liked` and `item_unliked` (TASK-128.3).
+    @ObservationIgnored private let analytics: Analytics
 
     /// - Parameters:
     ///   - outbox: Where the ops go. Nil: the list works on the phone only.
@@ -74,8 +76,10 @@ final class LikedStore {
         copy: any LikedCopyStoring,
         outbox: (any SyncOutboxing)?,
         isSignedIn: @escaping @MainActor () -> Bool,
-        didQueue: @escaping @MainActor () -> Void = {}
+        didQueue: @escaping @MainActor () -> Void = {},
+        analytics: Analytics = .shared
     ) {
+        self.analytics = analytics
         self.copy = copy
         self.outbox = outbox
         self.isSignedIn = isSignedIn
@@ -110,6 +114,7 @@ final class LikedStore {
     private func like(_ item: SavedItem) async {
         let liked = SavedItem(kind: item.kind, text: item.text, preview: item.preview, chip: item.chip, date: .now)
         setItems([liked] + items.filter { $0.id != item.id })
+        analytics.track(.itemLiked(kind: item.kind))
         await queue(SyncOp(type: .likedAdd, item: liked, at: liked.date))
     }
 
@@ -117,6 +122,7 @@ final class LikedStore {
     func unlike(id: String) async {
         guard let item = items.first(where: { $0.id == id }) else { return }
         setItems(items.filter { $0.id != id })
+        analytics.track(.itemUnliked(kind: item.kind))
         await queue(SyncOp(type: .likedRemove, item: item, at: .now))
     }
 

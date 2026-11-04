@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>SentryDSN</key>
+	<string>https://97e200393794cb0be6e88031cec16c9b@o4511002004946944.ingest.us.sentry.io/4512373139439616</string>
+	<key>PostHogProjectKey</key>
+	<string>phc_xC7WjRcEBkWkZY9dPZtELFRDhA65muKmmSSKMjy8viRM</string>
+	<key>PostHogHost</key>
+	<string>https://us.i.posthog.com</string>
 	<key>BackendBaseURL</key>
 	<string>https://api.saynata.com</string>
 	<key>LSUIElement</key>

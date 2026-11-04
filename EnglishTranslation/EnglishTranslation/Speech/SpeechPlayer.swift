@@ -16,12 +16,15 @@ final class SpeechPlayer {
     private(set) var currentID: String?
 
     private let synthesizer: any SpeechSynthesizing
+    /// `listen_tapped` (TASK-128.3).
+    @ObservationIgnored private let analytics: Analytics
     /// Counts utterances. A callback with an old token is for an utterance we already replaced.
     private var latestToken = 0
 
-    init(synthesizer: (any SpeechSynthesizing)? = nil) {
+    init(synthesizer: (any SpeechSynthesizing)? = nil, analytics: Analytics = .shared) {
         let synthesizer = synthesizer ?? AppleSpeechSynthesizer()
         self.synthesizer = synthesizer
+        self.analytics = analytics
         synthesizer.onUtteranceEnded = { [weak self] token in
             self?.utteranceEnded(token: token)
         }
@@ -29,7 +32,7 @@ final class SpeechPlayer {
 
     /// A player that makes no sound. Previews inject this instead of the real audio player.
     static func silent() -> SpeechPlayer {
-        SpeechPlayer(synthesizer: SilentSynthesizer())
+        SpeechPlayer(synthesizer: SilentSynthesizer(), analytics: .silent())
     }
 
     /// Reads `text`. If something else is playing, it stops first. Empty text is ignored.
@@ -41,6 +44,7 @@ final class SpeechPlayer {
         latestToken += 1
         currentID = id
         synthesizer.speak(text, token: latestToken)
+        analytics.track(.listenTapped(part: ListenPart(speechID: id)))
     }
 
     /// Stops the current part. Does nothing when nothing plays.

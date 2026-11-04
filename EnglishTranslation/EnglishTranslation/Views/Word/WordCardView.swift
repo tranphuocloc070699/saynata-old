@@ -99,7 +99,7 @@ struct WordCardView: View {
                             get: { openTargetRows.contains(index) },
                             set: { isOpen in
                                 if isOpen { openTargetRows.insert(index) } else { openTargetRows.remove(index) }
-                                TranslationRowPreference().rowChanged(isOpen: isOpen)
+                                TranslationRowPreference().rowTapped(isOpen: isOpen, language: targetLanguage, kind: .word)
                             }),
                         showsDivider: false,
                         language: onLanguageChange.map { change in Binding(get: { targetLanguage }, set: change) }

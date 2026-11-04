@@ -54,7 +54,7 @@ struct WordCardCompactView: View {
                         TargetLanguageRowContent(sense: sense, language: targetLanguage, headword: entry.word)
                     }
                     .onChange(of: isLanguageRowOpen) { _, isOpen in
-                        TranslationRowPreference().rowChanged(isOpen: isOpen)
+                        TranslationRowPreference().rowTapped(isOpen: isOpen, language: targetLanguage, kind: .word)
                     }
                 }
             }

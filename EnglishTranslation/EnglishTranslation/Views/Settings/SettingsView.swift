@@ -16,6 +16,8 @@ struct SettingsView<MoreSections: View>: View {
 
     @AppStorage(TranslationRowPreference.modeKey) private var modeRaw = TranslationRowMode.rememberLast.rawValue
     @AppStorage(SyncPreferences.historyKey, store: SyncPreferences.groupDefaults) private var syncHistory = true
+    /// "Share usage data" (TASK-128.3). In the App Group, so the extensions follow it too.
+    @AppStorage(UsageSharingPreference.key, store: UsageSharingPreference.sharedDefaults) private var shareUsageData = true
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
     @Environment(AccountStore.self) private var account
@@ -50,6 +52,16 @@ struct SettingsView<MoreSections: View>: View {
                 translationCard
                     .cardRow()
 
+                Text("Privacy")
+                    .sectionCaption()
+                    .accessibilityAddTraits(.isHeader)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: Theme.Spacing.small, leading: Theme.Spacing.xLarge,
+                                              bottom: 0, trailing: Theme.Spacing.large))
+                privacyCard
+                    .cardRow()
+
                 aboutCard
                     .cardRow()
 
@@ -58,6 +70,7 @@ struct SettingsView<MoreSections: View>: View {
             .scrollContentBackground(.hidden)
             .background(Theme.Colors.background)
             .onChange(of: modeRaw) { SettingsSync.shared.settingsChanged() }
+            .onChange(of: shareUsageData) { Analytics.shared.sharingChanged() }
             .onChange(of: syncHistory) { _, isOn in
                 SettingsSync.shared.settingsChanged()
                 if isOn { Task { await SyncEngine.shared.historySyncTurnedOn() } }
@@ -221,6 +234,27 @@ extension SettingsView {
         .padding(.horizontal, Theme.Spacing.large)
         .padding(.vertical, Theme.Spacing.medium)
         .frame(minHeight: Theme.minTapTarget)
+    }
+
+    /// The "Share usage data" switch (TASK-128.3, design picked 2026-11-04: its own Privacy card). On by default.
+    /// Off: no usage events at all; crash reports still go to Sentry, without anything the learner looked up.
+    fileprivate var privacyCard: some View {
+        Toggle(isOn: $shareUsageData) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
+                Text("Share usage data")
+                    .font(.body)
+                    .foregroundStyle(Theme.Colors.textPrimary)
+                Text("Which features you use. Never the words you look up.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.Colors.textMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .tint(Theme.Colors.accent)
+        .padding(.horizontal, Theme.Spacing.large)
+        .padding(.vertical, Theme.Spacing.medium)
+        .frame(minHeight: Theme.minTapTarget)
+        .settingsCard()
     }
 
     /// "About Saynata" (a page) and "Source code" (the GitHub project).

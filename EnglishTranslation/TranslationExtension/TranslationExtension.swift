@@ -33,7 +33,8 @@ private struct TranslationSheetView: View {
     var body: some View {
         SelectedTextResultView(
             loadText: { context.inputText.map { String($0.characters) } ?? "" },
-            onReplace: replace)
+            onReplace: replace,
+            source: .translateSheet)
     }
 
     /// Puts the fixed text in place of the selection and closes the sheet. Nil when the host does not allow it.

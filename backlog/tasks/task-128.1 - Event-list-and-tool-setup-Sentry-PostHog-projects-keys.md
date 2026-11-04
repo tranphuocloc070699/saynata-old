@@ -1,10 +1,10 @@
 ---
 id: TASK-128.1
-title: 'Event list and tool setup (Sentry + PostHog projects, keys)'
+title: Event list and tool setup (Sentry + PostHog projects, keys)
 status: To Do
 assignee: []
-created_date: '2026-11-04 10:35'
-updated_date: '2026-11-04 11:44'
+created_date: 2026-11-04 10:35
+updated_date: '2026-11-04T12:01:00Z'
 labels:
   - analytics
 dependencies: []
@@ -20,10 +20,10 @@ One source of truth for event names and properties, so iOS, web and the extensio
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 docs/analytics/events.md lists about 12 events with properties, for example lookup_done {kind: word|sentence, source: app|share|intent|panel|extension, cache_hit}, listen_tapped, speak_scored {score}, language_row_opened {lang}, item_liked, quick_explain_used, signed_in
-- [ ] #2 The doc says which question each event answers (adoption, repeat use, explicit like) and lists the PostHog insights to build, including the language-row open rate
-- [ ] #3 The doc states the privacy rule: never send looked-up text, only kind, source, length bucket and cache hit
-- [ ] #4 Sentry projects exist for ios, web, extension, backend and a PostHog project exists; new keys are in .env.example files and doc-24
+- [x] #1 docs/analytics/events.md lists about 12 events with properties, for example lookup_done {kind: word|sentence, source: app|share|intent|panel|extension, cache_hit}, listen_tapped, speak_scored {score}, language_row_opened {lang}, item_liked, quick_explain_used, signed_in
+- [x] #2 The doc says which question each event answers (adoption, repeat use, explicit like) and lists the PostHog insights to build, including the language-row open rate
+- [x] #3 The doc states the privacy rule: never send looked-up text, only kind, source, length bucket and cache hit
+- [x] #4 Sentry projects exist for ios, web, extension, backend and a PostHog project exists; new keys are in .env.example files and doc-24
 <!-- AC:END -->
 
 ## Definition of Done
@@ -43,4 +43,8 @@ Sentry plugin installed 2026-11-04 (npx @sentry/agent-plugin install, org tran-p
 2026-11-04: saynata-backend created by the developer; all 4 Sentry projects exist and their DSNs are in doc-24. Left in this task: PostHog project and docs/analytics/events.md (AC 1-3).
 
 2026-11-04: PostHog project created (US, project 709641, Product Analytics only, Session Replay off); key and host in doc-24 (section Usage tracking). Left: docs/analytics/events.md (AC 1-3).
+
+2026-11-04: docs/analytics/events.md written (AC 1-3): 12 events + speak_scored reserved (speech scoring not built yet), super properties (platform, app_version, signed_in), source values per platform, length bucket, privacy rule, PostHog insights for TASK-128.6 including the language-row open rate (language_row_opened / lookup_done with row_start=closed).
+
+2026-11-04: AC 4 checked: the 4 Sentry projects and the PostHog project exist, keys in doc-24 and the .env.example files (see notes above). Left for the developer: GitHub variable SENTRY_DSN_WEB and secret SENTRY_AUTH_TOKEN (web deploy, TASK-128.4).
 <!-- SECTION:NOTES:END -->

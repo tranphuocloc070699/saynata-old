@@ -15,6 +15,11 @@ struct EnglishTranslationApp: App {
     @State private var liked = LikedStore.live()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        // Crash reports and usage events (TASK-128.3), first, so a crash while starting is reported too.
+        Telemetry.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -51,7 +56,7 @@ struct EnglishTranslationApp: App {
                     }
                     // The share extension sends `saynata://lookup?text=...`. Put the text in the input and explain it.
                     guard let text = DeepLink.text(from: url) else { return }
-                    store.inputText = text
+                    store.useText(text, from: .share)
                     Task { await store.translate() }
                 }
                 .alert(
