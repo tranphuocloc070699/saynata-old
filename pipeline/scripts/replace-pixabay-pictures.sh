@@ -32,15 +32,20 @@ check_common() {
 }
 
 count() {
-  command -v psql >/dev/null || die "psql is not installed (brew install libpq)"
-  step "Senses whose current picture is from Pixabay"
-  psql "$DATABASE_URL" -X -q -c "
-    SELECT 'bundled words' AS words, count(*) AS pixabay_senses
-      FROM dictionary_sense s JOIN media m ON m.id = s.media_id WHERE m.source = 'pixabay'
-    UNION ALL
-    SELECT 'backend words', count(*)
-      FROM word_lookup_media l JOIN media m ON m.id = l.media_id
-     WHERE m.source = 'pixabay' AND (l.media_status IS NULL OR l.media_status <> 'removed');"
+  step "Senses whose current picture is from Pixabay (read-only)"
+  DATABASE_URL="$DATABASE_URL" uv run python - <<'PY'
+from pipeline import postgres
+pg = postgres.connect(postgres.database_url(), read_only=True)
+with pg.cursor() as cursor:
+    cursor.execute("""SELECT count(*) FROM dictionary_sense s JOIN media m ON m.id = s.media_id
+                      WHERE m.source = 'pixabay'""")
+    bundled = cursor.fetchone()[0]
+    cursor.execute("""SELECT count(*) FROM word_lookup_media l JOIN media m ON m.id = l.media_id
+                      WHERE m.source = 'pixabay' AND (l.media_status IS NULL OR l.media_status <> 'removed')""")
+    backend = cursor.fetchone()[0]
+pg.close()
+print(f"bundled words: {bundled}\nbackend words: {backend}\ntotal:         {bundled + backend}")
+PY
   echo "Write these numbers in the TASK-115.4 notes before 'draw'."
 }
 
