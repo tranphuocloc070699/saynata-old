@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: 2026-10-23 10:24
-updated_date: '2026-11-04T10:46:00Z'
+updated_date: '2026-11-04T15:31:00Z'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-11-04 (sign-in guard, no "Sign in" pill on the sign-in pages, /history crash fix in useNow; before that chip shortcuts, inline completion and ranked suggestions, TASK-116; before that a word the word API cannot answer goes to the sentence API, TASK-114.2; before that Download page, TASK-102.9; before that header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built, privacy and terms pages (TASK-102.4) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-11-04 (privacy and terms pages, footer links, TASK-102.4; before that sign-in guard, no "Sign in" pill on the sign-in pages, /history crash fix in useNow; before that chip shortcuts, inline completion and ranked suggestions, TASK-116; before that a word the word API cannot answer goes to the sentence API, TASK-114.2; before that Download page, TASK-102.9; before that header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -174,6 +174,22 @@ sequenceDiagram
 Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
 [auth.ts:266](../../../web/src/lib/auth.ts#L266). The backend must list both in `GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS` (doc-11 section 13, doc-17).
 
+## Privacy and terms (TASK-102.4)
+
+Two plain reading pages for Google brand verification, the App Store (guideline 5.1.1) and Sign in with Apple. Both use
+[LegalPage.tsx](../../../web/src/components/legal/LegalPage.tsx): the header, an h1, "Last updated" (`LEGAL_UPDATED`),
+an intro and `LegalSection`s in a 680 px column, then `LegalFooter`.
+
+| Route | File | What it says |
+|---|---|---|
+| `/privacy` | [privacy/page.tsx](../../../web/src/app/privacy/page.tsx) | What we keep and why (email, Apple/Google account ID, History if sync is on and the latest 1,000, Liked, settings, AI use rows, the shared library not linked to anyone, IP only in memory for rate limits), who gets data (our server, DeepSeek and Gemini, PostHog, Sentry, Resend, Apple and Google), how long (codes 10 min, links 15 min, sessions 60 days, PostHog up to 1 year, Sentry up to 90 days), how to delete the account (app Settings, or web `/account`, or email), rights, children, changes. The PostHog line follows the privacy rule in `docs/analytics/events.md`: never what was looked up, typed, selected or copied |
+| `/terms` | [terms/page.tsx](../../../web/src/app/terms/page.tsx) | What Saynata is, AI answers can be wrong, account, fair use (no scraping, no getting around limits), content, no guarantee, link to the policy, contact |
+
+Links: the homepage footer (`LegalFooter` with the "Simple English first" line, [page.tsx](../../../web/src/app/page.tsx)), the
+footer of both legal pages, and "Terms" and "Privacy Policy" in the note under the sign-in and sign-up form
+([SignInForm.tsx](../../../web/src/components/auth/SignInForm.tsx)). The contact address is `CONTACT_EMAIL` in `LegalPage.tsx`.
+**Change the policy whenever a flow it names changes** (a new service, a new table with personal data, a new lifetime), and bump `LEGAL_UPDATED`.
+
 ## Download (TASK-102.9)
 
 `/download` ([page.tsx](../../../web/src/app/download/page.tsx)) tells a learner Saynata is also on iPhone, Mac and as a browser extension. Heading "Take Saynata everywhere", then three stacked cards ([DownloadCards.tsx](../../../web/src/components/download/DownloadCards.tsx)): a picture tile on `bg-meaning`, the platform name, one line on what it does there, the requirement, and either a "Coming soon" pill (`bg-chip`, `text-accent`) or a store button.
@@ -226,6 +242,7 @@ Tests: `web/test/downloads.test.ts` (device detection and order, soon renders no
 | `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
 | `web/test/account.test.ts` | `AccountApi` (Bearer, DELETE, one refresh, no token, errors), `memberLine`, `statTiles`, `avatarLetter`, the guest redirect path |
 | `web/test/settings.test.ts` | Account load and save (Bearer, PUT body, one retry after 401, unknown values), a guest keeps localStorage and sends nothing, a signed-in change applies at once, a failed load keeps the local settings, `translationRowOpen` |
+| `web/test/legal.test.ts` | `/privacy` and `/terms` render with their titles; the policy names our server, DeepSeek, Gemini, PostHog, Sentry and Resend, the no-looked-up-text rule, what we keep, how long and Delete account; the footer links both |
 | `web/test/downloads.test.ts` | Device detection and card order, soon has no link, live opens the store url in a new tab, QR only for a non-iPhone visitor |
 | `web/test/summaryMarkup.test.ts` | Bullets, bold, an unclosed `**` while streaming, `plainSummary` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |
