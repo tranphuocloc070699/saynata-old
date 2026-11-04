@@ -49,6 +49,9 @@ struct TranslateInputView: View {
                 .opacity(store.canTranslate ? 1 : 0.4)
             }
         }
+        // Full width always: without it the card's width followed the typed text, so the language menu
+        // moved with each key and was drawn clipped ("ietnamese") while it moved.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.large)
         .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .overlay {
