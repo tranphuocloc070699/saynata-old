@@ -192,6 +192,7 @@ start() {
   [ -f .env ] || die "run setup first"
   mkdir -p data/out
   step "Starting the run in the background (log: $PWD/$LOG)"
+  echo "== $(date -u) new run started" >> "$LOG"
   nohup setsid bash -c "
     set -u
     export PATH='$HOME/.local/bin':\"\$PATH\" CODEX_HOME='$CODEX_DIR'
@@ -206,7 +207,9 @@ start() {
     kill 0
   " >> "$LOG" 2>&1 < /dev/null &
   echo $! > "$PIDFILE"
-  echo "Started (pid $!). You can close the Mac now."
+  sleep 5   # a run that dies at once (bad .env, ssh hang-up) shows here, not hours later
+  running || { echo "--- last lines of $LOG"; tail -n 15 "$LOG"; die "the run stopped right after starting (see above)"; }
+  echo "Started (pid $(cat "$PIDFILE")), still running after 5 s. You can close the Mac now."
 }
 
 status() {
