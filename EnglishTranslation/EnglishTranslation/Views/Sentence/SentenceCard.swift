@@ -73,7 +73,7 @@ struct SentenceCard: View {
             // No translation yet (the answer is still streaming): the row appears when the full result arrives.
             // "" means the backend had no line for this language (a guest, offline cache): no row (TASK-106.6).
             if let translation, Self.hasLanguageLine(translation) {
-                FoldedRow(title: language.title, isExpanded: $isTranslationOpen) {
+                FoldedRow(title: language.title, isExpanded: $isTranslationOpen, showsDivider: false) {
                     Text(translation)
                         .font(.body)
                         .foregroundStyle(Theme.Colors.textPrimary)

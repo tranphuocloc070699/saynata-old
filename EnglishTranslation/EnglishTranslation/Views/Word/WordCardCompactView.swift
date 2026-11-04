@@ -50,7 +50,7 @@ struct WordCardCompactView: View {
                 SenseTitleRow(number: 1, sense: sense)
 
                 if sense.hasTargetLanguageRow(for: targetLanguage) {
-                    FoldedRow(title: targetLanguage.title, isExpanded: $isLanguageRowOpen) {
+                    FoldedRow(title: targetLanguage.title, isExpanded: $isLanguageRowOpen, showsDivider: false) {
                         TargetLanguageRowContent(sense: sense, language: targetLanguage, headword: entry.word)
                     }
                     .onChange(of: isLanguageRowOpen) { _, isOpen in

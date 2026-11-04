@@ -13,6 +13,8 @@ struct FoldedRow<Content: View>: View {
     /// Shown after the title, for example "2". Optional.
     var count: Int?
     @Binding var isExpanded: Bool
+    /// False for the target-language row: it is the last row of a card, so no line under it (TASK-127).
+    var showsDivider = true
     @ViewBuilder let content: Content
 
     var body: some View {
@@ -46,7 +48,9 @@ struct FoldedRow<Content: View>: View {
                     .padding(.bottom, Theme.Spacing.medium)
             }
 
-            HairlineDivider()
+            if showsDivider {
+                HairlineDivider()
+            }
         }
     }
 }

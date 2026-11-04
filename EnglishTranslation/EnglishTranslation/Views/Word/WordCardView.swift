@@ -94,7 +94,8 @@ struct WordCardView: View {
                             set: { isOpen in
                                 if isOpen { openTargetRows.insert(index) } else { openTargetRows.remove(index) }
                                 TranslationRowPreference().rowChanged(isOpen: isOpen)
-                            })
+                            }),
+                        showsDivider: false
                     ) {
                         TargetLanguageRowContent(
                             sense: sense, language: targetLanguage, headword: entry.word, cardTexts: entry.senseDefinitions)
