@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: 2026-10-11 08:52
-updated_date: '2026-11-04T10:15:00Z'
+updated_date: '2026-11-04T14:07:00Z'
 ---
 # Decisions and reasons
 
@@ -230,6 +230,7 @@ Quotes are the developer's words, with spelling fixed.
 | 11-04 | **`scripts/install-on-phone.sh` signs with the paid account by default**; `PAID_ACCOUNT=0` is the way back to a free Apple ID | "always add PAID_ACCOUNT". Reason: not recorded (likely: the paid account is set up, and Sign in with Apple and App Groups need it) | Free Apple ID by default, `PAID_ACCOUNT=1` to opt in | Developer |
 | 11-04 | **The word language row asks the LLM for the picked language first, then fills the other 6 in the background** (doc-5, changes TASK-106.7 for `POST /api/translate-lines`): the first open of a row waited for one big all-language call; now one short one-language call answers the row and a background job (`LineFill`, one thread) saves the rest, so the next learner in any language still hits the cache. The sentence path keeps the one all-language call. | The first tap on the German row on saynata.com lagged. "ok I'll go with option A" (after seeing the cause: one AI call for 7 languages, and options A, B, C) | B: start loading the row when the card shows, before the tap (an AI call per card viewed); C: prefill lines for common words in a paid pipeline run (new words still wait) | Claude (options), developer (choice) |
 | 11-04 | **Web header stays as it is for now; the History button becomes a white circle like IconButton** (doc-23): "Get the app" stays in the avatar menu (and the guest download icon stays); the History link gets the IconButton default look (44 px, hairline, soft shadow) | "I think this is still ok, for now. The problem is history button feel to small" (after the Mobbin check: guests usually see a small "Get app" pill, signed-in users find it in the avatar menu) | A: a guest menu; B: a "Get app" text pill (Mindtrip style); C: keep the icon and show "Sign up" on the login page | Developer |
+| 11-04 | **CodeRabbit reviews every PR** (`.coderabbit.yaml`): an AI code review on PRs into `main`, `feature/local` and feature branches, with CLAUDE.md, the design system and the event list as its rules; profile "chill", plain B1-B2 English | "I want to add code rabbit to review the code quality" | No outside reviewer (only the main chat reviews worker PRs) | Developer |
 
 ## Questions answered
 

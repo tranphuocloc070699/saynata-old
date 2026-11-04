@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# CodeRabbit: an AI code review on every pull request (developer's decision 2026-11-04, doc-7).
+# It reads CLAUDE.md and the design system as the project rules. Ask it things in a PR with "@coderabbitai ...".
+language: en-US
+tone_instructions: >-
+  The developer is learning Swift and English. Use short, plain English (B1-B2). Say why a change matters and
+  show the fixed code. Skip style nitpicks that the existing code already does the same way.
+
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  in_progress_fortune: false
+  review_status: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  auto_review:
+    enabled: true
+    drafts: false
+    # main is always reviewed. Also review PRs into the test branch and the feature branches (CLAUDE.md "Conventions").
+    base_branches:
+      - "feature/.*"
+      - "f[0-9]+/.*"
+  path_filters:
+    - "!**/package-lock.json"
+    - "!**/Package.resolved"
+    - "!**/uv.lock"
+    - "!**/*.xcodeproj/**"
+    - "!**/dist/**"
+    - "!**/*.sqlite"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.mp4"
+    - "!backlog/tasks/**"
+    - "!backlog/archive/**"
+  path_instructions:
+    - path: "**/*"
+      instructions: >-
+        Product rule: Saynata teaches English. The simple English explanation comes first; the target-language
+        line (Vietnamese etc.) is last and small. Flag any change that makes translation the headline.
+        Privacy: no looked-up, typed, selected or copied text may be sent to PostHog or Sentry
+        (docs/analytics/events.md). Event names must match that file exactly.
+    - path: "EnglishTranslation/**/*.swift"
+      instructions: >-
+        SwiftUI, iOS 18 / macOS 15, Swift 6 concurrency with default MainActor isolation. State lives in
+        @Observable classes injected with .environment; system APIs sit behind a small protocol with a fake for
+        tests. Colors, spacing, radius and text styles only from Theme and DesignSystem/Components
+        (docs/design/design-system.md). Buttons are icon-only with an accessibility label. Tests use Swift
+        Testing (@Test, #expect). The Share and Translation extensions and the Mac app compile this folder too,
+        so check that a change works there (memory limits in extensions, #if os(macOS)).
+    - path: "backend/**/*.java"
+      instructions: >-
+        Spring Boot 4, Java 17, one package per feature. Errors are ProblemDetail via common/ApiExceptionHandler.
+        Any new LLM call must go through limits/ClaudeGate first. Schema changes only as a new Flyway file; never
+        edit an old one. A prompt change must bump its version in application.properties. Tests never call a
+        real API.
+    - path: "backend/src/main/resources/db/migration/**"
+      instructions: "Flag any edit to an existing migration file. Only new V<n>__<what>.sql files are allowed."
+    - path: "pipeline/**/*.py"
+      instructions: >-
+        Python 3.12 with uv. One module per step, run through cli.py; progress is saved in pipeline.db so every
+        step can resume. Flag code that starts a paid LLM or media run without the developer running it.
+    - path: "{admin,web,extension}/**/*.{ts,tsx}"
+      instructions: >-
+        TypeScript, tests with Vitest. The extension is Chromium MV3: no remote code, no Sentry.init in content
+        scripts, no page text or page URL sent anywhere.
+    - path: "backlog/docs/**"
+      instructions: "Check that file:line links and the 'Last traced' date match the code changed in the same PR."
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "CLAUDE.md"
+      - "docs/design/design-system.md"
+      - "docs/analytics/events.md"
