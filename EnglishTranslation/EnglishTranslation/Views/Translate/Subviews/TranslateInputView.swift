@@ -75,6 +75,10 @@ struct TranslateInputView: View {
             .padding(.vertical, Theme.Spacing.small)
             .background(Theme.Colors.chipFill, in: Capsule())
         }
+        // Keeps the chip at its full width: without it the label was clipped on the left ("ietnamese")
+        // when the Clear button appeared next to it (TASK-127 test).
+        .fixedSize()
+        .layoutPriority(1)
         .accessibilityLabel("Translate into")
         .accessibilityValue(selection.wrappedValue.title)
     }
