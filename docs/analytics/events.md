@@ -50,12 +50,12 @@ Where a lookup started. Each client sends only its own values.
 
 | `source` | Platform | Where |
 |---|---|---|
-| `app` | ios, mac | Typed or pasted in the main screen |
-| `copied` | ios | Back Tap or a deep link put copied text in the app (`CopiedTextLaunch`) |
-| `share` | ios | Share extension |
+| `app` | ios | Typed or pasted in the main screen (also a "did you mean" word, or a History row) |
+| `copied` | ios, mac | iOS: Explain copied text (Back Tap, Action Button). Mac: the shortcut with freshly copied text |
+| `share` | ios | Share extension, and its "Open in Saynata" link |
 | `translate_sheet` | ios | The system Translate sheet (TranslationExtension, default translation app) |
-| `intent` | ios, mac | App Intents: Explain copied text, Quick explain |
-| `panel` | mac | Floating panel (⌥⇧Space) |
+| `intent` | ios | Quick explain (Shortcuts, Siri, Back Tap) |
+| `panel` | mac | Typed in the menu-bar popover or the floating panel (⌥⇧Space) |
 | `services` | mac | The Services menu item |
 | `extension` | extension | The card on a web page |
 | `web` | web | A lookup on the website (when it exists) |
@@ -73,22 +73,25 @@ Twelve events, plus one reserved for later. "Question" says what each one answer
 |---|---|---|---|---|---|
 | 1 | `lookup_done` | `kind`: `word` \| `phrase` \| `sentence`; `source` (above); `length` (bucket); `cache_hit`: bool, left out when the client cannot tell; `lang`: target-language code (`vi`, `ko`...); `row_start`: `open` \| `closed` | A result is on screen (word card or full sentence result). Once per lookup, not on prefetch while typing | Adoption and repeat use of the core feature; which entry points people use | all |
 | 2 | `lookup_failed` | `kind`; `source`; `reason`: `sign_in_required` \| `daily_limit` \| `not_english` \| `offline` \| `server` | The result area shows an error instead of a result | Where people get stuck; how often the guest limit stops them | all |
-| 3 | `listen_tapped` | `part`: `word` \| `example` \| `meaning` \| `sentence`; `kind` | The Listen icon starts reading (not when it stops) | Adoption and repeat use of Listen (F3) | ios, mac, extension |
+| 3 | `listen_tapped` | `part`: `word` \| `example` \| `meaning` \| `sentence` \| `selected` (the header of the Share and Translate sheet) | The Listen icon starts reading (not when it stops) | Adoption and repeat use of Listen (F3) | ios, mac, extension |
 | 4 | `language_row_opened` | `lang`; `kind` | The learner taps the target-language row open. Not when it opens by itself (`alwaysOpen` or remembered) | **Product goal**: language-row open rate | ios, mac, extension |
 | 5 | `item_liked` | `kind` | The star turns on (also the like that waited for sign-in) | Explicit like | ios, mac, web |
 | 6 | `item_unliked` | `kind` | The star turns off, or a swipe in the Liked list | Like quality (liked then removed) | ios, mac, web |
 | 7 | `sentence_word_opened` | `has_entry`: bool (the word was in the bundle) | A word in a sentence result is tapped and its card opens | Adoption of words inside sentences | ios, mac |
 | 8 | `suggestion_tapped` | none | A "did you mean" word is tapped | Is spelling help used | ios, mac |
-| 9 | `history_opened` | `tab`: `history` \| `liked` | History or Liked opens | Do people go back to old results (repeat use) | ios, mac, web |
-| 10 | `quick_explain_used` | `source`: `intent` | Quick explain shows its card (inside Shortcuts or Siri, the app stays closed) | Adoption of the shortcut | ios |
+| 9 | `history_opened` | `tab`: `history` \| `liked` (the tab it opens on) | History or Liked opens | Do people go back to old results (repeat use) | ios, mac, web |
+| 10 | `quick_explain_used` | none (it also sends `lookup_done` or `lookup_failed` with `source: intent`) | Quick explain shows its card (inside Shortcuts or Siri, the app stays closed) | Adoption of the shortcut | ios |
 | 11 | `language_changed` | `lang` (the new one) | The learner picks another target language | Which languages to support next | ios, mac, extension, web |
-| 12 | `signed_in` | `method`: `email_code` \| `email_link` \| `google` \| `apple`; `reason`: `limit` \| `like` \| `settings` \| `web` | Sign-in succeeded (also sign-up). Call `identify(user_id)` first | Explicit commitment; which prompt brings sign-ins | all |
+| 12 | `signed_in` | `method`: `email_code` \| `email_link` \| `google` \| `apple`; `reason` (optional, web): `limit` \| `like` \| `settings` | Sign-in succeeded (also sign-up). Call `identify(user_id)` first | Explicit commitment; which prompt brings sign-ins | all |
 | 13 | `speak_scored` | `score`: 0-100 (whole number); `kind` | **Reserved, not built yet**: the "say the meaning" practice gives a score (doc-1) | Adoption and repeat use of speaking practice | (later) |
 
 Notes:
 
 - `lookup_done` with `kind: phrase` is a 2-6 word phrase shown as a word card (TASK-83.10). A non-English word
   that opens an English word card (TASK-114) is `kind: word`.
+- `cache_hit` is optional: the iOS/Mac app leaves it out for now (it cannot tell a server cache hit yet), so read
+  cache hits from the backend until a client sends it.
+- Changing the language on a shown sentence asks again, so it sends a second `lookup_done`.
 - `row_start` is how the language row started on that result. `closed` results are the base for the open rate.
 - Signing out calls `reset()`, so the next events get a new anonymous ID.
 - No event for "app opened": PostHog's own lifecycle events (`Application Opened` on iOS/Mac, `$pageview` on web)
@@ -98,7 +101,7 @@ Notes:
 
 - iOS/Mac: Settings has a "Share usage data" switch (on by default, opt-out). Off: no events at all (PostHog
   `optOut()`); crash reports to Sentry stay, without user content. Design from a mockup (TASK-128.3).
-- Debug builds and tests send nothing unless turned on (iOS: a launch argument; web and extension: no key in env).
+- Debug builds and tests send nothing unless turned on (iOS/Mac: the launch argument `-SaynataSendTelemetryInDebug YES`; web and extension: no key in env).
 
 ## PostHog insights to build (TASK-128.6)
 

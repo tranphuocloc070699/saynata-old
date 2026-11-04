@@ -84,4 +84,12 @@ struct TranslationRowPreference {
     func rowChanged(isOpen: Bool) {
         lastOpen = isOpen
     }
+
+    /// The learner tapped a target-language row: saves it like `rowChanged`, and an opened row sends
+    /// `language_row_opened` (TASK-128.3), the number behind "explain first, translate last".
+    @MainActor
+    func rowTapped(isOpen: Bool, language: TargetLanguage, kind: LookupKind, analytics: Analytics = .shared) {
+        rowChanged(isOpen: isOpen)
+        if isOpen { analytics.track(.languageRowOpened(language: language, kind: kind)) }
+    }
 }

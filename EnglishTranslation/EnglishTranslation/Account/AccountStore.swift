@@ -38,6 +38,8 @@ final class AccountStore: AccessTokenProviding {
     @ObservationIgnored private var refreshTask: Task<String?, Error>?
     @ObservationIgnored private let secrets: any SecretStoring
     @ObservationIgnored private let client: AuthClient
+    /// `signed_in`, and the user ID for usage events (TASK-128.3). Never the email.
+    @ObservationIgnored private let analytics: Analytics
 
     /// The Keychain key. All of the session is one JSON item, so it is saved and deleted in one step.
     private static let sessionKey = "session"
@@ -46,10 +48,12 @@ final class AccountStore: AccessTokenProviding {
 
     init(
         secrets: any SecretStoring = KeychainSecretStore(),
-        client: AuthClient = AuthClient(baseURL: try? AppConfig.backendBaseURL())
+        client: AuthClient = AuthClient(baseURL: try? AppConfig.backendBaseURL()),
+        analytics: Analytics = .shared
     ) {
         self.secrets = secrets
         self.client = client
+        self.analytics = analytics
         if let saved = Self.savedSession(in: secrets) {
             session = saved
             user = saved.user
@@ -84,6 +88,7 @@ final class AccountStore: AccessTokenProviding {
             email: email.trimmingCharacters(in: .whitespacesAndNewlines),
             code: code.trimmingCharacters(in: .whitespacesAndNewlines))
         save(SavedSession(accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user))
+        analytics.signedIn(userID: response.user.id, method: .emailCode)
     }
 
     /// "Email me a link": makes a new secret, keeps it in the Keychain, and asks the backend to email a link that
@@ -103,6 +108,7 @@ final class AccountStore: AccessTokenProviding {
         let response = try await client.verifyLink(token: linkToken, codeVerifier: verifier)
         try? secrets.setSecret(nil, forKey: Self.linkVerifierKey)
         save(SavedSession(accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user))
+        analytics.signedIn(userID: response.user.id, method: .emailLink)
     }
 
     /// The app was opened by a sign-in link. Signs in, or keeps the reason in `linkSignInError` for the alert.
@@ -123,6 +129,7 @@ final class AccountStore: AccessTokenProviding {
     func signIn(with provider: SocialProvider, idToken: String, nonce: String) async throws {
         let response = try await client.signIn(with: provider, idToken: idToken, nonce: nonce)
         save(SavedSession(accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user))
+        analytics.signedIn(userID: response.user.id, method: provider == .google ? .google : .apple)
     }
 
     // MARK: - Signing out
@@ -201,5 +208,6 @@ final class AccountStore: AccessTokenProviding {
         session = nil
         user = nil
         try? secrets.setSecret(nil, forKey: Self.sessionKey)
+        analytics.signedOut()
     }
 }

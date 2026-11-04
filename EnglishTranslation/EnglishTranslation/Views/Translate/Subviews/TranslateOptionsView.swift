@@ -17,7 +17,10 @@ struct TranslateOptionsView: View {
             IconButton(systemImage: "line.3.horizontal", label: "Settings") { isSettingsOpen = true }
             Spacer()
             if store.history != nil {
-                IconButton(systemImage: "clock", label: "History and Liked") { isHistoryOpen = true }
+                IconButton(systemImage: "clock", label: "History and Liked") {
+                    isHistoryOpen = true
+                    Analytics.shared.track(.historyOpened)
+                }
             }
         }
         .sheet(isPresented: $isSettingsOpen) {

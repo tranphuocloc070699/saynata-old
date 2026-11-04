@@ -10,6 +10,14 @@
 		7A000000000000000000000D /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7A0000000000000000000002 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7B000000000000000000000D /* TranslationExtension.appex in Embed ExtensionKit Extensions */ = {isa = PBXBuildFile; fileRef = 7B0000000000000000000002 /* TranslationExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		7C0000000000000000000020 /* KeyboardShortcuts in Frameworks */ = {isa = PBXBuildFile; productRef = 7C0000000000000000000022 /* KeyboardShortcuts */; };
+		7D0000000000000000000031 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000011 /* Sentry */; };
+		7D0000000000000000000041 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000021 /* PostHog */; };
+		7D0000000000000000000032 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000012 /* Sentry */; };
+		7D0000000000000000000042 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000022 /* PostHog */; };
+		7D0000000000000000000033 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000013 /* Sentry */; };
+		7D0000000000000000000043 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000023 /* PostHog */; };
+		7D0000000000000000000034 /* Sentry in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000014 /* Sentry */; };
+		7D0000000000000000000044 /* PostHog in Frameworks */ = {isa = PBXBuildFile; productRef = 7D0000000000000000000024 /* PostHog */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -231,6 +239,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7D0000000000000000000031 /* Sentry in Frameworks */,
+				7D0000000000000000000041 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -252,6 +262,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7D0000000000000000000032 /* Sentry in Frameworks */,
+				7D0000000000000000000042 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -259,6 +271,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7D0000000000000000000033 /* Sentry in Frameworks */,
+				7D0000000000000000000043 /* PostHog in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -266,6 +280,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7D0000000000000000000034 /* Sentry in Frameworks */,
+				7D0000000000000000000044 /* PostHog in Frameworks */,
 				7C0000000000000000000020 /* KeyboardShortcuts in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -328,6 +344,8 @@
 			);
 			name = EnglishTranslation;
 			packageProductDependencies = (
+				7D0000000000000000000011 /* Sentry */,
+				7D0000000000000000000021 /* PostHog */,
 			);
 			productName = EnglishTranslation;
 			productReference = 665068853075066F008C6524 /* EnglishTranslation.app */;
@@ -397,6 +415,8 @@
 			);
 			name = ShareExtension;
 			packageProductDependencies = (
+				7D0000000000000000000012 /* Sentry */,
+				7D0000000000000000000022 /* PostHog */,
 			);
 			productName = ShareExtension;
 			productReference = 7A0000000000000000000002 /* ShareExtension.appex */;
@@ -420,6 +440,8 @@
 			);
 			name = TranslationExtension;
 			packageProductDependencies = (
+				7D0000000000000000000013 /* Sentry */,
+				7D0000000000000000000023 /* PostHog */,
 			);
 			productName = TranslationExtension;
 			productReference = 7B0000000000000000000002 /* TranslationExtension.appex */;
@@ -444,6 +466,8 @@
 			);
 			name = SaynataMac;
 			packageProductDependencies = (
+				7D0000000000000000000014 /* Sentry */,
+				7D0000000000000000000024 /* PostHog */,
 				7C0000000000000000000022 /* KeyboardShortcuts */,
 			);
 			productName = SaynataMac;
@@ -493,6 +517,8 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7C0000000000000000000021 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */,
+				7D0000000000000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */,
+				7D0000000000000000000002 /* XCRemoteSwiftPackageReference "posthog-ios" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 665068863075066F008C6524 /* Products */;
@@ -1218,6 +1244,22 @@
 				minimumVersion = 2.4.0;
 			};
 		};
+		7D0000000000000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/getsentry/sentry-cocoa";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.32.0;
+			};
+		};
+		7D0000000000000000000002 /* XCRemoteSwiftPackageReference "posthog-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/PostHog/posthog-ios";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.93.4;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1225,6 +1267,46 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7C0000000000000000000021 /* XCRemoteSwiftPackageReference "KeyboardShortcuts" */;
 			productName = KeyboardShortcuts;
+		};
+		7D0000000000000000000011 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+		7D0000000000000000000021 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000002 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+		7D0000000000000000000012 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+		7D0000000000000000000022 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000002 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+		7D0000000000000000000013 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+		7D0000000000000000000023 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000002 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
+		};
+		7D0000000000000000000014 /* Sentry */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000001 /* XCRemoteSwiftPackageReference "sentry-cocoa" */;
+			productName = Sentry;
+		};
+		7D0000000000000000000024 /* PostHog */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7D0000000000000000000002 /* XCRemoteSwiftPackageReference "posthog-ios" */;
+			productName = PostHog;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

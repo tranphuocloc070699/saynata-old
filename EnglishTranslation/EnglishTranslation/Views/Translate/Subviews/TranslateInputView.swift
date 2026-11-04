@@ -71,7 +71,7 @@ private struct LanguageChip: View {
         @Bindable var store = store
 
         Menu {
-            Picker("Translate into", selection: $store.targetLanguage) {
+            Picker("Translate into", selection: $store.pickedLanguage) {
                 ForEach(TargetLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }

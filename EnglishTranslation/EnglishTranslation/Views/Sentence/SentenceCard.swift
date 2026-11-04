@@ -88,7 +88,7 @@ struct SentenceCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .onChange(of: isTranslationOpen) { _, isOpen in
-                    TranslationRowPreference().rowChanged(isOpen: isOpen)
+                    TranslationRowPreference().rowTapped(isOpen: isOpen, language: language, kind: .sentence)
                 }
             }
         }

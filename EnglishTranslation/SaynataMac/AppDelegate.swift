@@ -19,7 +19,8 @@ import SwiftUI
 /// open the window from code and put the cursor in the box, and `MenuBarExtra` has no way to open itself (doc-7).
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
-    private let store = TranslationStore()
+    /// Text typed in the popover or the panel counts as `panel` in usage events (TASK-128.3).
+    private let store = TranslationStore(source: .panel)
     private let speechPlayer = SpeechPlayer()
     /// The same object the backend client reads the token from, like the iPhone app.
     private let account = AccountStore.shared
@@ -32,6 +33,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let copiedText = CopiedTextWatcher()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Crash reports and usage events (TASK-128.3), first, so a crash while starting is reported too.
+        Telemetry.start()
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         // The two-cat logo as a template image, so macOS tints it for light and dark menu bars (TASK-95).
         let icon = NSImage(named: "MenuBarIcon")
@@ -70,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         #if DEBUG
         // For checking the window without a click: `open SaynataMac.app --args -explain "run late"`.
         if let index = CommandLine.arguments.firstIndex(of: "-explain"), index + 1 < CommandLine.arguments.count {
-            explain(CommandLine.arguments[index + 1])
+            explain(CommandLine.arguments[index + 1], source: .services)
         }
         // `-pressShortcut` acts as if the shortcut was pressed 3 s after start (copy something before that).
         if CommandLine.arguments.contains("-pressShortcut") {
@@ -143,7 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             closeAll()
         } else if UserDefaults.standard.object(forKey: explainsCopiedTextKey) as? Bool ?? true,
                   let text = copiedText.takeFreshText() {
-            explain(text)
+            explain(text, source: .copied)
         } else {
             showPanel()
         }
@@ -186,9 +189,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// Opens the panel and explains `text` from another app (no "Better way to say it" row, TASK-110).
-    func explain(_ text: String) {
+    /// - Parameter source: How it came, for usage events: `.services`, or `.copied` for the shortcut.
+    func explain(_ text: String, source: LookupSource) {
         showPanel()
-        store.useTextFromElsewhere(text)
+        store.useTextFromElsewhere(text, source: source)
         Task { await store.translate() }
     }
 
@@ -202,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             error.pointee = "No text was selected." as NSString
             return
         }
-        explain(text)
+        explain(text, source: .services)
     }
 }
 

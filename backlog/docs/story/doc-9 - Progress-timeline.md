@@ -3,7 +3,7 @@ id: doc-9
 title: Progress timeline
 type: guide
 created_date: 2026-10-11 08:52
-updated_date: '2026-11-04T09:48:00Z'
+updated_date: '2026-11-04T12:00:00Z'
 ---
 # Progress timeline
 
@@ -35,6 +35,7 @@ A dated story of the project, for the video. Add a line at the end of each worki
 | 2026-10-18 | The admin can draw an AI picture for one sense (TASK-91): the Sparkles button opens a dialog with the prompt already filled in, the developer edits it, and the server draws it with the Codex CLI on the VPS through his ChatGPT login, then links it like an upload. A wand asks Claude for a new scene; caps are 30 pictures and $1 of wand calls a day. | "Fix one wrong picture without leaving the admin." |
 | 2026-10-22 | The loose sentence match got looser (TASK-83.3): besides case and a final `. ? !`, curly quotes and apostrophes, a final `…` or comma and odd spaces no longer make a miss, so "I’m fine…" finds a saved "I'm fine". A Java Flyway migration (V24) gave the saved rows their new key. This is what makes thousands of prefilled sentences useful. | Small typing differences should not cost a new LLM call. |
 | 2026-11-04 | Web fixes from the developer's own test of saynata.com: /history crashed for a signed-in user (a clock hook re-subscribed on every render), a signed-in user could still open the sign-in page, and the header offered "Sign in" on the sign-in page itself. The first tap on a word's German row lagged: one AI call wrote all 7 languages before answering. The developer picked option A: the picked language first, the other 6 in the background. |
+| 2026-11-04 (evening) | Usage tracking, step one (TASK-128.1, TASK-128.3): one shared event list for every client (`docs/analytics/events.md`, 12 events, never the looked-up text), then the iPhone and Mac app wired to it: an `Analytics` protocol with a fake for tests, PostHog for events and Sentry for crashes in the app, the Mac app and both extensions, a "Share usage data" switch in a new Privacy card in Settings, and the privacy manifest. Nothing is sent from Debug builds. Built without Xcode, so the first build is the developer's |
 
 ## Numbers to show
 

@@ -35,6 +35,23 @@ enum AppConfig {
         try? value(for: "GoogleIOSClientID")
     }
 
+    /// The Sentry DSN of project `saynata-ios` (`SentryDSN`, TASK-128.3). A public client key (doc-24).
+    /// Nil while empty: no crash reports.
+    static func sentryDSN() -> String? {
+        try? value(for: "SentryDSN")
+    }
+
+    /// The PostHog project API key (`PostHogProjectKey`, TASK-128.3). A public client key (doc-24).
+    /// Nil while empty: no usage events.
+    static func postHogProjectKey() -> String? {
+        try? value(for: "PostHogProjectKey")
+    }
+
+    /// The PostHog host (`PostHogHost`), for example `https://us.i.posthog.com`. Nil: the SDK's default (US).
+    static func postHogHost() -> String? {
+        try? value(for: "PostHogHost")
+    }
+
     private static func value(for name: String) throws -> String {
         guard let value = Bundle.main.object(forInfoDictionaryKey: name) as? String,
               !value.isEmpty

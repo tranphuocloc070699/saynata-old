@@ -25,6 +25,8 @@ struct SelectedTextResultView: View {
     /// the user selected text they are writing). When set, a sentence gets the Fix card on top (`FixCard`).
     /// Nil: no Fix card (the share extension, or text the user is reading).
     var onReplace: ((String) -> Void)?
+    /// Where the text came from, for usage events: `.share` (Share extension) or `.translateSheet` (TASK-128.3).
+    var source: LookupSource = .share
 
     @State private var store = TranslationStore()
     /// The extensions have no app around them, so the sheet makes its own player for the speakers (F3).
@@ -51,7 +53,11 @@ struct SelectedTextResultView: View {
             liked.cancelPending()
             showsLikeSignInNote = true
         }
-        .task { await explainSelectedText() }
+        .task {
+            // The extensions have no app around them, so the sheet starts crash reports and usage events (TASK-128.3).
+            Telemetry.start()
+            await explainSelectedText()
+        }
         .onDisappear { speechPlayer.stop() }
     }
 
@@ -210,7 +216,7 @@ struct SelectedTextResultView: View {
         selectedText = text
         // Text the app cannot explain (empty, over 500 characters) never reaches the backend.
         guard TextRoute(text: text).problemMessage == nil else { return }
-        store.useTextFromElsewhere(text)
+        store.useTextFromElsewhere(text, source: source)
         await store.translate()
     }
 }
