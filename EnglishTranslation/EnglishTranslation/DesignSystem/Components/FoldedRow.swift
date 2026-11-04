@@ -20,7 +20,7 @@ struct FoldedRow<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Button {
-                withAnimation(.snappy) { isExpanded.toggle() }
+                isExpanded.toggle()
             } label: {
                 HStack(spacing: Theme.Spacing.small) {
                     Text(title)

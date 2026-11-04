@@ -94,7 +94,7 @@ struct SentenceCard: View {
     @ViewBuilder
     private var originalBlock: some View {
         Button {
-            withAnimation(.snappy) { isOriginalOpen.toggle() }
+            isOriginalOpen.toggle()
         } label: {
             HStack(spacing: Theme.Spacing.xSmall) {
                 Text("Original:")

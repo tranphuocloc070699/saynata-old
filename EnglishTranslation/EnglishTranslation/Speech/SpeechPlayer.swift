@@ -74,6 +74,5 @@ extension View {
                 .fill(Theme.Colors.accent.opacity(isPlaying ? 0.12 : 0))
                 .padding(-Theme.Spacing.xSmall)
         )
-        .animation(.easeOut(duration: 0.15), value: isPlaying)
     }
 }
