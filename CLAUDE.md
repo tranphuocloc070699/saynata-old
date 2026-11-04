@@ -34,7 +34,7 @@ force-push and pushes to main in every permission mode.
 
 Full test suites: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` (the Postgres tests need `TEST_DATABASE_URL`, else they are skipped) · `cd admin && npm test` · `cd extension && npm test` · `cd web && npm test` · iOS in Xcode (⌘U). While working, run only the tests of the part you changed (see "Saving time and tokens").
 Merge a PR when CI is green: `scripts/merge-when-green.sh <PR>` (no Claude chat needed).
-Install on the developer's real iPhone (build, then install or replace; open it by hand): `scripts/install-on-phone.sh` (free Apple ID: signs without App Groups and the default-translation-app capability; `PAID_ACCOUNT=1` for the real entitlements).
+Install on the developer's real iPhone (build, then install or replace; open it by hand): `scripts/install-on-phone.sh` (signs with the paid account's real entitlements; `PAID_ACCOUNT=0` for a free Apple ID, without App Groups, the default-translation-app capability and Sign in with Apple).
 Install the Mac app on this Mac (build, replace, register the Services item, open it): `scripts/install-on-mac.sh` (`CONFIG=Debug`, `INSTALL_DIR=/Applications`, `AD_HOC=1` when Apple ID signing fails).
 Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 

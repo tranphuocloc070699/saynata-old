@@ -5,11 +5,13 @@
 #   scripts/install-on-phone.sh                 # the first paired iPhone that is reachable
 #   DEVICE=<id or name> scripts/install-on-phone.sh
 #   CONFIG=Release scripts/install-on-phone.sh  # default Debug
-#   PAID_ACCOUNT=1 scripts/install-on-phone.sh  # sign with the real entitlements (needs a paid developer account)
+#   PAID_ACCOUNT=0 scripts/install-on-phone.sh  # sign for a free Apple ID instead (see below)
 #
-# A free Apple ID (Personal Team) cannot sign App Groups or "Default Translation App", so by default every target
-# is signed with EnglishTranslation/FreeAccount.entitlements (empty). The app works; only the shared cache between
-# the app and the share extension, and Saynata as the system translation app (TASK-42), are off.
+# By default every target is signed with the real entitlements (App Groups, Default Translation App,
+# Sign in with Apple), which needs the paid developer account (developer's rule, 2026-11-04).
+# A free Apple ID (Personal Team) cannot sign those, so PAID_ACCOUNT=0 signs with
+# EnglishTranslation/FreeAccount.entitlements (empty). The app works; only the shared cache between the app and
+# the share extension, Saynata as the system translation app (TASK-42) and Sign in with Apple are off.
 #
 # Needs: Xcode, the phone paired with this Mac (cable once, then Wi-Fi works), unlocked, Developer Mode on.
 # With a free Apple ID the app stops opening after 7 days: run this again.
@@ -53,9 +55,11 @@ fi
 echo "Phone: ${DEVICE_NAME//_/ } ($DEVICE_UDID)"
 
 signing_override=()
-if [ "${PAID_ACCOUNT:-0}" != "1" ]; then
+if [ "${PAID_ACCOUNT:-1}" = "0" ]; then
   signing_override=(CODE_SIGN_ENTITLEMENTS=FreeAccount.entitlements)
-  echo "Signing for a free Apple ID (no App Groups, no default translation app). PAID_ACCOUNT=1 to change."
+  echo "Signing for a free Apple ID (no App Groups, no default translation app, no Sign in with Apple)."
+else
+  echo "Signing with the paid account's entitlements. PAID_ACCOUNT=0 for a free Apple ID."
 fi
 
 echo "Building ($CONFIG)..."
