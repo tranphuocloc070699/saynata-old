@@ -62,8 +62,6 @@ struct SignInSheet: View {
         #endif
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .animation(.default, value: model.step)
-        .animation(.default, value: showsEmailForm)
         #if os(macOS)
         .frame(width: 420, height: 600)
         #endif

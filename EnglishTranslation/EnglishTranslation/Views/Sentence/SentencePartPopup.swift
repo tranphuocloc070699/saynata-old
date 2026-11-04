@@ -83,7 +83,7 @@ struct SentencePartPopup: View {
                 allowsPartPopup: false)
             buttonRow(summary: phase.summaryText)
             if case let .loaded(_, translation) = phase, SentenceCard.hasLanguageLine(translation) {
-                FoldedRow(title: language.title, isExpanded: $isTranslationOpen) {
+                FoldedRow(title: language.title, isExpanded: $isTranslationOpen, showsDivider: false) {
                     Text(translation)
                         .font(.body)
                         .foregroundStyle(Theme.Colors.textPrimary)
