@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Puts the Sign in with Apple revoke keys (TASK-112.3) into backend/.env, then offers to redeploy.
-# Run on the server:  ~/saynata/backend/scripts/set-apple-keys.sh <AuthKey_XXXXXXXXXX.p8> <TEAM_ID> [KEY_ID]
+# Run on the server:  /var/www/saynata/backend/scripts/set-apple-keys.sh <AuthKey_XXXXXXXXXX.p8> <TEAM_ID> [KEY_ID]
 #   - the .p8 file: Apple Developer, Keys, a "Sign in with Apple" key (doc-11 section 13, "Revoke on delete")
 #   - TEAM_ID: 10 characters, Apple Developer, Membership details
 #   - KEY_ID: 10 characters; read from the file name AuthKey_<KEY_ID>.p8 when left out
