@@ -279,6 +279,15 @@ def test_codex_timeout_is_a_draw_error_and_a_plan_limit_stops_the_run(tmp_path):
         fake_codex(tmp_path / "limit", output="You've hit your usage limit.", write=False)[0].draw("p")
 
 
+def test_a_broken_codex_login_stops_the_run(tmp_path):
+    """TASK-115: the VPS run went on after a 401 and paid a scene for every sense; a login error must stop it."""
+    output = ("ERROR codex_login::auth::manager: Failed to refresh token: Your access token could not be refreshed "
+              "because your refresh token was already used. Please log out and sign in again.\n"
+              "ERROR: workspace routing discovery unauthorized (401)")
+    with pytest.raises(ProviderStop, match="sign in again"):
+        fake_codex(tmp_path / "login", output=output, write=False)[0].draw("p")
+
+
 # --- Picture files -------------------------------------------------------------------------------------
 
 def test_a_picture_becomes_a_1536_wide_3_2_webp_and_a_768_jpeg():

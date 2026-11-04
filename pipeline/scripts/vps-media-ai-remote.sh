@@ -3,7 +3,7 @@
 # ~/saynata-pipeline/pipeline on the server and calls this file there with one of: setup, start, status, stop, link.
 #
 # Claude calls go through the gateway in pipeline/gateway.env (CLAUDE_BASE_URL, for example STEYG with DeepSeek);
-# Codex draws with the server's ChatGPT login (/var/lib/saynata/codex, the one the admin uses for AI pictures).
+# Codex draws with the pipeline's own ChatGPT login (~/.codex-pipeline; setup signs in with a device code once).
 # Pictures are drawn into data/media here and copied to /var/lib/saynata/media by "link".
 # Safe to run again: "start" continues where it stopped (progress is in Postgres), "link" links only new pictures.
 set -euo pipefail
@@ -13,7 +13,8 @@ export PATH="$HOME/.local/bin:$PATH"
 export UV_PYTHON=3.12   # the project's Python; uv picks the newest (3.15) otherwise, and onnxruntime has no 3.15 build
 
 CODEX_VERSION=0.163.0                                   # the same pinned version as backend/Dockerfile
-CODEX_DIR="${CODEX_HOST_DIR:-/var/lib/saynata/codex}"
+CODEX_DIR="${PIPELINE_CODEX_HOME:-$HOME/.codex-pipeline}"   # its OWN login: sharing the admin's (/var/lib/saynata/codex)
+                                                           # broke both, a refresh token works only once
 SERVER_MEDIA="${MEDIA_HOST_DIR:-/var/lib/saynata/media}"
 BACKEND_ENV="${BACKEND_ENV:-}"   # found by find_backend_env when empty
 APP_UID=10001                                           # the backend container user
@@ -29,10 +30,6 @@ die()  { printf 'Stopped: %s\n' "$*" >&2; exit 1; }
 running() { [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; }
 env_value() { grep -E "^$1=" "$2" 2>/dev/null | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
 
-# Files Codex or this script create as root must stay usable by the backend container (uid 10001).
-give_back() {
-  [ "$(id -u)" -eq 0 ] && chown -R "$APP_UID:$APP_UID" "$CODEX_DIR" || true
-}
 
 # backend/.env holds DB_PASSWORD. Found by itself: the folder docker compose started Postgres from, then the usual
 # places (doc-11 uses /var/www/saynata, the deploy workflow ~/saynata), then any backend/.env under /var/www, /srv, /opt, ~.
@@ -61,7 +58,6 @@ setup() {
   [ -f gateway.env ] || die "gateway.env is missing (the Mac script sends it)"
   [ -n "$(env_value CLAUDE_BASE_URL gateway.env)" ] || die "CLAUDE_BASE_URL is empty in the Mac's pipeline/.env"
   find_backend_env
-  [ -d "$CODEX_DIR" ] || die "$CODEX_DIR is missing: the server has no Codex login"
 
   step "1/6 uv"
   command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -80,13 +76,19 @@ setup() {
   fi
   codex --version
 
-  step "3/6 Codex login (shared with the admin's AI pictures)"
-  if [ "$(id -u)" -ne 0 ]; then
-    command -v setfacl >/dev/null || $SUDO apt-get install -y acl >/dev/null
-    $SUDO setfacl -R -m "u:$(id -un):rwX" -m "d:u:$(id -un):rwX" "$CODEX_DIR"
+  step "3/6 Codex login for the pipeline only ($CODEX_DIR, not the admin's)"
+  mkdir -p "$CODEX_DIR"; chmod 700 "$CODEX_DIR"
+  codex_works() {  # one tiny real call: a stale or broken login fails here, before anything is paid
+    (cd "$(mktemp -d)" && timeout 180 codex exec --skip-git-repo-check --sandbox read-only "Reply with the word OK." \
+       </dev/null 2>&1) | grep -qiE '(^|[^a-z])ok([^a-z]|$)'
+  }
+  if ! codex login status >/dev/null 2>&1 || ! codex_works; then
+    echo "Sign in to Codex with your ChatGPT account: open the link below on your Mac or phone and type the code."
+    codex logout >/dev/null 2>&1 || true
+    codex login --device-auth
+    codex_works || die "Codex still does not answer after signing in. Run this again; if it repeats, send the output."
   fi
-  codex login status || die "Codex on the server is not signed in. Sign in once (doc-15, TASK-91), then run setup again."
-  give_back
+  echo "Codex answers."
 
   step "4/6 pipeline/.env (Postgres on this server + the gateway)"
   password="$(env_value DB_PASSWORD "$BACKEND_ENV" || true)"
@@ -186,7 +188,6 @@ start() {
     then echo \"== \$(date -u) FINISHED (or stopped at the cap/plan limit: run start again to continue)\"
     else echo \"== \$(date -u) STOPPED WITH AN ERROR (see above); fix it, then start again\"
     fi
-    [ \"\$(id -u)\" -eq 0 ] && chown -R $APP_UID:$APP_UID '$CODEX_DIR'
     kill 0
   " >> "$LOG" 2>&1 < /dev/null &
   echo $! > "$PIDFILE"
@@ -201,7 +202,6 @@ status() {
 stop() {
   running || { echo "Not running."; return; }
   kill -- "-$(cat "$PIDFILE")" 2>/dev/null || kill "$(cat "$PIDFILE")"
-  give_back
   echo "Stopped. 'start' continues where it stopped."
 }
 
@@ -214,7 +214,6 @@ link() {
   uv run pipeline media-ai --link
   step "3/3 Link backend words"
   uv run pipeline media-ai --backend --link
-  give_back
   echo "Linked. Failed senses: data/out/media-ai.html and data/out/media-ai-backend.html on the server."
 }
 

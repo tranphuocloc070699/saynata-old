@@ -300,7 +300,9 @@ class CodexDrawer:
     way to know which picture is ours.
     """
 
-    STOP_WORDS = ("usage limit", "not logged in", "please log in", "codex login")
+    # A plan limit or a broken login stops the whole run: every next sense would fail the same way after a paid scene.
+    STOP_WORDS = ("usage limit", "not logged in", "please log in", "codex login", "sign in again", "refresh token",
+                  "unauthorized (401)")
 
     def __init__(self, timeout: int = CODEX_TIMEOUT, run: Callable = subprocess.run, home: Path | None = None):
         if run is subprocess.run and shutil.which("codex") is None:

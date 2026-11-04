@@ -21,7 +21,7 @@ REMOTE_DIR='~/saynata-pipeline/pipeline'
 cd "$(dirname "$0")/.."   # pipeline/
 step() { printf '\n==> %s\n' "$*"; }
 die()  { printf 'Stopped: %s\n' "$*" >&2; exit 1; }
-remote() { ssh "$VPS" "MAX_COST='${MAX_COST:-40}' WORKERS='${WORKERS:-4}' $REMOTE_DIR/scripts/vps-media-ai-remote.sh $1"; }
+remote() { ssh $( [ -t 0 ] && echo -t ) "$VPS" "MAX_COST='${MAX_COST:-40}' WORKERS='${WORKERS:-4}' $REMOTE_DIR/scripts/vps-media-ai-remote.sh $1"; }
 check_ssh() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$VPS" true || die "cannot reach $VPS over ssh"; }
 
 # TEMPORARY (TASK-115): pipeline/.env.steyg (git-ignored) holds the STEYG keys in Claude Code's ANTHROPIC_* form.

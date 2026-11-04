@@ -4,7 +4,7 @@ title: Count Pixabay senses and run the full media-ai pass
 status: To Do
 assignee: []
 created_date: 2026-10-25 15:11
-updated_date: '2026-11-04T09:11:00Z'
+updated_date: '2026-11-04T09:15:00Z'
 labels:
   - media
   - pipeline
@@ -46,4 +46,6 @@ Paid and slow (about 26 hours, Claude about 34 USD, Codex on the ChatGPT plan). 
 2026-11-04: STEYG keys in a temporary pipeline/.env.steyg (ANTHROPIC_* form). Tested here with a fake STEYG server and fake Codex: key mapping, setup (picture check passes on 'red', stops on 'blue'), start/status/stop. Fixed: media-ai asked for ANTHROPIC_API_KEY even through a gateway (cli.py, new test). Not tested: the real VPS, real STEYG, real Postgres.
 
 2026-11-04: full run started on the VPS (pipeline/scripts/media-ai-on-vps.sh, STEYG gateway, pid 1256133, log /root/saynata-pipeline/pipeline/data/out/media-ai-run.log). Bundled words first, then backend words. Next: status until FINISHED, then 'link'.
+
+2026-11-04 09:11: the first VPS run failed from sense 63 on: Codex 401 'refresh token was already used' (the pipeline shared the admin's Codex login). About $0.45 of scenes wasted; the errored senses are tried again on the next run. Fix: own login ~/.codex-pipeline with device-code sign-in in setup, a real Codex call before the run, and media-ai stops on a Codex login error (test added). The admin's Codex login may need a new sign-in too.
 <!-- SECTION:NOTES:END -->
