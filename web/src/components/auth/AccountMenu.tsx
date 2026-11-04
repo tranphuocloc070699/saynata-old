@@ -3,15 +3,18 @@
  * The header's account corner (TASK-102.8, doc-23, option B): a guest sees the "Sign in" pill; a signed-in user sees
  * a History icon button and an avatar circle (the first letter of the email) that opens a menu: the email (small,
  * muted), then Settings, Account and Sign out. The email never sits in the header itself.
+ * On /sign-in and /sign-up a guest sees no "Sign in" pill (it would point at the page they are on).
  * The menu closes on Escape and on a click outside, and works with the arrow keys.
  */
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { avatarLetter } from "@/lib/account";
 import { browserTokens } from "@/lib/auth";
 import { Clock, Download, Gear, SignOut, User } from "../icons";
 
 export function AccountMenu() {
+  const pathname = usePathname();
   // The server and the first client render show nothing, so the HTML matches; the session is in localStorage.
   const hydrated = useSyncExternalStore(
     noopSubscribe,
@@ -35,12 +38,14 @@ export function AccountMenu() {
         >
           <Download className="size-[18px]" />
         </Link>
-        <Link
-          href="/sign-in"
-          className="inline-flex min-h-9 items-center rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 hover:border-accent/50 hover:text-accent"
-        >
-          Sign in
-        </Link>
+        {!ON_AUTH_PAGE.has(pathname) && (
+          <Link
+            href="/sign-in"
+            className="inline-flex min-h-9 items-center rounded-full border border-hairline bg-surface px-3.5 text-sm text-ink-2 hover:border-accent/50 hover:text-accent"
+          >
+            Sign in
+          </Link>
+        )}
       </div>
     );
   }
@@ -58,6 +63,9 @@ export function AccountMenu() {
     </div>
   );
 }
+
+/** On these pages the form is right there, so the header does not offer "Sign in" again. */
+const ON_AUTH_PAGE = new Set(["/sign-in", "/sign-up"]);
 
 const noopSubscribe = () => () => undefined;
 
