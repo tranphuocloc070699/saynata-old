@@ -237,6 +237,17 @@ final class TranslationStore {
         return true
     }
 
+    /// The user picked another language on the result (share and translation sheet). It becomes the picked language
+    /// everywhere, like the app's picker. A word card follows it at once; a sentence is asked again, so its language
+    /// line comes in the new language (the English part is a cache hit).
+    func changeLanguage(to language: TargetLanguage) async {
+        guard language != targetLanguage else { return }
+        targetLanguage = language
+        if case .loaded = state {
+            await translate()
+        }
+    }
+
     /// The user tapped a "did you mean" word: put it in the input and look it up.
     func lookUp(suggestion word: String) async {
         inputText = word

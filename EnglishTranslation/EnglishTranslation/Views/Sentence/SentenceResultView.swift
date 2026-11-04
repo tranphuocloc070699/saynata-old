@@ -14,6 +14,8 @@ struct SentenceResultView: View {
         guard let entry = word.entry else { throw WordLookupError.notOneWord }
         return entry
     }
+    /// Set in the share and translation sheet: the language row gets a menu to pick another language.
+    var onLanguageChange: ((TargetLanguage) -> Void)?
 
     var body: some View {
         SentenceCard(
@@ -24,7 +26,8 @@ struct SentenceResultView: View {
             language: result.language,
             better: result.isTyped ? result.explanation.better : nil,
             betterWhy: result.explanation.betterWhy,
-            loadWordEntry: loadWordEntry)
+            loadWordEntry: loadWordEntry,
+            onLanguageChange: onLanguageChange)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
