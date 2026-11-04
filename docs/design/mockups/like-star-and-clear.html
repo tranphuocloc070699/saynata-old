@@ -1,0 +1,176 @@
+<title>Saynata Star and Clear</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Two questions: how the Like star looks and animates on the word header, and how the composer shows the clear (x) button. Tap the stars to play the animation. */
+:root{
+  --bg:#EEF3EF; --card:#FFFFFF; --ink:#1B2420; --muted:#6B7A73; --line:#E1E8E3;
+  --accent:#1F5F4E; --chip:#DDEBE3; --warn:#B4432F; --page:#F7F9F7; --onacc:#fff;
+  --serif:"Source Serif 4",Georgia,serif; --sans:Inter,system-ui,-apple-system,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121815;--card:#1C2420;--ink:#E7EEEA;--muted:#93A39B;--line:#2C3631;--accent:#7CC2AC;--chip:#24372F;--warn:#E8826E;--page:#0E1311;--onacc:#0E1311;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121815;--card:#1C2420;--ink:#E7EEEA;--muted:#93A39B;--line:#2C3631;--accent:#7CC2AC;--chip:#24372F;--warn:#E8826E;--page:#0E1311;--onacc:#0E1311;color-scheme:dark}
+body{background:var(--page);color:var(--ink);font-family:var(--sans);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 48px;margin:0}
+.wrap{max-width:1100px;margin:0 auto;display:grid;gap:36px}
+h1{font-family:var(--serif);font-weight:600;font-size:30px;margin:0}
+h2{font-family:var(--serif);font-weight:600;font-size:22px;margin:0}
+h3{font-size:15px;margin:0}
+p{margin:0;line-height:1.5;max-width:68ch}
+.lead{color:var(--muted)}
+.sec{display:grid;gap:18px;border-top:1px solid var(--line);padding-top:24px}
+.opts{display:flex;flex-wrap:wrap;gap:20px}
+.opt{width:320px;max-width:100%;display:grid;gap:10px;align-content:start}
+.opt.rec h3::after{content:"Recommended";font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:var(--chip);color:var(--accent);padding:3px 7px;border-radius:99px;margin-left:8px;vertical-align:middle}
+.phone{background:var(--bg);border-radius:24px;padding:16px;display:grid;gap:12px;box-shadow:0 0 0 1px var(--line)}
+.note{font-size:13px;color:var(--muted);line-height:1.45}
+.note code{font-size:12px;background:var(--chip);color:var(--accent);padding:1px 5px;border-radius:5px}
+.refs{font-size:13px;color:var(--muted)} .refs a{color:var(--accent)}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.head{display:flex;align-items:center;gap:8px}
+.hw{font-size:34px;font-weight:600;letter-spacing:-.01em}
+.ipa{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:3px 10px;font-size:14px;color:var(--muted)}
+.ipa svg{width:14px;height:14px;color:var(--accent)}
+.big{width:44px;height:44px;border-radius:50%;background:var(--card);border:1px solid var(--line);box-shadow:0 1px 4px rgba(0,0,0,.06);display:grid;place-items:center;color:var(--muted)}
+.big svg{width:20px;height:20px}
+.star{width:44px;height:44px;display:grid;place-items:center;border:0;background:none;color:var(--muted);cursor:pointer;padding:0;position:relative}
+.star svg{width:21px;height:21px;grid-area:1/1}
+.star .s,.star .c{transition:none}
+.star.liked .s{color:var(--accent)}
+.star.liked .s path{fill:currentColor}
+.star .c{opacity:0;color:var(--accent)}
+.card{background:var(--card);border-radius:18px;padding:14px;display:grid;gap:8px}
+.def{font-family:var(--serif);font-size:16px;line-height:1.35}
+/* A: built-in replace (downUp) */
+.a.run .s{animation:out .18s ease-in forwards, in .22s .9s cubic-bezier(.3,1.6,.5,1) forwards}
+.a.run .c{animation:in .22s .18s cubic-bezier(.3,1.6,.5,1) forwards, out .18s .72s ease-in forwards}
+@keyframes out{from{transform:scale(1);opacity:1}to{transform:scale(.3);opacity:0}}
+@keyframes in{from{transform:scale(.3);opacity:0}to{transform:scale(1);opacity:1}}
+/* B: hand-made: star pops away, check draws itself, star comes back filled */
+.b .c path{stroke-dasharray:24;stroke-dashoffset:24}
+.b.run .s{animation:out .16s ease-in forwards, in .26s .95s cubic-bezier(.3,1.7,.5,1) forwards}
+.b.run .c{animation:show 0s .16s forwards, out .16s .8s ease-in forwards}
+.b.run .c path{animation:draw .32s .18s ease-out forwards}
+@keyframes show{to{opacity:1}}
+@keyframes draw{to{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.star.run .s,.star.run .c,.star.run .c path{animation:none!important}}
+.sbs{display:flex;gap:18px;align-items:center;font-size:12px;color:var(--muted)}
+.sbs span{display:grid;justify-items:center;gap:4px}
+.sbs svg{width:26px;height:26px;color:var(--ink)}
+/* composer */
+.comp{background:var(--card);border-radius:18px;border:1px solid var(--accent);padding:14px;display:grid;gap:14px}
+.txt{font-size:16px;min-height:40px}
+.bar{display:flex;align-items:center;gap:8px}
+.lang{background:var(--chip);color:var(--muted);font-size:13px;font-weight:500;border-radius:99px;padding:6px 12px}
+.sp{flex:1}
+.cnt{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.x{width:32px;height:32px;display:grid;place-items:center;color:var(--muted)}
+.x svg{width:16px;height:16px}
+.send{width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--onacc);display:grid;place-items:center}
+.send svg{width:18px;height:18px}
+.tag{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="spk" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M4 9h3l5-4v14l-5-4H4zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></symbol>
+  <symbol id="sharp" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="miter" d="m12 2.5 2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4l-5.9 3.1 1.2-6.5-4.8-4.6 6.6-.9z"/></symbol>
+  <symbol id="round" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="xm" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="up" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M12 19V5M5 12l7-7 7 7"/></symbol>
+</svg>
+
+<template id="hdr">
+  <div class="phone">
+    <div class="top">
+      <div class="head"><span class="hw">hello</span><span class="ipa">/hɛˈloʊ/ <svg><use href="#spk"/></svg></span></div>
+      <button class="star" aria-label="Like"><svg class="s"><use href="#round"/></svg><svg class="c"><use href="#check"/></svg></button>
+    </div>
+    <div class="card"><div class="def">a word you say to someone when you meet them or see them</div></div>
+  </div>
+</template>
+
+<div class="wrap">
+  <header style="display:grid;gap:8px">
+    <h1>Like star and clear button</h1>
+    <p class="lead">Two small changes on iOS. Tap each star to play the animation (tap again to unlike, which has no check).</p>
+  </header>
+
+  <section class="sec">
+    <h2>1 · Star shape</h2>
+    <div class="sbs">
+      <span><svg><use href="#sharp"/></svg>SF Symbol <code>star</code> (today)</span>
+      <span><svg><use href="#round"/></svg>Rounded star (Lucide shape)</span>
+    </div>
+    <p class="note">SF Symbols has no rounded star (only <code>star</code>, <code>star.fill</code>, <code>star.circle</code>…). The rounded one is a small SwiftUI <code>Shape</code> drawn from the Lucide <code>star</code> path (ISC licence, free to copy). No new library.</p>
+    <p class="refs"><a href="https://lucide.dev/icons/star">Lucide star</a> · <a href="https://phosphoricons.com/?q=star">Phosphor star</a> (similar)</p>
+  </section>
+
+  <section class="sec">
+    <h2>2 · Size and tap animation</h2>
+    <div class="opts">
+      <div class="opt">
+        <h3>Today</h3>
+        <div class="phone">
+          <div class="top">
+            <div class="head"><span class="hw">hello</span><span class="ipa">/hɛˈloʊ/ <svg><use href="#spk"/></svg></span></div>
+            <div class="big"><svg><use href="#sharp"/></svg></div>
+          </div>
+          <div class="card"><div class="def">a word you say to someone when you meet them or see them</div></div>
+        </div>
+        <p class="note">44 pt circle with border and shadow: heavier than every other icon on the screen.</p>
+      </div>
+      <div class="opt" id="optA">
+        <h3>A · Built-in “replace”</h3>
+        <p class="note">Plain icon, same as the copy and star icons under a sentence. Star shrinks, check grows in, then star comes back filled. SwiftUI <code>.contentTransition(.symbolEffect(.replace.downUp))</code> + <code>.sensoryFeedback(.success)</code>.</p>
+      </div>
+      <div class="opt rec" id="optB">
+        <h3>B · Check draws itself</h3>
+        <p class="note">Same small plain icon. Star pops away, the check mark <b>draws</b> left to right (feels like “saved”), then the filled star pops back. Pure SwiftUI: <code>Shape.trim(from:to:)</code> + a spring. Works with the custom rounded star, which A cannot (symbol effects only run on SF Symbols, so A would need the sharp star).</p>
+      </div>
+    </div>
+    <p class="note">Libraries checked: <a href="https://github.com/airbnb/lottie-ios">Lottie</a> and <a href="https://rive.app">Rive</a> can do this, but each adds a package (~1–3 MB) and an animation file made in another tool, for one 1-second effect. Built-in SwiftUI is enough. Reduce Motion: no movement, just the filled star.</p>
+    <p class="refs"><a href="https://developer.apple.com/documentation/swiftui/view/contenttransition(_:)">contentTransition</a> · <a href="https://developer.apple.com/documentation/symbols/replacesymboleffect">ReplaceSymbolEffect</a> · <a href="https://developer.apple.com/documentation/swiftui/shape/trim(from:to:)">Shape.trim</a></p>
+  </section>
+
+  <section class="sec">
+    <h2>3 · Clear (×) in the input card</h2>
+    <p class="note">Web (<code>web/src/components/home/Composer.tsx</code>) shows the counter and × together whenever there is text. iOS today shows the counter only from 450 characters (TASK-97 decision), and has no ×.</p>
+    <div class="opts">
+      <div class="opt rec">
+        <h3>A · × only, counter near the limit</h3>
+        <div class="phone">
+          <div class="comp"><div class="txt">Hello</div><div class="bar"><span class="lang">Vietnamese ⌄</span><span class="sp"></span><span class="x" aria-label="Clear"><svg><use href="#xm"/></svg></span><span class="send"><svg><use href="#up"/></svg></span></div></div>
+          <span class="tag">at 470 characters</span>
+          <div class="comp"><div class="txt">…a long paragraph…</div><div class="bar"><span class="lang">Vietnamese ⌄</span><span class="sp"></span><span class="cnt">470 / 500</span><span class="x"><svg><use href="#xm"/></svg></span><span class="send"><svg><use href="#up"/></svg></span></div></div>
+        </div>
+        <p class="note">Keeps the quiet composer (most inputs are one word). × shows only when there is text.</p>
+      </div>
+      <div class="opt">
+        <h3>B · Same as web</h3>
+        <div class="phone">
+          <div class="comp"><div class="txt">Hello</div><div class="bar"><span class="lang">Vietnamese ⌄</span><span class="sp"></span><span class="cnt">5 / 500</span><span class="x"><svg><use href="#xm"/></svg></span><span class="send"><svg><use href="#up"/></svg></span></div></div>
+        </div>
+        <p class="note">Counter always visible with text. Matches web exactly; a little busier.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const tpl=document.getElementById('hdr');
+for(const [id,cls] of [['optA','a'],['optB','b']]){
+  const node=tpl.content.cloneNode(true);
+  const btn=node.querySelector('.star');
+  btn.classList.add(cls);
+  if(cls==='a') btn.querySelector('.s use').setAttribute('href','#sharp');
+  btn.addEventListener('click',()=>{
+    if(btn.classList.contains('liked')){btn.classList.remove('liked','run');btn.setAttribute('aria-label','Like');return;}
+    btn.classList.remove('run');void btn.offsetWidth;
+    btn.classList.add('run');
+    setTimeout(()=>btn.classList.add('liked'),900);
+    btn.setAttribute('aria-label','Unlike');
+  });
+  const opt=document.getElementById(id);
+  opt.insertBefore(node,opt.children[1]);
+}
+</script>

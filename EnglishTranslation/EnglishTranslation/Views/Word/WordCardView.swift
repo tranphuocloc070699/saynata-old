@@ -54,13 +54,12 @@ struct WordCardView: View {
     // MARK: - Parts
 
     private var header: some View {
-        WordHeaderView(entry: entry, isSpeaking: speechPlayer.currentID == wordSpeechID) {
-            IconButton(
-                systemImage: speechPlayer.currentID == wordSpeechID ? "stop.fill" : "speaker.wave.2",
-                label: speechPlayer.currentID == wordSpeechID ? "Stop" : "Listen to the word"
-            ) {
-                toggleSpeech(displayedWord, id: wordSpeechID)
-            }
+        // Listen sits in the IPA chip (TASK-126, mockup A); the only button on the right is Like.
+        WordHeaderView(
+            entry: entry,
+            isSpeaking: speechPlayer.currentID == wordSpeechID,
+            onListen: { toggleSpeech(displayedWord, id: wordSpeechID) }
+        ) {
             LikeButton(item: SavedItem(entry: entry))
         }
     }

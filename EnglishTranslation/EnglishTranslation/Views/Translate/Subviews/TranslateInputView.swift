@@ -6,7 +6,8 @@
 import SwiftUI
 
 /// The composer card (TASK-97): the text on top; below it the target-language chip on the left,
-/// the character counter (only near the limit) and the round Explain button on the right.
+/// the character counter (only near the limit), the Clear (x) button (only with text, TASK-127) and the round
+/// Explain button on the right.
 struct TranslateInputView: View {
     @Environment(TranslationStore.self) private var store
     /// Owned by the screen, so a tap outside the box can hide the keyboard.
@@ -31,6 +32,11 @@ struct TranslateInputView: View {
                 Spacer()
                 if store.inputLength >= Self.counterStart {
                     CharacterCounter(count: store.inputLength, limit: TranslationStore.maxInputLength)
+                }
+                if !store.inputText.isEmpty {
+                    IconButton(systemImage: "xmark", label: "Clear", style: .plain) {
+                        store.inputText = ""
+                    }
                 }
                 IconButton(systemImage: "arrow.up", label: "Explain", isProminent: true) {
                     isFocused.wrappedValue = false
