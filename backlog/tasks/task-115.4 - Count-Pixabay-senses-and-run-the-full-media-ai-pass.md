@@ -4,7 +4,7 @@ title: Count Pixabay senses and run the full media-ai pass
 status: To Do
 assignee: []
 created_date: 2026-10-25 15:11
-updated_date: '2026-11-04T08:01:00Z'
+updated_date: '2026-11-04T08:15:00Z'
 labels:
   - media
   - pipeline
@@ -22,7 +22,7 @@ Paid and slow (about 26 hours, Claude about 34 USD, Codex on the ChatGPT plan). 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 Count of senses with media.source = pixabay recorded in the task notes before the run
+- [x] #1 Count of senses with media.source = pixabay recorded in the task notes before the run
 - [ ] #2 media-ai --all run finished for bundled and backend words (stopped at the cap and resumed until done)
 - [ ] #3 Failed senses listed in data/out/media-ai.html
 <!-- AC:END -->
@@ -38,4 +38,6 @@ Paid and slow (about 26 hours, Claude about 34 USD, Codex on the ChatGPT plan). 
 
 <!-- SECTION:NOTES:BEGIN -->
 2026-11-04: one script runs the whole pass: pipeline/scripts/replace-pixabay-pictures.sh count (record numbers here), then draw (paid, about $34 Claude + Codex, about 26 h; resumable), then ship (TASK-115.5).
+
+2026-11-04 count before the run (pipeline/.env DATABASE_URL): bundled words 2577, backend words 90, total 2667 senses with a Pixabay picture.
 <!-- SECTION:NOTES:END -->
