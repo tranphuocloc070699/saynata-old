@@ -63,11 +63,12 @@ public class AuthService {
     private final AuthKeys keys;
     private final RateLimiter rateLimiter;
     private final LimitProperties limits;
+    private final AppleTokenService appleTokens;
     private final Clock clock;
 
     public AuthService(EmailLoginCodeRepository codes, EmailLoginLinkRepository links,
             RefreshTokenRepository refreshTokens, UserRepository users, EmailSender emailSender,
-            AccessTokenService accessTokens, AuthProperties properties, AuthKeys keys, RateLimiter rateLimiter, LimitProperties limits, Clock clock) {
+            AccessTokenService accessTokens, AuthProperties properties, AuthKeys keys, RateLimiter rateLimiter, LimitProperties limits, AppleTokenService appleTokens, Clock clock) {
         this.codes = codes;
         this.links = links;
         this.refreshTokens = refreshTokens;
@@ -78,6 +79,7 @@ public class AuthService {
         this.keys = keys;
         this.rateLimiter = rateLimiter;
         this.limits = limits;
+        this.appleTokens = appleTokens;
         this.clock = clock;
     }
 
@@ -153,13 +155,17 @@ public class AuthService {
                 "Sign in again."));
     }
 
-    /** Deletes the account and every token of it (App Store rule). */
+    /**
+     * Deletes the account and every token of it (App Store rule). Sign in with Apple tokens are revoked at Apple
+     * first (TASK-112.3); a failed revoke is logged and the account is still deleted.
+     */
     public void deleteAccount(long userId) {
         User user = currentUser(userId);
         if (user.isAdmin()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "admin_account",
                     "An admin account cannot be deleted here. Ask the developer.");
         }
+        appleTokens.revokeAll(userId);
         refreshTokens.deleteAllOf(userId);
         codes.deleteCode(user.getEmail());
         links.deleteAllFor(user.getEmail());

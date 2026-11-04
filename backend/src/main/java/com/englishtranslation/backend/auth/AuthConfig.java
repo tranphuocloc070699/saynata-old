@@ -1,5 +1,6 @@
 package com.englishtranslation.backend.auth;
 
+import java.time.Clock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -8,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @EnableConfigurationProperties({ AuthProperties.class, EmailProperties.class, SocialAuthProperties.class,
-        SignInLinkProperties.class })
+        SignInLinkProperties.class, AppleTokenProperties.class })
 public class AuthConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AuthConfig.class);
@@ -38,5 +39,27 @@ public class AuthConfig {
         log.warn("No email service is set. Sign-in codes are NOT emailed; they are written to this log. "
                 + "Set RESEND_API_KEY and EMAIL_FROM (or SES_FROM_EMAIL and the AWS variables) to send real email.");
         return new LoggingEmailSender();
+    }
+
+    /**
+     * Apple's token endpoints (TASK-112.3). While the Apple keys are not set, a stand-in that refuses every call;
+     * {@link AppleTokenService} does not call it then.
+     */
+    @Bean
+    public AppleTokenApi appleTokenApi(AppleTokenProperties properties, Clock clock) {
+        if (properties.isConfigured()) {
+            return new RemoteAppleTokenApi(properties, clock);
+        }
+        return new AppleTokenApi() {
+            @Override
+            public String exchangeCode(String clientId, String authorizationCode) {
+                throw new AppleTokenException("Apple token keys are not set");
+            }
+
+            @Override
+            public void revoke(String clientId, String refreshToken) {
+                throw new AppleTokenException("Apple token keys are not set");
+            }
+        };
     }
 }

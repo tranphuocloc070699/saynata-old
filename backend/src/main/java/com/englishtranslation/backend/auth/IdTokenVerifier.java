@@ -37,8 +37,11 @@ public class IdTokenVerifier {
     private static final Duration CLOCK_SKEW = Duration.ofMinutes(1);
     private static final int MAX_TOKEN_LENGTH = 8192;
 
-    /** Who the provider says signed in. {@code email} is null when the provider did not confirm one. */
-    public record VerifiedIdentity(String subject, String email) {
+    /**
+     * Who the provider says signed in. {@code email} is null when the provider did not confirm one.
+     * {@code audience} is our client ID the token was made for (for Apple: the iOS or Mac bundle ID).
+     */
+    public record VerifiedIdentity(String subject, String email, String audience) {
     }
 
     private final IdTokenKeys keys;
@@ -83,7 +86,8 @@ public class IdTokenVerifier {
         String email = jwt.getClaimAsString("email");
         // Google sends a boolean, Apple sometimes the text "true".
         boolean verified = "true".equalsIgnoreCase(String.valueOf(jwt.getClaims().get("email_verified")));
-        return new VerifiedIdentity(subject, email != null && !email.isBlank() && verified ? email : null);
+        String audience = jwt.getAudience().stream().filter(audiences::contains).findFirst().orElse(null);
+        return new VerifiedIdentity(subject, email != null && !email.isBlank() && verified ? email : null, audience);
     }
 
     /** Built per call: it is cheap, and the keys (the costly part) are cached by {@link IdTokenKeys}. */

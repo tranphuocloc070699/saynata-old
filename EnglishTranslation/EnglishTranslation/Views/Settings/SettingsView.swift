@@ -139,16 +139,21 @@ extension SettingsView {
             }
             .settingsCard()
         } else {
-            Button { isSignInOpen = true } label: {
+            // A delete that found the session ended (TASK-112.4) leaves its message in the hint line, so the user
+            // sees why they are signed out and can sign in again from the same card.
+            Button {
+                accountError = nil
+                isSignInOpen = true
+            } label: {
                 HStack(spacing: Theme.Spacing.medium) {
                     avatar
                     VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                         Text("Sign in")
                             .font(.body)
                             .foregroundStyle(Theme.Colors.textPrimary)
-                        Text("To explain new sentences")
+                        Text(accountError ?? "To explain new sentences")
                             .font(.footnote)
-                            .foregroundStyle(Theme.Colors.textMuted)
+                            .foregroundStyle(accountError == nil ? Theme.Colors.textMuted : Theme.Colors.error)
                     }
                     Spacer(minLength: 0)
                     chevron

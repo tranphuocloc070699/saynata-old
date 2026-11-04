@@ -45,6 +45,9 @@ enum AuthError: LocalizedError, Equatable {
     case rateLimited(retryAfter: Int?)
     /// 403 `admin_account`: `DELETE /api/me` refuses an admin account.
     case adminAccount(String?)
+    /// Not from the server: delete account needs a session, and there is none (or it ended and could not be
+    /// refreshed). The user signs in again and retries (TASK-112.4).
+    case signInRequired
     /// Any other status.
     case badStatus(Int, detail: String?)
 
@@ -58,6 +61,7 @@ enum AuthError: LocalizedError, Equatable {
         case .providerNotConfigured: "This sign-in option is not set up yet. Use your email."
         case let .rateLimited(retryAfter): RateLimitMessage.text(retryAfter: retryAfter)
         case let .adminAccount(message): message ?? "An admin account cannot be deleted here."
+        case .signInRequired: "Your session has ended. Sign in again to delete your account."
         case let .badStatus(code, detail?): "\(detail) (status \(code))"
         case let .badStatus(code, detail: nil): "The server answered with status \(code)."
         }

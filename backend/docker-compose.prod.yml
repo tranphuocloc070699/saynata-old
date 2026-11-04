@@ -70,6 +70,11 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://api.saynata.com}
       APP_URL_SCHEME: ${APP_URL_SCHEME:-saynata}
       APPLE_APP_IDS: ${APPLE_APP_IDS:-}
+      # Revoke Sign in with Apple tokens on account deletion (TASK-112.3, doc-11 section 13). Any empty = off.
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      APPLE_TOKEN_ENCRYPTION_KEY: ${APPLE_TOKEN_ENCRYPTION_KEY:-}
       # true = guests cannot cause new model calls. Set false until the app with sign-in is released.
       REQUIRE_SIGN_IN: ${REQUIRE_SIGN_IN:-true}
       LLM_DAILY_BUDGET_USD: ${LLM_DAILY_BUDGET_USD:-1.00}
