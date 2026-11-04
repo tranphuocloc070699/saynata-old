@@ -304,8 +304,10 @@ def generate_media_ai(args) -> None:
     media_dir = Path(args.media_dir)
     if not (args.link or args.recheck_failed) and not (words or args.limit or args.all):
         raise SystemExit("media-ai: say which senses: --words a,b  or  --limit N  or  --all")
-    if not args.link and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
-        raise SystemExit("media-ai: ANTHROPIC_API_KEY is not set in pipeline/.env")
+    from pipeline import llm
+    # Through a gateway (CLAUDE_BASE_URL + CLAUDE_AUTH_TOKEN) no Anthropic key is needed (TASK-115).
+    if not args.link and not llm.gateway() and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+        raise SystemExit("media-ai: ANTHROPIC_API_KEY is not set in pipeline/.env (or set CLAUDE_BASE_URL for a gateway)")
     pg = postgres.connect(postgres.database_url(args.database_url))
     store_ = (media_ai.BackendStore if args.backend else media_ai.PostgresStore)(pg)
     if args.link:

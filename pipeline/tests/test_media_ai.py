@@ -844,3 +844,27 @@ def test_pg_backend_tries_link_and_stay_apart_from_the_bundled_store(pg):
     assert pg.execute("SELECT count(*) FROM media WHERE file_name = 'run_1.mp4'").fetchone()[0] == 1   # old row kept
     assert store.unlinked_passed() == [] and store.count_pending(["run"], False) == 0
     assert [r["pos"] for r in store.report_rows()] == ["verb"]
+
+
+def test_cli_media_ai_through_a_gateway_needs_no_anthropic_key(monkeypatch):
+    """TASK-115: with CLAUDE_BASE_URL set, media-ai goes on to the database instead of asking for ANTHROPIC_API_KEY."""
+    import argparse
+    from pipeline import cli, postgres
+
+    class Reached(Exception):
+        pass
+
+    def connect(*args, **kwargs):
+        raise Reached()
+
+    monkeypatch.setattr(postgres, "connect", connect)
+    monkeypatch.setattr(postgres, "database_url", lambda given=None: "postgresql://test")
+    args = argparse.Namespace(words=None, limit=1, all=False, link=False, recheck_failed=False, backend=False,
+                              media_dir="data/media", database_url=None)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("CLAUDE_BASE_URL", "https://gateway.test")
+    with pytest.raises(Reached):
+        cli.generate_media_ai(args)
+    monkeypatch.delenv("CLAUDE_BASE_URL")
+    with pytest.raises(SystemExit, match="ANTHROPIC_API_KEY"):
+        cli.generate_media_ai(args)

@@ -84,7 +84,7 @@ setup() {
   uv run python - <<'PY'
 import base64, io
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(".env")
 from PIL import Image
 from pipeline import llm, media_ai
 model = llm.model(media_ai.GUESS_MODEL, "CLAUDE_GUESS_MODEL")
@@ -96,8 +96,8 @@ reply = llm.client().messages.create(model=model, max_tokens=20, messages=[{"rol
 answer = "".join(getattr(block, "text", "") for block in reply.content).strip().lower()
 print(f"guess model {model}: '{answer}'")
 if "red" not in answer:
-    raise SystemExit(f"Stopped: {model} cannot read pictures. Set CLAUDE_GUESS_MODEL in the Mac's pipeline/.env "
-                     "to a gateway model that reads images, then run setup again.")
+    raise SystemExit(f"Stopped: {model} cannot read pictures. Set STEYG_GUESS_MODEL in the Mac's pipeline/.env.steyg "
+                     "(or CLAUDE_GUESS_MODEL in pipeline/.env) to a gateway model that reads images, then run setup again.")
 print(f"scene model {llm.model(media_ai.SCENE_MODEL, 'CLAUDE_SCENE_MODEL')}")
 PY
   uv run pipeline media-ai --all --dry-run --workers "$WORKERS" --max-cost "$MAX_COST"
@@ -114,10 +114,12 @@ start() {
     export PATH='$HOME/.local/bin':\"\$PATH\" CODEX_HOME='$CODEX_DIR'
     ( while sleep 1800; do find '$CODEX_DIR/generated_images' -name '*.png' -mmin +60 -delete 2>/dev/null; done ) &
     echo \"== \$(date -u) bundled words\"
-    uv run pipeline media-ai --all --workers $WORKERS --max-cost $MAX_COST --report data/out/media-ai.html
-    echo \"== \$(date -u) backend words\"
-    uv run pipeline media-ai --backend --all --workers $WORKERS --max-cost $MAX_COST --report data/out/media-ai-backend.html
-    echo \"== \$(date -u) finished\"
+    if uv run pipeline media-ai --all --workers $WORKERS --max-cost $MAX_COST --report data/out/media-ai.html \\
+       && echo \"== \$(date -u) backend words\" \\
+       && uv run pipeline media-ai --backend --all --workers $WORKERS --max-cost $MAX_COST --report data/out/media-ai-backend.html
+    then echo \"== \$(date -u) FINISHED (or stopped at the cap/plan limit: run start again to continue)\"
+    else echo \"== \$(date -u) STOPPED WITH AN ERROR (see above); fix it, then start again\"
+    fi
     [ \"\$(id -u)\" -eq 0 ] && chown -R $APP_UID:$APP_UID '$CODEX_DIR'
     kill 0
   " >> "$LOG" 2>&1 < /dev/null &
