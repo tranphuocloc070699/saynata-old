@@ -1,7 +1,7 @@
 "use client";
 /**
  * The header's account corner (TASK-102.8, doc-23, option B): a guest sees the "Sign in" pill; a signed-in user sees
- * a History icon button and an avatar circle (the first letter of the email) that opens a menu: the email (small,
+ * a History icon button (white circle, like IconButton) and an avatar circle (the first letter of the email) that opens a menu: the email (small,
  * muted), then Settings, Account and Sign out. The email never sits in the header itself.
  * On /sign-in and /sign-up a guest sees no "Sign in" pill (it would point at the page they are on).
  * The menu closes on Escape and on a click outside, and works with the arrow keys.
@@ -51,13 +51,14 @@ export function AccountMenu() {
   }
   return (
     <div className="ml-auto flex items-center gap-1">
+      {/* The IconButton default look (white circle, hairline, soft shadow), so it sits level with the avatar. */}
       <Link
         href="/history"
         aria-label="History"
         title="History"
-        className="grid size-11 shrink-0 place-items-center rounded-full text-muted hover:text-ink"
+        className="grid size-11 shrink-0 place-items-center rounded-full border border-hairline bg-surface text-ink-2 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-transform duration-150 hover:text-ink active:scale-95 motion-reduce:transition-none"
       >
-        <Clock className="size-[18px]" />
+        <Clock className="size-5" />
       </Link>
       <AvatarMenu email={session.email} />
     </div>
