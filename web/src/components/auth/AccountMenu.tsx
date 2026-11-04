@@ -34,9 +34,9 @@ export function AccountMenu() {
           href="/download"
           aria-label="Get the app"
           title="Get the app"
-          className="grid size-11 shrink-0 place-items-center rounded-full text-muted hover:text-ink"
+          className={HEADER_ICON}
         >
-          <Download className="size-[18px]" />
+          <Download className="size-5" />
         </Link>
         {!ON_AUTH_PAGE.has(pathname) && (
           <Link
@@ -51,12 +51,11 @@ export function AccountMenu() {
   }
   return (
     <div className="ml-auto flex items-center gap-1">
-      {/* The IconButton default look (white circle, hairline, soft shadow), so it sits level with the avatar. */}
       <Link
         href="/history"
         aria-label="History"
         title="History"
-        className="grid size-11 shrink-0 place-items-center rounded-full border border-hairline bg-surface text-ink-2 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-transform duration-150 hover:text-ink active:scale-95 motion-reduce:transition-none"
+        className={HEADER_ICON}
       >
         <Clock className="size-5" />
       </Link>
@@ -67,6 +66,10 @@ export function AccountMenu() {
 
 /** On these pages the form is right there, so the header does not offer "Sign in" again. */
 const ON_AUTH_PAGE = new Set(["/sign-in", "/sign-up"]);
+
+/** The header's icon links (Get the app, History): the IconButton default look, a white circle with a hairline and soft shadow. */
+const HEADER_ICON =
+  "grid size-11 shrink-0 place-items-center rounded-full border border-hairline bg-surface text-ink-2 shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-transform duration-150 hover:text-ink active:scale-95 motion-reduce:transition-none";
 
 const noopSubscribe = () => () => undefined;
 
