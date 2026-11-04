@@ -3,7 +3,8 @@ id: TASK-102.4
 title: Web privacy policy and terms pages
 status: To Do
 assignee: []
-created_date: '2026-10-24 17:30'
+created_date: 2026-10-24 17:30
+updated_date: '2026-11-04T15:23:00Z'
 labels: []
 dependencies: []
 parent_task_id: TASK-102
@@ -23,6 +24,7 @@ Google brand verification (needed to show the Saynata logo in the Google sign-in
 - [ ] #3 Both pages are linked from the homepage footer and from the sign-in page
 - [ ] #4 Vitest covers that both routes render
 - [ ] #5 doc-23 lists the two routes
+- [ ] #6 The privacy policy names where text goes (our server, the AI providers DeepSeek and Gemini), usage events (PostHog) and crash reports (Sentry), and how long data is kept
 <!-- AC:END -->
 
 ## Definition of Done
@@ -31,3 +33,9 @@ Google brand verification (needed to show the Saynata logo in the Google sign-in
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-04: also needed for the App Store (guidelines 5.1.1 and 5.1.2, CodeRabbit App Store review 2026-11-04); the app links to /privacy (new subtask of TASK-112).
+<!-- SECTION:NOTES:END -->
