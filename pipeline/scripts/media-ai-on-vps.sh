@@ -37,7 +37,7 @@ export ANTHROPIC_AUTH_TOKEN=""
 export ANTHROPIC_BASE_URL="https://steyg.one/api"
 export ANTHROPIC_MODEL="claude-haiku-4-5"
 export ANTHROPIC_DEFAULT_OPUS_MODEL="claude-opus-5-5"
-export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-opus-5-5"   # media-ai scene writer
+export ANTHROPIC_DEFAULT_SONNET_MODEL="claude-sonnet-5-5" # media-ai scene writer (the trial prompts were tuned on Sonnet)
 export ANTHROPIC_DEFAULT_HAIKU_MODEL="claude-haiku-4-5"   # media-ai picture checks (must read images)
 # export STEYG_SCENE_MODEL="claude-haiku-4-5"             # uncomment to use another scene model
 EOF
@@ -67,7 +67,7 @@ gateway_lines() {
     scene="$(steyg_value STEYG_SCENE_MODEL)"; guess="$(steyg_value STEYG_GUESS_MODEL)"
     printf 'CLAUDE_BASE_URL=%s\nCLAUDE_AUTH_TOKEN=%s\nCLAUDE_SCENE_MODEL=%s\nCLAUDE_GUESS_MODEL=%s\n' \
       "${url:-https://steyg.one/api}" "$(steyg_value ANTHROPIC_AUTH_TOKEN)" \
-      "${scene:-${sonnet:-claude-opus-5-5}}" "${guess:-${haiku:-claude-haiku-4-5}}"
+      "${scene:-${sonnet:-claude-sonnet-5-5}}" "${guess:-${haiku:-claude-haiku-4-5}}"
   )
 }
 
