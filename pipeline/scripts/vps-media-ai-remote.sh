@@ -192,7 +192,7 @@ start() {
   [ -f .env ] || die "run setup first"
   mkdir -p data/out
   step "Starting the run in the background (log: $PWD/$LOG)"
-  echo "== $(date -u) new run started" >> "$LOG"
+  printf '\n== %s new run started\n' "$(date -u)" >> "$LOG"   # \n first: an old last line may lack one
   nohup setsid bash -c "
     set -u
     export PATH='$HOME/.local/bin':\"\$PATH\" CODEX_HOME='$CODEX_DIR'
@@ -214,7 +214,15 @@ start() {
 
 status() {
   if running; then echo "RUNNING (pid $(cat "$PIDFILE"))"; else echo "NOT RUNNING"; fi
-  [ -f "$LOG" ] && { echo "--- last lines of $LOG"; tail -n 15 "$LOG"; } || echo "No log yet."
+  [ -f "$LOG" ] || { echo "No log yet."; return; }
+  # Only the latest run: from the last "new run started" line on (older runs stay in the file, out of sight).
+  echo "--- this run (log: $PWD/$LOG)"
+  # (an old run may have left its last line without a line break, so the marker can sit at the end of that line)
+  awk '/new run started/ { n = NR; sub(/.*== /, "== ") } { line[NR] = $0 } END { for (i = (n ? n : 1); i <= NR; i++) print line[i] }' "$LOG" \
+    | tail -n 15
+  done_count="$(awk '/new run started/ { c = 0; next } /^\[[0-9]+\/[0-9]+\]/ { c++ } END { print c + 0 }' "$LOG")"
+  passed="$(awk '/new run started/ { c = 0; next } /^\[[0-9]+\/[0-9]+\].*: passed/ { c++ } END { print c + 0 }' "$LOG")"
+  echo "--- this run so far: $done_count senses done, $passed passed"
 }
 
 stop() {

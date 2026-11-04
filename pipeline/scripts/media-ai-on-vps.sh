@@ -23,7 +23,12 @@ step() { printf '\n==> %s\n' "$*"; }
 die()  { printf 'Stopped: %s\n' "$*" >&2; exit 1; }
 # -t (a terminal) only for setup, where the Codex sign-in prints a code. Never for start: when ssh -t closes, the
 # server ends that terminal and kills a background run that has not detached yet (2026-11-04: the run died at once).
-remote() { ssh $( [ "$1" = setup ] && [ -t 0 ] && echo -t ) "$VPS" "MAX_COST='${MAX_COST:-40}' WORKERS='${WORKERS:-4}' $REMOTE_DIR/scripts/vps-media-ai-remote.sh $1"; }
+# Every command first sends the current VPS script, so a fix reaches the server without a new setup.
+# (Safe while a run is going: the run does not read this file again.)
+remote() {
+  [ "$1" = setup ] || scp -q scripts/vps-media-ai-remote.sh "$VPS:$REMOTE_DIR/scripts/vps-media-ai-remote.sh"
+  ssh $( [ "$1" = setup ] && [ -t 0 ] && echo -t ) "$VPS" "MAX_COST='${MAX_COST:-40}' WORKERS='${WORKERS:-4}' $REMOTE_DIR/scripts/vps-media-ai-remote.sh $1"
+}
 check_ssh() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$VPS" true || die "cannot reach $VPS over ssh"; }
 
 # TEMPORARY (TASK-115): pipeline/.env.steyg (git-ignored) holds the STEYG keys in Claude Code's ANTHROPIC_* form.
