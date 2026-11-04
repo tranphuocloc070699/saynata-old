@@ -3,7 +3,7 @@ id: doc-23
 title: Web app
 type: other
 created_date: 2026-10-23 10:24
-updated_date: '2026-11-04T09:24:00Z'
+updated_date: '2026-11-04T09:30:00Z'
 ---
 # Web app
 

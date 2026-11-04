@@ -95,7 +95,13 @@ export function SignInForm({ mode }: { mode: FormMode }) {
       setBusy("google");
       authApi.google(idToken, saved.nonce).then((response) => finish(response, saved.next), fail);
     });
-    return () => window.clearTimeout(timer);
+    return () => {
+      // Leave a clean form: no spinner, no old Google error, no half-typed code.
+      setBusy(null);
+      setError(null);
+      setCode("");
+      window.clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on the return from Google
   }, []);
 
