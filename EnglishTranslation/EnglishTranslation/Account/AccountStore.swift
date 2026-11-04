@@ -120,8 +120,10 @@ final class AccountStore: AccessTokenProviding {
     }
 
     /// Google or Apple gave an ID token for the hashed `nonce`; the backend checks it and answers with our tokens.
-    func signIn(with provider: SocialProvider, idToken: String, nonce: String) async throws {
-        let response = try await client.signIn(with: provider, idToken: idToken, nonce: nonce)
+    func signIn(with provider: SocialProvider, idToken: String, nonce: String,
+                authorizationCode: String? = nil) async throws {
+        let response = try await client.signIn(with: provider, idToken: idToken, nonce: nonce,
+                                               authorizationCode: authorizationCode)
         save(SavedSession(accessToken: response.accessToken, refreshToken: response.refreshToken, user: response.user))
     }
 
@@ -139,13 +141,21 @@ final class AccountStore: AccessTokenProviding {
 
     /// `DELETE /api/me`, then sign out on this device. If the access token is too old, it is refreshed once.
     /// Throws `AuthError` (for example `.adminAccount`) or a `URLError`; the user stays signed in then.
+    /// Throws `AuthError.signInRequired` when there is no session, or the session ended and cannot be refreshed:
+    /// nothing was deleted, and the user is signed out on this device so they can sign in and try again (TASK-112.4).
     func deleteAccount() async throws {
-        guard let token = session?.accessToken else { return }
+        guard let token = session?.accessToken else {
+            signOutLocally()
+            throw AuthError.signInRequired
+        }
         do {
             try await client.deleteAccount(accessToken: token)
         } catch AuthError.badStatus(401, _) {
             // The token ended. `/api/me` answers 401 with no body.
-            guard let fresh = try await refreshedAccessToken(replacing: token) else { return }
+            // nil = the refresh token was refused too; `refreshedAccessToken` already signed out locally.
+            guard let fresh = try await refreshedAccessToken(replacing: token) else {
+                throw AuthError.signInRequired
+            }
             try await client.deleteAccount(accessToken: fresh)
         }
         signOutLocally()

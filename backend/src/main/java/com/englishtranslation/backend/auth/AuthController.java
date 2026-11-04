@@ -44,8 +44,11 @@ public class AuthController {
     public record EmailLinkVerifyRequest(@NotBlank String token, @NotBlank String codeVerifier) {
     }
 
-    /** {@code nonce}: the raw nonce; the ID token holds its SHA-256 (hex). */
-    public record IdTokenRequest(@NotBlank String idToken, @NotBlank String nonce) {
+    /**
+     * {@code nonce}: the raw nonce; the ID token holds its SHA-256 (hex). {@code authorizationCode}: Apple only,
+     * optional; swapped for a refresh token that is revoked when the account is deleted (TASK-112.3).
+     */
+    public record IdTokenRequest(@NotBlank String idToken, @NotBlank String nonce, String authorizationCode) {
     }
 
     /** Always 204, whether or not the email has an account. Bad format gives 400, too many requests 429. */
@@ -74,12 +77,12 @@ public class AuthController {
 
     @PostMapping("/google")
     public AuthService.TokenResponse google(@Valid @RequestBody IdTokenRequest request) {
-        return social.signIn(SocialProvider.GOOGLE, request.idToken(), request.nonce());
+        return social.signIn(SocialProvider.GOOGLE, request.idToken(), request.nonce(), null);
     }
 
     @PostMapping("/apple")
     public AuthService.TokenResponse apple(@Valid @RequestBody IdTokenRequest request) {
-        return social.signIn(SocialProvider.APPLE, request.idToken(), request.nonce());
+        return social.signIn(SocialProvider.APPLE, request.idToken(), request.nonce(), request.authorizationCode());
     }
 
     @PostMapping("/refresh")

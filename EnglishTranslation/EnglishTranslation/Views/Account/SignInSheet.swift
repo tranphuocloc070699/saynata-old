@@ -273,7 +273,8 @@ private struct ProviderButtons: View {
         case let .success(authorization):
             let credential = authorization.credential as? ASAuthorizationAppleIDCredential
             let token = credential?.identityToken.flatMap { String(data: $0, encoding: .utf8) }
-            await model.finishApple(idToken: token, error: nil, isCancel: false)
+            let code = credential?.authorizationCode.flatMap { String(data: $0, encoding: .utf8) }
+            await model.finishApple(idToken: token, authorizationCode: code, error: nil, isCancel: false)
         case let .failure(error):
             let isCancel = (error as? ASAuthorizationError)?.code == .canceled
             await model.finishApple(idToken: nil, error: error, isCancel: isCancel)

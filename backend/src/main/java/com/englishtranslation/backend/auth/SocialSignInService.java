@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
  * Finding the user: first by the provider account (provider + subject). The first time, by the email the provider
  * confirmed, so a person who signed in with an email code before keeps the same account. The provider account is
  * then remembered, so a later email change at Google or Apple does not make a second account.
+ * <p>
+ * Apple: when the app also sends the authorization code, {@link AppleTokenService} keeps Apple's refresh token so
+ * it can be revoked when the account is deleted (TASK-112.3).
  */
 @Service
 public class SocialSignInService {
@@ -21,24 +24,28 @@ public class SocialSignInService {
     private final UserIdentityRepository identities;
     private final UserRepository users;
     private final AuthService auth;
+    private final AppleTokenService appleTokens;
     private final Clock clock;
 
     public SocialSignInService(IdTokenVerifier verifier, UserIdentityRepository identities, UserRepository users,
-            AuthService auth, Clock clock) {
+            AuthService auth, AppleTokenService appleTokens, Clock clock) {
         this.verifier = verifier;
         this.identities = identities;
         this.users = users;
         this.auth = auth;
+        this.appleTokens = appleTokens;
         this.clock = clock;
     }
 
-    public AuthService.TokenResponse signIn(SocialProvider provider, String idToken, String rawNonce) {
+    /** {@code authorizationCode}: Apple only, may be null (older app builds, Google). */
+    public AuthService.TokenResponse signIn(SocialProvider provider, String idToken, String rawNonce,
+            String authorizationCode) {
         IdTokenVerifier.VerifiedIdentity identity = verifier.verify(provider, idToken, rawNonce);
 
-        User known = identities.findByProviderAndSubject(provider, identity.subject())
-                .flatMap(saved -> users.findById(saved.getUserId()))
-                .orElse(null);
+        UserIdentity saved = identities.findByProviderAndSubject(provider, identity.subject()).orElse(null);
+        User known = saved == null ? null : users.findById(saved.getUserId()).orElse(null);
         if (known != null) {
+            appleTokens.rememberSignIn(saved, identity.audience(), authorizationCode);
             return auth.issueTokensFor(known);
         }
 
@@ -48,11 +55,15 @@ public class SocialSignInService {
         }
         String email = Emails.normalize(identity.email());
         User user = auth.findOrCreateUser(email);
+        UserIdentity created;
         try {
-            identities.saveAndFlush(new UserIdentity(user.getId(), provider, identity.subject(), email, clock.instant()));
+            created = identities.saveAndFlush(
+                    new UserIdentity(user.getId(), provider, identity.subject(), email, clock.instant()));
         } catch (DataIntegrityViolationException e) {
             // Two first sign-ins at the same moment: the other request saved the same provider account already.
+            created = identities.findByProviderAndSubject(provider, identity.subject()).orElse(null);
         }
+        appleTokens.rememberSignIn(created, identity.audience(), authorizationCode);
         return auth.issueTokensFor(user);
     }
 }
