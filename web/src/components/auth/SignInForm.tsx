@@ -68,6 +68,13 @@ export function SignInForm({ mode }: { mode: FormMode }) {
     router.replace(safeNextPath(to));
   }
 
+  // Guard: someone already signed in has no business here; send them where they were going (or home).
+  // The session is in localStorage, so this runs in the browser, after the first paint.
+  useEffect(() => {
+    if (browserTokens.session()) router.replace(safeNextPath(next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on arrival
+  }, []);
+
   function fail(err: unknown) {
     setError(err instanceof ApiError ? err.message : MESSAGES.generic);
     setBusy(null);
@@ -88,7 +95,13 @@ export function SignInForm({ mode }: { mode: FormMode }) {
       setBusy("google");
       authApi.google(idToken, saved.nonce).then((response) => finish(response, saved.next), fail);
     });
-    return () => window.clearTimeout(timer);
+    return () => {
+      // Leave a clean form: no spinner, no old Google error, no half-typed code.
+      setBusy(null);
+      setError(null);
+      setCode("");
+      window.clearTimeout(timer);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once, on the return from Google
   }, []);
 

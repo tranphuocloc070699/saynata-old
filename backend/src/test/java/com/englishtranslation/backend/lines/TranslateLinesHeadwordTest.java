@@ -2,6 +2,7 @@ package com.englishtranslation.backend.lines;
 
 import static com.englishtranslation.backend.lines.LinesFixtures.item;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -13,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.englishtranslation.backend.auth.AccessTokenService;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.claude.WordLineAnswer;
 import com.englishtranslation.backend.claude.WordLinesAnswer;
 import com.englishtranslation.backend.translation.TargetLanguage;
 import com.englishtranslation.backend.user.User;
@@ -71,12 +73,22 @@ class TranslateLinesHeadwordTest {
         return new WordLinesAnswer.Lines(item(line), headword == null ? Map.of() : item(headword));
     }
 
+    /** The fast one-language answer: one (line, headword) per item. */
+    private void fast(WordLineAnswer.Item... items) {
+        when(claude.translateWordLines(any(), anyList(), anyList())).thenReturn(List.of(items));
+    }
+
+    private static WordLineAnswer.Item one(String line, String headword) {
+        return new WordLineAnswer.Item(line, headword);
+    }
+
     private static final String BANK = """
             {"targetLang":"ja","texts":["a place that keeps your money","the land next to a river"],
              "headwords":["bank","bank"]}""";
 
     @Test
-    void eachSenseGetsItsOwnHeadwordInOneCall() throws Exception {
+    void eachSenseGetsItsOwnHeadwordFastThenTheFillSavesAllLanguages() throws Exception {
+        fast(one("お金を預ける所", "銀行"), one("川のそばの土地", "土手"));
         when(claude.translateWordLinesAllLanguages(anyList(), anyList()))
                 .thenReturn(List.of(lines("お金を預ける所", "銀行"), lines("川のそばの土地", "土手")));
 
@@ -85,6 +97,8 @@ class TranslateLinesHeadwordTest {
                 .andExpect(jsonPath("$.lines[0].headword").value("銀行"))
                 .andExpect(jsonPath("$.lines[1].headword").value("土手"));
 
+        verify(claude, times(1)).translateWordLines(TargetLanguage.JA,
+                List.of("a place that keeps your money", "the land next to a river"), List.of("bank", "bank"));
         verify(claude, times(1)).translateWordLinesAllLanguages(
                 List.of("a place that keeps your money", "the land next to a river"), List.of("bank", "bank"));
         verify(claude, never()).translateLinesAllLanguages(anyList());
@@ -103,6 +117,7 @@ class TranslateLinesHeadwordTest {
         String text = "a person who writes computer code";
         lines.save(new LineTranslation(LineTranslationService.hash(text), text, "ja", "v1", "コードを書く人", "codex",
                 Instant.now()));
+        fast(one("new line", "プログラマー"));
         when(claude.translateWordLinesAllLanguages(anyList(), anyList()))
                 .thenReturn(List.of(lines("new line", "プログラマー")));
 
@@ -124,11 +139,13 @@ class TranslateLinesHeadwordTest {
         send("?cachedOnly=true", BANK, false).andExpect(status().isOk())
                 .andExpect(jsonPath("$.lines[0].translation").doesNotExist())
                 .andExpect(jsonPath("$.lines[0].headword").doesNotExist());
+        verify(claude, never()).translateWordLines(any(), anyList(), anyList());
         verify(claude, never()).translateWordLinesAllLanguages(anyList(), anyList());
     }
 
     @Test
     void aNullHeadwordAsksOnlyTheLine() throws Exception {
+        fast(one("a", "A"), one("b", ""));
         when(claude.translateWordLinesAllLanguages(anyList(), anyList()))
                 .thenReturn(List.of(lines("a", "A"), lines("b", null)));
 
@@ -136,6 +153,7 @@ class TranslateLinesHeadwordTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lines[0].headword").value("A"))
                 .andExpect(jsonPath("$.lines[1].headword").doesNotExist());
+        verify(claude).translateWordLines(TargetLanguage.KO, List.of("one", "two"), Arrays.asList("uno", null));
         verify(claude).translateWordLinesAllLanguages(List.of("one", "two"), Arrays.asList("uno", null));
     }
 
@@ -146,10 +164,12 @@ class TranslateLinesHeadwordTest {
     }
 
     @Test
-    void withoutHeadwordsTheOldCallIsUsed() throws Exception {
+    void withoutHeadwordsTheLineOnlyCallsAreUsed() throws Exception {
+        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi"));
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(List.of(item("moi")));
         send("", "{\"targetLang\":\"ko\",\"texts\":[\"one\"]}", true).andExpect(status().isOk())
                 .andExpect(jsonPath("$.lines[0].headword").doesNotExist());
+        verify(claude, never()).translateWordLines(any(), anyList(), anyList());
         verify(claude, never()).translateWordLinesAllLanguages(anyList(), anyList());
         assertThat(lines.findAll()).hasSize(7);
     }
