@@ -54,7 +54,7 @@ find_backend_env() {
 }
 
 setup() {
-  mkdir -p data/out data/media
+  mkdir -p data/out data/media "$CODEX_DIR"
   [ -f gateway.env ] || die "gateway.env is missing (the Mac script sends it)"
   [ -n "$(env_value CLAUDE_BASE_URL gateway.env)" ] || die "CLAUDE_BASE_URL is empty in the Mac's pipeline/.env"
   find_backend_env
@@ -78,17 +78,32 @@ setup() {
 
   step "3/6 Codex login for the pipeline only ($CODEX_DIR, not the admin's)"
   mkdir -p "$CODEX_DIR"; chmod 700 "$CODEX_DIR"
-  codex_works() {  # one tiny real call: a stale or broken login fails here, before anything is paid
+  # One tiny real call; its output is kept in $CODEX_TRY so a failure shows Codex's own words.
+  CODEX_TRY="$(mktemp)"
+  codex_try() {
+    # Judged by the exit code (no pipe into grep -q: with pipefail that kills codex mid-write and looks like a failure).
+    local rc=0
     (cd "$(mktemp -d)" && timeout 180 codex exec --skip-git-repo-check --sandbox read-only "Reply with the word OK." \
-       </dev/null 2>&1) | grep -qiE '(^|[^a-z])ok([^a-z]|$)'
+       </dev/null >"$CODEX_TRY" 2>&1) || rc=$?
+    [ "$rc" -eq 0 ] && ! grep -qiE 'unauthorized|refresh token|sign in again' "$CODEX_TRY"
   }
-  if ! codex login status >/dev/null 2>&1 || ! codex_works; then
-    echo "Sign in to Codex with your ChatGPT account: open the link below on your Mac or phone and type the code."
-    codex logout >/dev/null 2>&1 || true
-    codex login --device-auth
-    codex_works || die "Codex still does not answer after signing in. Run this again; if it repeats, send the output."
+  login_problem() {  # sign in again only when the problem is the login itself
+    ! codex login status >/dev/null 2>&1 \
+      || grep -qiE 'sign in again|refresh token|not logged in|unauthorized' "$CODEX_TRY"
+  }
+  if ! codex_try; then
+    if login_problem; then
+      echo "Sign in to Codex with your ChatGPT account: open the link below on your Mac or phone and type the code."
+      codex logout >/dev/null 2>&1 || true
+      codex login --device-auth
+      codex_try && { echo "Codex answers."; rm -f "$CODEX_TRY"; return_ok=1; } || true
+    fi
+    if [ -z "${return_ok:-}" ]; then
+      echo "--- what Codex said (last 25 lines):"; tail -n 25 "$CODEX_TRY"
+      die "Codex is signed in but does not answer (see above). Send this output; the login is kept."
+    fi
   fi
-  echo "Codex answers."
+  [ -n "${return_ok:-}" ] || echo "Codex answers."; rm -f "$CODEX_TRY"
 
   step "4/6 pipeline/.env (Postgres on this server + the gateway)"
   password="$(env_value DB_PASSWORD "$BACKEND_ENV" || true)"
