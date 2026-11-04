@@ -292,7 +292,17 @@ export function SignInForm({ mode }: { mode: FormMode }) {
           {copy.switchLink}
         </Link>
       </p>
-      <p className="mt-3 text-center text-xs text-muted">By continuing you agree to the Terms and Privacy Policy.</p>
+      <p className="mt-3 text-center text-xs text-muted">
+        By continuing you agree to the{" "}
+        <Link href="/terms" className="underline hover:text-ink-2">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link href="/privacy" className="underline hover:text-ink-2">
+          Privacy Policy
+        </Link>
+        .
+      </p>
     </section>
   );
 }
