@@ -195,7 +195,7 @@ start() {
   printf '\n== %s new run started\n' "$(date -u)" >> "$LOG"   # \n first: an old last line may lack one
   nohup setsid bash -c "
     set -u
-    export PATH='$HOME/.local/bin':\"\$PATH\" CODEX_HOME='$CODEX_DIR'
+    export PATH='$HOME/.local/bin':\"\$PATH\" CODEX_HOME='$CODEX_DIR' PYTHONUNBUFFERED=1   # log lines at once, not in 8 KB chunks
     ( while sleep 1800; do find '$CODEX_DIR/generated_images' -name '*.png' -mmin +60 -delete 2>/dev/null; done ) &
     echo \"== \$(date -u) bundled words\"
     if uv run pipeline media-ai --all --workers $WORKERS --max-cost $MAX_COST --report data/out/media-ai.html \\
@@ -222,7 +222,12 @@ status() {
     | tail -n 15
   done_count="$(awk '/new run started/ { c = 0; next } /^\[[0-9]+\/[0-9]+\]/ { c++ } END { print c + 0 }' "$LOG")"
   passed="$(awk '/new run started/ { c = 0; next } /^\[[0-9]+\/[0-9]+\].*: passed/ { c++ } END { print c + 0 }' "$LOG")"
-  echo "--- this run so far: $done_count senses done, $passed passed"
+  echo "--- this run so far: $done_count senses done, $passed passed (from the log)"
+  # Live signs that do not wait for the log: picture files written since 'start', Codex calls working right now.
+  if [ -f "$PIDFILE" ]; then
+    echo "--- live: $(find data/media -type f -newer "$PIDFILE" 2>/dev/null | wc -l) picture files drawn since start," \
+         "$(pgrep -fc 'codex exec' 2>/dev/null || true) Codex drawings working now"
+  fi
 }
 
 stop() {
