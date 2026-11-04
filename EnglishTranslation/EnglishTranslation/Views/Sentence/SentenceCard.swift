@@ -159,7 +159,7 @@ struct SentenceCard: View {
         HStack(spacing: 0) {
             listenButton(text: SummaryMarkup(summary).plainText, id: summarySpeechID, label: "Listen to the simple version", style: .plain)
             if translation != nil {
-                LikeButton(item: SavedItem(kind: .sentence, text: savedText ?? sentence, preview: SummaryMarkup(summary).plainText), style: .plain)
+                LikeButton(item: SavedItem(kind: .sentence, text: savedText ?? sentence, preview: SummaryMarkup(summary).plainText))
             }
             IconButton(systemImage: didCopy ? "checkmark" : "doc.on.doc", label: "Copy the sentence", style: .plain, action: copy)
         }

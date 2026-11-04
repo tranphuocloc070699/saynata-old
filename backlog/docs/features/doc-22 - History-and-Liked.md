@@ -3,11 +3,11 @@ id: doc-22
 title: History and Liked
 type: other
 created_date: '2026-10-19 13:12'
-updated_date: '2026-10-25 12:22'
+updated_date: '2026-11-04 06:23'
 ---
 # History and Liked
 
-> Status: **built** (TASK-93.2 iOS lists, TASK-93.1 and 93.3 backend, TASK-93.4 iOS sync). Tested on the iPhone 16 Pro, iOS 18.5 simulator. Last traced from code: 2026-10-25 (TASK-114.3: a sentence typed in another language is saved under the typed text with the summary of its English version; a `wordMatch` is saved as a word).
+> Status: **built** (TASK-93.2 iOS lists, TASK-93.1 and 93.3 backend, TASK-93.4 iOS sync). Tested on the iPhone 16 Pro, iOS 18.5 simulator. Last traced from code: 2026-11-04 (TASK-127: rounded plain star with a check animation; TASK-114.3: a sentence typed in another language is saved under the typed text with the summary of its English version; a `wordMatch` is saved as a word).
 > Builds on [Word lookup](doc-5%20-%20Word-lookup.md) and [Sentence translation](doc-4%20-%20Sentence-translation.md). Accounts: doc-17.
 
 ## What it does
@@ -55,7 +55,7 @@ flowchart TD
 
 | Step | File | What happens |
 |---|---|---|
-| 1 | [LikeButton.swift:1](../../../EnglishTranslation/EnglishTranslation/Views/History/LikeButton.swift#L1) | The star. It reads `LikedStore` from the environment as an optional, so a screen without one just hides the star. Used in [WordCardView.swift:59](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L59), [SentenceCard.swift:57](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceCard.swift#L57) (only when the answer is complete) and [SelectedTextResultView.swift:144](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L144) (extensions). |
+| 1 | [LikeButton.swift:1](../../../EnglishTranslation/EnglishTranslation/Views/History/LikeButton.swift#L1) | The star. It reads `LikedStore` from the environment as an optional, so a screen without one just hides the star. `.plain` (default, TASK-127 mockup B): a small rounded star ([RoundedStar.swift](../../../EnglishTranslation/EnglishTranslation/DesignSystem/Components/RoundedStar.swift#L1), SF Symbols has no rounded star), filled in the accent colour when liked; a like from a tap plays star out, check mark drawn with `trim`, filled star springs back (skipped with Reduce Motion). `.circle`: the SF Symbol in a round `IconButton`. Used in [WordCardView.swift:63](../../../EnglishTranslation/EnglishTranslation/Views/Word/WordCardView.swift#L63) (plain), [SentenceCard.swift:162](../../../EnglishTranslation/EnglishTranslation/Views/Sentence/SentenceCard.swift#L162) (plain, only when the answer is complete) and [SelectedTextResultView.swift:155](../../../EnglishTranslation/EnglishTranslation/Views/SelectedText/SelectedTextResultView.swift#L155) (circle, among the panel's round buttons; extensions). |
 | 2 | [LikedStore.swift:97](../../../EnglishTranslation/EnglishTranslation/History/LikedStore.swift#L97) | `toggle`: a guest sets `pending` and `signInRequested`; a signed-in user likes or unlikes at once, saves the copy and adds an op to the outbox. There is no network call, so a network error never undoes a like. |
 | 3 | [TranslateView.swift:64](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L64) | `signInRequested` opens the existing sign-in sheet; after sign-in the sheet calls `liked.signedIn()` (line 60): it sends the pending like, then loads the list. Closing the sheet drops the pending like. |
 | 4 | [TranslateView.swift:72](../../../EnglishTranslation/EnglishTranslation/Views/Translate/TranslateView.swift#L72) | Signed in: `SyncEngine.signedIn()` (uploads the local History once, then syncs) and `SettingsSync.syncNow()`. Signed out: `clear()` empties the local copy and `signedOut()` forgets the outbox and cursor. |

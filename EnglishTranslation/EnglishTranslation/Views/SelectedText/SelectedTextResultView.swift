@@ -152,7 +152,7 @@ struct SelectedTextResultView: View {
             }
         }
         if case let .loadedWord(entry) = store.state {
-            LikeButton(item: SavedItem(entry: entry))
+            LikeButton(item: SavedItem(entry: entry), style: .circle)
         }
         if let onOpenApp, let url = openURL {
             IconButton(systemImage: "arrow.up.forward.app", label: "Open in Saynata") { onOpenApp(url) }
