@@ -37,6 +37,8 @@ private struct EmailLinkVerifyBody: Encodable {
 private struct IdTokenBody: Encodable {
     let idToken: String
     let nonce: String
+    /// Apple only. Left out of the JSON when nil.
+    let authorizationCode: String?
 }
 
 /// The outside accounts the backend accepts (`POST /api/auth/google`, `POST /api/auth/apple`).
@@ -78,9 +80,13 @@ struct AuthClient: Sendable {
     }
 
     /// `POST /api/auth/google` or `/apple`. `nonce` is the raw nonce; the ID token holds its SHA-256.
-    func signIn(with provider: SocialProvider, idToken: String, nonce: String) async throws -> AuthTokenResponse {
+    /// `authorizationCode` (Apple only): the backend swaps it for Apple's refresh token, so deleting the account
+    /// can revoke Sign in with Apple (TASK-112.3).
+    func signIn(with provider: SocialProvider, idToken: String, nonce: String,
+                authorizationCode: String? = nil) async throws -> AuthTokenResponse {
         let data = try await send("api/auth/\(provider.rawValue)", method: "POST",
-                                  body: IdTokenBody(idToken: idToken, nonce: nonce))
+                                  body: IdTokenBody(idToken: idToken, nonce: nonce,
+                                                    authorizationCode: authorizationCode))
         return try JSONDecoder().decode(AuthTokenResponse.self, from: data)
     }
 

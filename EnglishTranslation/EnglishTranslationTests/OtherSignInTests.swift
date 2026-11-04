@@ -175,6 +175,28 @@ struct OtherSignInTests {
         #expect(SignInSecrets.sha256Hex(try #require(body["nonce"] as? String)) == hashed)
     }
 
+    @Test func appleSendsTheAuthorizationCodeWhenThereIsOne() async throws {
+        server.handler = { _ in tokenReply(access: "A1", refresh: "R1") }
+        let model = SignInModel(account: makeAccount(), googleClientID: nil)
+
+        _ = model.prepareAppleRequest()
+        await model.finishApple(idToken: "apple-id-token", authorizationCode: "apple-code", error: nil, isCancel: false)
+
+        let body = try #require(server.requests(to: "/api/auth/apple").first).json
+        #expect(body["authorizationCode"] as? String == "apple-code")
+    }
+
+    @Test func appleWithoutACodeLeavesTheFieldOut() async throws {
+        server.handler = { _ in tokenReply(access: "A1", refresh: "R1") }
+        let model = SignInModel(account: makeAccount(), googleClientID: nil)
+
+        _ = model.prepareAppleRequest()
+        await model.finishApple(idToken: "apple-id-token", error: nil, isCancel: false)
+
+        let body = try #require(server.requests(to: "/api/auth/apple").first).json
+        #expect(body["authorizationCode"] == nil)
+    }
+
     @Test func closingTheAppleSheetShowsNothingAndARefusalShowsTheMessage() async {
         server.handler = { _ in .problem(401, code: "invalid_id_token", detail: "Sign-in did not work. Try again.") }
         let model = SignInModel(account: makeAccount(), googleClientID: nil)

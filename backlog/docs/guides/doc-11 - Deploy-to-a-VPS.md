@@ -2,8 +2,8 @@
 id: doc-11
 title: Deploy to a VPS
 type: guide
-created_date: '2026-10-11 16:33'
-updated_date: '2026-10-26 10:44'
+created_date: 2026-10-11 16:33
+updated_date: '2026-11-04T16:06:00Z'
 ---
 # Deploy to a VPS
 
@@ -80,6 +80,9 @@ nano .env
 | `PUBLIC_BASE_URL` | Optional. The public HTTPS address of the backend, default `https://api.saynata.com`. The sign-in link email points to `PUBLIC_BASE_URL/auth/link?token=...`. **Change it when the domain moves** (section 13). |
 | `APP_URL_SCHEME` | Optional. The app's URL scheme the link page opens, default `saynata` (`saynata://sign-in?token=...`). |
 | `APPLE_APP_IDS` | Optional, paid Apple account only. `TEAMID.com.luke.EnglishTranslation`. Set = `/.well-known/apple-app-site-association` is served, so iOS opens the emailed link in the app directly (section 13). |
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | Paid Apple account. The team ID, and the ID and `.p8` text of a "Sign in with Apple" key (section 13, "Revoke on delete"). With `APPLE_TOKEN_ENCRYPTION_KEY` they make the backend keep each Apple account's refresh token and revoke it when the account is deleted (App Store rule, TASK-112.3). `APPLE_PRIVATE_KEY` may be on one line with `\n` written for each newline. Any of the four empty = Apple sign-in still works, but nothing is revoked (a warning is logged at start). |
+| `APPLE_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the stored Apple refresh tokens (AES-256-GCM). **Set it once and keep it**: with a new key the old tokens cannot be read, so those accounts are deleted without a revoke (logged as an error). |
+| `APPLE_AUTH_BASE_URL` | Optional. Default `https://appleid.apple.com`. Only tests change it. |
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
 | `LLM_DAILY_BUDGET_USD` | Optional. The most the language models may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
 | `PREFILL_CRON` | Optional. When the prefill job runs by itself (TASK-83.1, feature page "Prefill"): a six-field Spring cron (`second minute hour day month weekday`) in **UTC**. Empty (default) = it never runs by itself. A night run in Vietnam: `PREFILL_CRON=0 0 20 * * *` (20:00 UTC = 03:00). You can always start a run by hand with `POST /api/admin/prefill/run`. |
@@ -670,7 +673,14 @@ The app can sign in four ways: the email code (sections 10 and 11), an emailed *
 
 1. developer.apple.com, Certificates, Identifiers & Profiles, Identifiers, `com.luke.EnglishTranslation`: turn on **Sign in with Apple**. The app's `EnglishTranslation.entitlements` already asks for it.
 2. Install with `PAID_ACCOUNT=1 scripts/install-on-phone.sh`. A free Apple ID cannot sign this capability, so on a free build the Apple button shows "Sign in with Apple did not work".
-3. Nothing on the server: `APPLE_CLIENT_IDS` already has the bundle IDs.
+3. Nothing more is needed for sign-in: `APPLE_CLIENT_IDS` already has the bundle IDs.
+
+**Revoke on delete (TASK-112.3, App Store rule):** Apple asks that deleting the account also revokes the user's Sign in with Apple tokens. The app sends Apple's one-time authorization code at sign-in; the backend swaps it for a refresh token (stored encrypted) and calls `https://appleid.apple.com/auth/revoke` when the account is deleted. It needs a key:
+
+1. developer.apple.com, Certificates, Identifiers & Profiles, **Keys**, +: name it "Saynata Sign in with Apple", tick **Sign in with Apple**, Configure, primary App ID `com.luke.EnglishTranslation`, Save, Continue, Register.
+2. **Download** the `.p8` file (only once possible) and note the **Key ID**. The **Team ID** is at the top right of the developer page (Membership details).
+3. Server, in `backend/.env`: `APPLE_TEAM_ID=<team id>`, `APPLE_KEY_ID=<key id>`, `APPLE_PRIVATE_KEY="<the .p8 text, newlines written as \n>"` (for example `awk 'NF {printf "%s\\n", $0}' AuthKey_XXXX.p8`), `APPLE_TOKEN_ENCRYPTION_KEY=<openssl rand -base64 32>`. Then `./scripts/deploy.sh`.
+4. Check: the start log no longer says "Apple token keys are not set". Sign in with Apple once on the phone, delete the account in Settings, and the log says "Revoked the Apple token of user ...". Accounts that signed in with Apple before this have no stored token; their delete logs "nothing to revoke".
 
 **Web (saynata.com, TASK-102):** the website's `/sign-in` and `/sign-up` pages offer Apple, Google and the email code (no emailed link: it opens the app). Google and Apple need their own web clients:
 
