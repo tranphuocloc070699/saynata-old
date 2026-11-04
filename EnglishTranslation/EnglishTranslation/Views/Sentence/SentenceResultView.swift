@@ -26,8 +26,8 @@ struct SentenceResultView: View {
             language: result.language,
             better: result.isTyped ? result.explanation.better : nil,
             betterWhy: result.explanation.betterWhy,
-            loadWordEntry: loadWordEntry,
-            onLanguageChange: onLanguageChange)
+            onLanguageChange: onLanguageChange,
+            loadWordEntry: loadWordEntry)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
