@@ -10,6 +10,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."   # ~/saynata-pipeline/pipeline
 export PATH="$HOME/.local/bin:$PATH"
+export UV_PYTHON=3.12   # the project's Python; uv picks the newest (3.15) otherwise, and onnxruntime has no 3.15 build
 
 CODEX_VERSION=0.163.0                                   # the same pinned version as backend/Dockerfile
 CODEX_DIR="${CODEX_HOST_DIR:-/var/lib/saynata/codex}"
