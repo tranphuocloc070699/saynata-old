@@ -4,7 +4,7 @@ title: Count Pixabay senses and run the full media-ai pass
 status: To Do
 assignee: []
 created_date: 2026-10-25 15:11
-updated_date: '2026-11-04T08:29:00Z'
+updated_date: '2026-11-04T09:11:00Z'
 labels:
   - media
   - pipeline
@@ -44,4 +44,6 @@ Paid and slow (about 26 hours, Claude about 34 USD, Codex on the ChatGPT plan). 
 2026-11-04: developer chose the VPS + gateway route (doc-7): pipeline/scripts/media-ai-on-vps.sh setup (checks the guess model reads pictures, dry-run estimate), start (background on the VPS), status, stop, link (copy + link on the server, export on the Mac). Not run yet.
 
 2026-11-04: STEYG keys in a temporary pipeline/.env.steyg (ANTHROPIC_* form). Tested here with a fake STEYG server and fake Codex: key mapping, setup (picture check passes on 'red', stops on 'blue'), start/status/stop. Fixed: media-ai asked for ANTHROPIC_API_KEY even through a gateway (cli.py, new test). Not tested: the real VPS, real STEYG, real Postgres.
+
+2026-11-04: full run started on the VPS (pipeline/scripts/media-ai-on-vps.sh, STEYG gateway, pid 1256133, log /root/saynata-pipeline/pipeline/data/out/media-ai-run.log). Bundled words first, then backend words. Next: status until FINISHED, then 'link'.
 <!-- SECTION:NOTES:END -->
