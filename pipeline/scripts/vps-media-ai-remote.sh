@@ -14,7 +14,7 @@ export PATH="$HOME/.local/bin:$PATH"
 CODEX_VERSION=0.163.0                                   # the same pinned version as backend/Dockerfile
 CODEX_DIR="${CODEX_HOST_DIR:-/var/lib/saynata/codex}"
 SERVER_MEDIA="${MEDIA_HOST_DIR:-/var/lib/saynata/media}"
-BACKEND_ENV="${BACKEND_ENV:-$HOME/saynata/backend/.env}"
+BACKEND_ENV="${BACKEND_ENV:-}"   # found by find_backend_env when empty
 APP_UID=10001                                           # the backend container user
 MAX_COST="${MAX_COST:-40}"
 WORKERS="${WORKERS:-4}"
@@ -33,11 +33,33 @@ give_back() {
   [ "$(id -u)" -eq 0 ] && chown -R "$APP_UID:$APP_UID" "$CODEX_DIR" || true
 }
 
+# backend/.env holds DB_PASSWORD. Found by itself: the folder docker compose started Postgres from, then the usual
+# places (doc-11 uses /var/www/saynata, the deploy workflow ~/saynata), then any backend/.env under /var/www, /srv, /opt, ~.
+find_backend_env() {
+  [ -n "$BACKEND_ENV" ] && { [ -f "$BACKEND_ENV" ] || die "BACKEND_ENV=$BACKEND_ENV is missing"; return; }
+  local dir candidate
+  if command -v docker >/dev/null; then
+    for id in $($SUDO docker ps -q --filter label=com.docker.compose.service=postgres 2>/dev/null); do
+      dir="$($SUDO docker inspect -f '{{ index .Config.Labels "com.docker.compose.project.working_dir" }}' "$id" 2>/dev/null || true)"
+      [ -n "$dir" ] && [ -f "$dir/.env" ] && grep -q '^DB_PASSWORD=' "$dir/.env" && { BACKEND_ENV="$dir/.env"; break; }
+    done
+  fi
+  if [ -z "$BACKEND_ENV" ]; then
+    for candidate in /var/www/saynata/backend/.env "$HOME/saynata/backend/.env" /srv/saynata/backend/.env \
+                     /opt/saynata/backend/.env \
+                     $(find /var/www /srv /opt "$HOME" -maxdepth 4 -path '*/backend/.env' 2>/dev/null); do
+      [ -f "$candidate" ] && grep -q '^DB_PASSWORD=' "$candidate" && { BACKEND_ENV="$candidate"; break; }
+    done
+  fi
+  [ -n "$BACKEND_ENV" ] || die "no backend/.env with DB_PASSWORD found on this server (looked in docker, /var/www, /srv, /opt, ~)"
+  echo "backend/.env: $BACKEND_ENV"
+}
+
 setup() {
   mkdir -p data/out data/media
   [ -f gateway.env ] || die "gateway.env is missing (the Mac script sends it)"
   [ -n "$(env_value CLAUDE_BASE_URL gateway.env)" ] || die "CLAUDE_BASE_URL is empty in the Mac's pipeline/.env"
-  [ -f "$BACKEND_ENV" ] || die "$BACKEND_ENV is missing (set BACKEND_ENV=<path to backend/.env>)"
+  find_backend_env
   [ -d "$CODEX_DIR" ] || die "$CODEX_DIR is missing: the server has no Codex login"
 
   step "1/6 uv"
