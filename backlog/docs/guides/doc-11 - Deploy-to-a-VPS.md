@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: 2026-10-11 16:33
-updated_date: '2026-11-04T16:06:00Z'
+updated_date: '2026-11-04T16:36:00Z'
 ---
 # Deploy to a VPS
 
@@ -679,7 +679,7 @@ The app can sign in four ways: the email code (sections 10 and 11), an emailed *
 
 1. developer.apple.com, Certificates, Identifiers & Profiles, **Keys**, +: name it "Saynata Sign in with Apple", tick **Sign in with Apple**, Configure, primary App ID `com.luke.EnglishTranslation`, Save, Continue, Register.
 2. **Download** the `.p8` file (only once possible) and note the **Key ID**. The **Team ID** is at the top right of the developer page (Membership details).
-3. Server, in `backend/.env`: `APPLE_TEAM_ID=<team id>`, `APPLE_KEY_ID=<key id>`, `APPLE_PRIVATE_KEY="<the .p8 text, newlines written as \n>"` (for example `awk 'NF {printf "%s\\n", $0}' AuthKey_XXXX.p8`), `APPLE_TOKEN_ENCRYPTION_KEY=<openssl rand -base64 32>`. Then `./scripts/deploy.sh`.
+3. Server: copy the `.p8` there (`scp AuthKey_XXXXXXXXXX.p8 <server>:~/`), then run `~/saynata/backend/scripts/set-apple-keys.sh ~/AuthKey_XXXXXXXXXX.p8 <TEAM_ID>`. It checks the inputs, backs up `backend/.env`, writes `APPLE_TEAM_ID`, `APPLE_KEY_ID` (from the file name), `APPLE_PRIVATE_KEY` (one line, newlines as `\n`) and a new `APPLE_TOKEN_ENCRYPTION_KEY` (kept if already set), and offers to run `./scripts/deploy.sh`. Safe to run again. Then delete the `.p8` from the server.
 4. Check: the start log no longer says "Apple token keys are not set". Sign in with Apple once on the phone, delete the account in Settings, and the log says "Revoked the Apple token of user ...". Accounts that signed in with Apple before this have no stored token; their delete logs "nothing to revoke".
 
 **Web (saynata.com, TASK-102):** the website's `/sign-in` and `/sign-up` pages offer Apple, Google and the email code (no emailed link: it opens the app). Google and Apple need their own web clients:
