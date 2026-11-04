@@ -4,7 +4,7 @@ title: 'Event list and tool setup (Sentry + PostHog projects, keys)'
 status: To Do
 assignee: []
 created_date: '2026-11-04 10:35'
-updated_date: '2026-11-04 11:30'
+updated_date: '2026-11-04 11:34'
 labels:
   - analytics
 dependencies: []
@@ -39,4 +39,6 @@ One source of truth for event names and properties, so iOS, web and the extensio
 Sentry plugin installed 2026-11-04 (npx @sentry/agent-plugin install, org tran-phuoc-loc, run code 429c4b8d7d; also added to Codex). After restarting Claude Code, use the Sentry plugin to create 4 projects: saynata-ios (Apple iOS, also used by Mac), saynata-web (Next.js), saynata-extension (Browser JavaScript), saynata-backend (Spring Boot). Put the DSNs in .env.example files and doc-24, never real keys in git. PostHog account still needed.
 
 2026-11-04: create_project via the Sentry plugin fails with 403 (members cannot create projects), so the developer creates projects by hand. Done: saynata-ios, saynata-web, saynata-extension exist; DSNs are in doc-24 (section Error reporting) and in web/.env.local and extension/.env.local. SENTRY_DSN placeholder in backend/.env.example; new web/.env.example (NEXT_PUBLIC_SENTRY_DSN) and extension/.env.example (VITE_SENTRY_DSN). Web SDK set up in TASK-128.4 (verified: server error SAYNATA-WEB-1 reached Sentry without the ?q= text) and extension SDK in TASK-128.5 (build and tests pass; event not verified, needs the extension loaded in Chrome). Left: developer creates saynata-backend (Spring Boot) and the PostHog project; docs/analytics/events.md (AC 1-3); GitHub variable SENTRY_DSN_WEB and secret SENTRY_AUTH_TOKEN.
+
+2026-11-04: saynata-backend created by the developer; all 4 Sentry projects exist and their DSNs are in doc-24. Left in this task: PostHog project and docs/analytics/events.md (AC 1-3).
 <!-- SECTION:NOTES:END -->

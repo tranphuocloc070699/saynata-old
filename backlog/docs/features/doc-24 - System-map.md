@@ -3,7 +3,7 @@ id: doc-24
 title: System map
 type: other
 created_date: '2026-10-24 11:30'
-updated_date: '2026-11-04 11:30'
+updated_date: '2026-11-04 11:34'
 ---
 # System map
 
@@ -31,6 +31,8 @@ Sentry org `tran-phuoc-loc` (US region, https://tran-phuoc-loc.sentry.io), team 
 | `saynata-ios` | Apple iOS (the Mac app too) | an xcconfig, wired in TASK-128.3 | `https://97e200393794cb0be6e88031cec16c9b@o4511002004946944.ingest.us.sentry.io/4512373139439616` |
 | `saynata-web` | Next.js | `NEXT_PUBLIC_SENTRY_DSN` (`web/.env.local`; deploy: GitHub variable `SENTRY_DSN_WEB`, source maps with secret `SENTRY_AUTH_TOKEN`) | `https://46f524f238808c632f3c8ae3ec0b8873@o4511002004946944.ingest.us.sentry.io/4512373148745728` |
 | `saynata-extension` | Browser JavaScript | `VITE_SENTRY_DSN` (`extension/.env.local`) | `https://82ef05db28f77e132a95cddedab4df4a@o4511002004946944.ingest.us.sentry.io/4512373225226240` |
-| `saynata-backend` | Spring Boot | `SENTRY_DSN` (`backend/.env`) | not created yet |
+| `saynata-backend` | Spring Boot | `SENTRY_DSN` (`backend/.env`, passed in `docker-compose.prod.yml`) | `https://d10169f82c8853ac08e94e9ebd6c8fca@o4511002004946944.ingest.us.sentry.io/4512373271363584` |
 
 Web (TASK-128.4): `@sentry/nextjs`, shared options and the privacy scrub in `web/src/lib/sentry.ts` (no query strings, bodies or cookies; `/api/words/{word}` becomes `:word`). Extension (TASK-128.5): `@sentry/browser` with its own client and scope in the background worker (`extension/src/shared/sentry.ts`), no `Sentry.init` and no global integrations.
+
+Backend (TASK-128.2): `sentry-spring-boot-4-starter` (Maven), `sentry.*` in `application.properties` (no personal data, no request bodies, 10% traces), `common/SentryScrub` removes the query string and the text in `/api/words/{word}` and `/api/terms/{text}`. Handled `ApiException`s (4xx) are not reported.
