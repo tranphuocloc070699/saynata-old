@@ -74,6 +74,7 @@ addresses	address	pure form	4.13
 addressing	address	pure form	4.06
 adds	add	pure form	4.38
 adjoining	adjoin	pure form	3.50
+adjudged	adjudge	pure form	2.62
 adjusted	adjust	own meaning too	4.11
 adjusting	adjust	pure form	3.71
 adjustments	adjustment	pure form	3.82
@@ -126,6 +127,7 @@ agencies	agency	pure form	4.54
 agendas	agenda	pure form	3.27
 agents	agent	pure form	4.55
 ages	age	own meaning too	4.53
+aggrieved	aggrieve	pure form	2.90
 aging	age	own meaning too	4.04
 agitated	agitate	own meaning too	3.35
 agonized	agonize	own meaning too	2.33
@@ -368,6 +370,7 @@ banned	ban	pure form	4.41
 banning	ban	pure form	3.80
 bans	ban	pure form	3.69
 barbed	barb	own meaning too	3.27
+barracks	barrack	own meaning too	3.67
 barred	bar	pure form	3.71
 barriers	barrier	pure form	4.01
 barring	bar	pure form	3.44
@@ -377,6 +380,7 @@ baser	base	pure form	2.14
 bases	base,basis	pure form	4.18
 basest	base	pure form	2.00
 basing	base	pure form	3.23
+basting	baste	own meaning too	2.22
 batching	batch	own meaning too	2.05
 bated	bate	own meaning too	2.33
 battering	batter	own meaning too	2.87
@@ -419,6 +423,7 @@ behaviours	behaviour	pure form	3.33
 being	be	own meaning too	5.95
 beings	being	pure form	4.19
 belching	belch	own meaning too	2.38
+beleaguered	beleaguer	pure form	2.73
 beliefs	belief	pure form	4.25
 believed	believe	pure form	4.75
 believes	believe	pure form	4.43
@@ -437,6 +442,7 @@ benefitted	benefit	pure form	2.98
 benefitting	benefit	pure form	2.78
 bent	bend	own meaning too	3.99
 bereaved	bereave	own meaning too	2.90
+bereft	bereave	pure form	2.80
 bespoke	bespeak	pure form	3.20
 best	good,well	own meaning too	5.84
 betrothed	betroth	own meaning too	2.86
@@ -502,6 +508,7 @@ bloodiest	bloody	pure form	2.59
 blooding	blood	pure form	1.60
 bloods	blood	pure form	3.03
 bloodying	bloody	pure form	1.37
+bloomers	bloomer	own meaning too	2.38
 blotting	blot	own meaning too	2.54
 blowing	blow	own meaning too	4.20
 blown	blow	pure form	4.21
@@ -780,6 +787,7 @@ cents	cent	pure form	4.36
 ceremonies	ceremony	pure form	3.73
 certificated	certificate	own meaning too	2.26
 certified	certify	own meaning too	4.23
+chafing	chafe	own meaning too	2.61
 chained	chain	pure form	3.37
 chaining	chain	own meaning too	2.60
 chains	chain	pure form	4.11
@@ -855,6 +863,8 @@ chiming	chime	pure form	2.73
 chipped	chip	pure form	3.25
 chipping	chip	own meaning too	3.16
 chips	chip	pure form	4.21
+chiseled	chisel	own meaning too	2.69
+chiselled	chisel	own meaning too	2.20
 chocolates	chocolate	pure form	3.40
 choicer	choice	pure form	1.36
 choices	choice	pure form	4.46
@@ -1071,12 +1081,14 @@ confuses	confuse	pure form	3.02
 confusing	confuse	pure form	4.02
 confusions	confusion	pure form	2.34
 congested	congest	pure form	3.17
+conjoined	conjoin	pure form	2.77
 conjugated	conjugate	own meaning too	2.78
 connected	connect	own meaning too	4.68
 connecting	connect	pure form	4.16
 connections	connection	pure form	4.32
 connects	connect	pure form	3.83
 connexions	connexion	pure form	1.85
+conniving	connive	pure form	2.64
 consequences	consequence	pure form	4.47
 conservatives	conservative	pure form	4.14
 considerations	consideration	pure form	3.74
@@ -1174,6 +1186,7 @@ corrects	correct	pure form	3.02
 corresponded	correspond	pure form	3.04
 corresponding	correspond	pure form	4.13
 corresponds	correspond	pure form	3.54
+corrugated	corrugate	own meaning too	3.15
 costing	cost	own meaning too	3.69
 costs	cost	pure form	4.96
 coughed	cough	pure form	2.94
@@ -1232,6 +1245,7 @@ creatures	creature	pure form	4.21
 credited	credit	pure form	3.88
 crediting	credit	pure form	2.84
 credits	credit	pure form	4.27
+creeps	creep	own meaning too	3.38
 crested	crest	own meaning too	2.88
 crew	crow	own meaning too	4.70
 crewed	crew	pure form	2.55
@@ -1318,6 +1332,7 @@ daunting	daunt	own meaning too	3.40
 days	day	pure form	5.61
 deader	dead	pure form	1.99
 deadest	dead	pure form	1.53
+deafening	deafen	pure form	2.98
 dealers	dealer	pure form	4.01
 dealing	deal	own meaning too	4.60
 deals	deal	pure form	4.59
@@ -1401,6 +1416,7 @@ depends	depend	pure form	4.53
 deposited	deposit	pure form	3.64
 depositing	deposit	pure form	2.88
 deposits	deposit	pure form	4.00
+depraved	deprave	own meaning too	3.04
 depressed	depress	own meaning too	4.14
 depresses	depress	pure form	2.56
 depressing	depress	pure form	3.83
@@ -1430,6 +1446,7 @@ desired	desire	pure form	4.16
 desires	desire	pure form	4.01
 desiring	desire	pure form	2.91
 desks	desk	pure form	3.39
+destined	destine	own meaning too	3.79
 destroyed	destroy	pure form	4.61
 destroying	destroy	pure form	4.09
 destroys	destroy	pure form	3.67
@@ -1503,6 +1520,7 @@ discerning	discern	own meaning too	3.02
 disciplined	discipline	pure form	3.51
 disciplines	discipline	pure form	3.69
 disciplining	discipline	pure form	2.62
+disconcerting	disconcert	pure form	2.95
 disconnected	disconnect	own meaning too	3.52
 discontented	discontent	own meaning too	2.49
 discounted	discount	pure form	3.58
@@ -1520,13 +1538,17 @@ discussing	discuss	pure form	4.23
 discussions	discussion	pure form	4.28
 diseases	disease	pure form	4.36
 disembodied	disembody	own meaning too	2.73
+disenchanted	disenchant	pure form	2.66
 disgusted	disgust	own meaning too	3.57
 disgusting	disgust	own meaning too	4.23
 disheartening	dishearten	own meaning too	2.86
 dished	dish	pure form	2.61
 dishes	dish	pure form	4.13
+disheveled	dishevel	own meaning too	2.54
+dishevelled	dishevel	own meaning too	2.24
 dishing	dish	pure form	2.72
 disillusioned	disillusion	own meaning too	3.18
+disinclined	disincline	pure form	2.28
 disjointed	disjoint	own meaning too	2.88
 disks	disk	pure form	3.39
 dismissed	dismiss	pure form	4.20
@@ -1544,6 +1566,8 @@ disputed	dispute	pure form	3.76
 disputes	dispute	pure form	3.96
 disputing	dispute	pure form	2.89
 disquieting	disquiet	own meaning too	2.33
+dissatisfied	dissatisfy	pure form	3.31
+dissatisfying	dissatisfy	pure form	1.61
 dissipated	dissipate	own meaning too	3.07
 dissociated	dissociate	own meaning too	2.42
 distanced	distance	pure form	2.99
@@ -1654,6 +1678,7 @@ drugs	drug	pure form	4.77
 drunk	drink	own meaning too	4.61
 drying	dry	pure form	3.74
 dug	dig	pure form	3.86
+dumbfounded	dumbfound	pure form	2.75
 dumping	dump	own meaning too	3.67
 duties	duty	pure form	4.32
 dwelling	dwell	own meaning too	3.74
@@ -1710,6 +1735,7 @@ emailed	email	pure form	3.51
 emailing	email	pure form	3.07
 emails	email	pure form	4.24
 embalmed	embalm	own meaning too	2.45
+embalming	embalm	own meaning too	2.56
 embarrassed	embarrass	pure form	4.05
 embarrasses	embarrass	pure form	2.40
 embarrassing	embarrass	own meaning too	4.15
@@ -1718,6 +1744,7 @@ embedding	embed	own meaning too	3.00
 embraced	embrace	pure form	3.75
 embraces	embrace	pure form	3.35
 embracing	embrace	pure form	3.67
+embroidered	embroider	pure form	3.34
 emerged	emerge	pure form	4.16
 emergencies	emergency	pure form	3.56
 emerges	emerge	pure form	3.61
@@ -1744,6 +1771,7 @@ emptying	empty	pure form	3.08
 enabled	enable	pure form	4.11
 enables	enable	pure form	3.94
 enabling	enable	own meaning too	3.92
+enamored	enamor	pure form	2.78
 enchanted	enchant	own meaning too	3.44
 encoding	encode	own meaning too	3.38
 encountered	encounter	pure form	4.06
@@ -1776,6 +1804,7 @@ enjoying	enjoy	pure form	4.42
 enjoys	enjoy	pure form	3.93
 enlightened	enlighten	own meaning too	3.49
 enraptured	enrapture	own meaning too	2.28
+ensconced	ensconce	pure form	2.45
 ensuing	ensue	own meaning too	3.54
 ensured	ensure	pure form	3.54
 ensures	ensure	pure form	3.60
@@ -1787,6 +1816,7 @@ entertained	entertain	pure form	3.64
 entertaining	entertain	own meaning too	4.11
 entertainments	entertainment	pure form	2.78
 entertains	entertain	pure form	2.76
+enthralled	enthrall	pure form	2.78
 enthused	enthuse	own meaning too	2.64
 entitled	entitle	pure form	4.51
 entitles	entitle	pure form	2.72
@@ -1852,6 +1882,7 @@ examines	examine	pure form	3.59
 examining	examine	pure form	3.87
 examples	example	pure form	4.63
 exams	exam	pure form	4.00
+exasperated	exasperate	pure form	2.94
 exceeded	exceed	pure form	3.76
 exceeding	exceed	pure form	3.61
 exceeds	exceed	pure form	3.59
@@ -1881,6 +1912,7 @@ exhibited	exhibit	pure form	3.86
 exhibiting	exhibit	pure form	3.40
 exhibitions	exhibition	pure form	3.68
 exhibits	exhibit	pure form	3.82
+exhilarated	exhilarate	pure form	2.38
 exhilarating	exhilarate	own meaning too	3.12
 existed	exist	pure form	4.29
 existences	existence	pure form	2.18
@@ -1928,6 +1960,7 @@ extending	extend	pure form	4.04
 extends	extend	pure form	3.99
 extensions	extension	pure form	3.82
 extents	extent	pure form	2.40
+extenuating	extenuate	pure form	2.56
 externals	external	pure form	2.06
 extracted	extract	pure form	3.68
 extracting	extract	pure form	3.29
@@ -2012,6 +2045,7 @@ features	feature	pure form	4.94
 featuring	feature	pure form	4.45
 fed	feed	pure form	4.51
 federals	federal	pure form	2.31
+federated	federate	pure form	2.94
 feed	fee	own meaning too	4.67
 feeding	feed	own meaning too	4.28
 feedings	feeding	pure form	2.49
@@ -2125,6 +2159,7 @@ flowing	flow	pure form	4.02
 flown	fly	pure form	3.83
 flows	flow	pure form	4.14
 flushing	flush	own meaning too	3.40
+flustered	fluster	pure form	2.93
 flying	fly	own meaning too	4.71
 focused	focus	pure form	4.65
 focuses	focus	pure form	4.08
@@ -2201,6 +2236,7 @@ freed	free	pure form	3.85
 freedoms	freedom	pure form	3.62
 freeing	free	pure form	3.40
 frees	free	pure form	3.18
+freewheeling	freewheel	own meaning too	2.27
 freezes	freeze	pure form	3.29
 freezing	freeze	own meaning too	4.05
 frequencies	frequency	pure form	3.74
@@ -2256,6 +2292,7 @@ gains	gain	own meaning too	4.25
 gamed	game	pure form	2.25
 games	game	own meaning too	5.44
 gaming	game	pure form	4.36
+ganglia	ganglion	own meaning too	2.59
 gapped	gap	pure form	2.08
 gapping	gap	pure form	1.92
 gaps	gap	pure form	3.86
@@ -2284,6 +2321,7 @@ geared	gear	pure form	3.58
 gearing	gear	pure form	3.37
 gears	gear	pure form	3.67
 gel	jell	own meaning too	3.84
+gelding	geld	own meaning too	2.73
 gendered	gender	pure form	3.08
 genders	gender	pure form	3.27
 generals	general	pure form	3.72
@@ -2320,8 +2358,10 @@ glancing	glance	pure form	3.01
 glassed	glass	pure form	2.23
 glasses	glass	own meaning too	4.34
 glassing	glass	pure form	1.79
+glimmering	glimmer	own meaning too	2.25
 glistening	glisten	own meaning too	2.87
 glittering	glitter	own meaning too	3.19
+gnarled	gnarl	own meaning too	2.37
 goals	goal	pure form	4.95
 gods	god	pure form	4.40
 goes	go	pure form	5.22
@@ -2348,6 +2388,7 @@ graduated	graduate	pure form	4.14
 graduates	graduate	pure form	4.02
 graduating	graduate	pure form	3.76
 graffiti	graffito	pure form	3.65
+grafting	graft	own meaning too	2.79
 grained	grain	pure form	2.91
 graining	grain	pure form	1.66
 grains	grain	pure form	3.70
@@ -2486,6 +2527,7 @@ helped	help	pure form	4.88
 helping	help	own meaning too	4.78
 helpings	helping	pure form	2.20
 helps	help	pure form	4.74
+hemorrhoids	hemorrhoid	own meaning too	2.64
 heroes	hero	pure form	4.35
 hesitated	hesitate	pure form	3.08
 hesitates	hesitate	pure form	2.58
@@ -2616,6 +2658,7 @@ impending	impend	own meaning too	3.53
 implementations	implementation	pure form	3.19
 implemented	implement	pure form	4.23
 implementing	implement	pure form	3.91
+implementors	implementor	pure form	0.00
 implements	implement	pure form	3.36
 implications	implication	pure form	4.10
 implied	imply	pure form	3.93
@@ -2689,10 +2732,12 @@ initialled	initial	pure form	1.67
 initialling	initial	pure form	0.00
 initials	initial	pure form	3.46
 initiatives	initiative	pure form	4.02
+injected	inject	own meaning too	3.69
 injured	injure	own meaning too	4.51
 injures	injure	pure form	2.92
 injuries	injury	pure form	4.44
 injuring	injure	pure form	3.38
+inlaid	inlay	own meaning too	2.71
 inning	inn	own meaning too	3.83
 innings	inning	own meaning too	4.02
 innocents	innocent	pure form	3.14
@@ -2818,6 +2863,7 @@ journals	journal	pure form	3.92
 journeyed	journey	pure form	2.79
 journeying	journey	pure form	2.52
 journeys	journey	pure form	3.62
+jousting	joust	own meaning too	2.52
 joys	joy	pure form	3.39
 judged	judge	pure form	3.96
 judges	judge	pure form	4.42
@@ -2906,8 +2952,10 @@ landscaped	landscape	pure form	2.88
 landscapes	landscape	pure form	3.72
 landscaping	landscape	pure form	3.22
 languages	language	pure form	4.42
+laps	lap	pure form	3.66
 larger	large	pure form	4.82
 largest	large	pure form	4.90
+lashing	lash	own meaning too	3.04
 lasted	last	pure form	4.09
 lasting	last	own meaning too	4.11
 lasts	last	pure form	3.90
@@ -2954,6 +3002,7 @@ least	less	pure form	5.44
 leathered	leather	pure form	1.52
 leathering	leather	pure form	0.00
 leathers	leather	pure form	2.67
+leavening	leaven	own meaning too	2.04
 leaves	leaf,leave	pure form	4.79
 leaving	leave	pure form	4.98
 lectured	lecture	pure form	3.04
@@ -3102,6 +3151,7 @@ lunches	lunch	pure form	3.41
 lunching	lunch	pure form	2.29
 luxuries	luxury	pure form	3.09
 lying	lie	pure form	4.67
+machinations	machination	pure form	2.89
 machined	machine	pure form	2.84
 machines	machine	pure form	4.46
 machining	machine	pure form	3.08
@@ -3145,6 +3195,9 @@ mapped	map	pure form	3.50
 mapping	map	own meaning too	3.88
 mappings	mapping	pure form	2.57
 maps	map	pure form	4.42
+marauding	maraud	pure form	2.54
+marbled	marble	own meaning too	2.66
+marbling	marble	own meaning too	2.17
 marched	march	pure form	3.75
 marches	march	pure form	3.42
 marching	march	pure form	3.82
@@ -3189,6 +3242,8 @@ measures	measure	pure form	4.67
 measuring	measure	pure form	4.07
 meats	meat	pure form	3.48
 mechanisms	mechanism	pure form	4.03
+mechanized	mechanize	pure form	2.92
+mediating	mediate	pure form	2.82
 medicals	medical	pure form	2.04
 medicines	medicine	pure form	3.77
 mediums	medium	pure form	3.12
@@ -3218,6 +3273,7 @@ metering	meter	pure form	2.90
 meters	meter	pure form	4.21
 methods	method	pure form	4.68
 metres	metre	pure form	4.17
+mews	mew	own meaning too	2.67
 mice	mouse	pure form	4.09
 middled	middle	pure form	1.14
 middles	middle	pure form	2.13
@@ -3239,9 +3295,12 @@ minutes	minute	own meaning too	5.31
 mirrored	mirror	pure form	3.32
 mirroring	mirror	pure form	3.01
 mirrors	mirror	pure form	3.81
+misgivings	misgiving	pure form	2.90
 misguided	misguide	own meaning too	3.42
+misinformed	misinform	pure form	2.91
 misleading	mislead	own meaning too	3.90
 misplaced	misplace	pure form	3.39
+misreading	misread	own meaning too	2.56
 missed	miss	pure form	4.83
 misses	miss	pure form	3.85
 missing	miss	own meaning too	5.05
@@ -3271,6 +3330,7 @@ modified	modify	pure form	4.24
 modifies	modify	pure form	2.75
 modifying	modify	pure form	3.39
 modules	module	pure form	3.70
+molding	mold	own meaning too	3.19
 molting	molt	own meaning too	2.23
 moments	moment	pure form	4.62
 mommies	mommy	pure form	2.54
@@ -3290,6 +3350,7 @@ mornings	morning	pure form	3.66
 mortgaged	mortgage	pure form	2.64
 mortgages	mortgage	pure form	3.69
 mortgaging	mortgage	pure form	2.02
+mortified	mortify	pure form	2.97
 most	much	own meaning too	6.00
 mothered	mother	pure form	1.87
 mothering	mother	pure form	2.62
@@ -3305,6 +3366,7 @@ motored	motor	pure form	2.21
 motoring	motor	pure form	3.00
 motorized	motorize	pure form	3.12
 motors	motor	pure form	4.03
+mottled	mottle	own meaning too	2.76
 moulding	mould	own meaning too	2.86
 mountains	mountain	pure form	4.50
 mounted	mount	pure form	4.26
@@ -3322,6 +3384,7 @@ movies	movie	own meaning too	4.79
 moving	move	own meaning too	5.02
 muddled	muddle	own meaning too	2.87
 multiples	multiple	pure form	3.14
+mummified	mummify	pure form	2.60
 murdered	murder	pure form	4.32
 murdering	murder	pure form	3.72
 murders	murder	pure form	4.05
@@ -3389,6 +3452,7 @@ nicest	nice	pure form	3.52
 niggling	niggle	own meaning too	2.26
 nights	night	pure form	4.47
 nipping	nip	own meaning too	2.60
+nitpicking	nitpick	own meaning too	2.14
 nobodies	nobody	pure form	2.61
 noises	noise	pure form	3.75
 normals	normal	pure form	2.58
@@ -3506,6 +3570,7 @@ outs	out	pure form	3.86
 outsides	outside	pure form	2.15
 outsourcing	outsource	own meaning too	3.36
 outstretched	outstretch	own meaning too	2.91
+overbearing	overbear	own meaning too	2.91
 overcame	overcome	pure form	3.26
 overcomes	overcome	pure form	2.93
 overcoming	overcome	pure form	3.55
@@ -3574,6 +3639,8 @@ paragraphs	paragraph	pure form	3.57
 paralleled	parallel	pure form	2.64
 paralleling	parallel	pure form	2.46
 parallels	parallel	pure form	3.57
+parched	parch	pure form	2.88
+parenthesized	parenthesize	pure form	1.13
 parents	parent	pure form	5.21
 paring	pare	own meaning too	2.54
 parked	park	pure form	3.91
@@ -3604,6 +3671,7 @@ passing	pass	own meaning too	4.63
 passions	passion	pure form	3.58
 paths	path	pure form	4.02
 patients	patient	pure form	4.91
+patronizing	patronize	own meaning too	2.78
 patterned	pattern	pure form	3.25
 patterning	pattern	own meaning too	2.74
 patterns	pattern	pure form	4.41
@@ -3661,6 +3729,7 @@ perspectives	perspective	pure form	3.89
 persuaded	persuade	pure form	3.77
 persuades	persuade	pure form	2.54
 persuading	persuade	pure form	3.09
+petrified	petrify	pure form	3.03
 phased	phase	pure form	3.33
 phases	phase	pure form	3.83
 phasing	phase	pure form	2.98
@@ -3803,6 +3872,7 @@ posted	post	pure form	4.97
 posting	post	own meaning too	4.39
 postings	posting	pure form	3.14
 posts	post	pure form	4.65
+posturing	posture	own meaning too	2.90
 potatoes	potato	pure form	4.09
 potentials	potential	pure form	3.09
 pots	pot	pure form	3.76
@@ -3830,21 +3900,26 @@ prayed	pray	pure form	3.67
 praying	pray	pure form	3.99
 prays	pray	pure form	3.10
 prearranged	prearrange	own meaning too	2.32
+preconceived	preconceive	pure form	2.86
+predestined	predestine	pure form	2.49
 predetermined	predetermine	pure form	3.30
 predicted	predict	pure form	4.12
 predicting	predict	pure form	3.62
 predicts	predict	pure form	3.43
 predisposed	predispose	own meaning too	2.81
 preexisting	preexist	own meaning too	2.91
+prefabricated	prefabricate	pure form	2.79
 preferences	preference	pure form	3.88
 preferred	prefer	own meaning too	4.35
 preferring	prefer	own meaning too	3.33
 prefers	prefer	pure form	3.67
 pregnancies	pregnancy	pure form	3.31
+premeditated	premeditate	pure form	2.94
 premised	premise	pure form	2.41
 premises	premise	pure form	4.02
 premising	premise	pure form	0.00
 preoccupied	preoccupy	pure form	3.26
+preordained	preordain	pure form	2.23
 prepackaged	prepackage	own meaning too	2.37
 prepaid	prepay	pure form	3.30
 preparations	preparation	pure form	3.87
@@ -4000,6 +4075,7 @@ pulls	pull	pure form	4.01
 pumped	pump	pure form	3.79
 pumping	pump	pure form	3.81
 pumps	pump	pure form	3.83
+punctuated	punctuate	pure form	2.98
 pupils	pupil	pure form	4.18
 purchased	purchase	pure form	4.47
 purchases	purchase	pure form	4.11
@@ -4371,6 +4447,7 @@ ridding	rid	pure form	2.66
 rides	ride	pure form	4.06
 riding	ride	pure form	4.49
 rids	rid	pure form	1.89
+rigging	rig	pure form	3.42
 righted	right	pure form	2.37
 righter	right	pure form	2.01
 righting	right	pure form	2.51
@@ -4423,6 +4500,7 @@ rowed	row	pure form	2.78
 rowing	row	pure form	3.39
 rows	row	pure form	3.86
 royals	royal	pure form	3.72
+rubberized	rubberize	pure form	2.26
 rubbing	rub	own meaning too	3.71
 rudiments	rudiment	own meaning too	2.35
 ruined	ruin	pure form	4.26
@@ -4525,6 +4603,7 @@ screened	screen	pure form	3.66
 screening	screen	own meaning too	4.15
 screenings	screening	pure form	3.36
 screens	screen	pure form	4.03
+scribbling	scribble	pure form	2.62
 scripted	script	own meaning too	3.40
 scrubs	scrub	pure form	3.22
 sealed	seal	pure form	4.12
@@ -4584,6 +4663,7 @@ seniors	senior	pure form	3.88
 sensed	sense	pure form	3.32
 senses	sense	pure form	3.92
 sensing	sense	pure form	3.64
+sensitized	sensitize	own meaning too	2.39
 sent	send	pure form	5.16
 separated	separate	pure form	4.30
 separates	separate	pure form	3.57
@@ -4687,7 +4767,9 @@ showing	show	pure form	4.88
 shown	show	pure form	4.90
 shows	show	pure form	5.23
 shuffling	shuffle	pure form	3.06
+shunting	shunt	own meaning too	2.45
 shuts	shut	pure form	3.49
+sickening	sicken	pure form	3.31
 sicker	sick	pure form	2.80
 sickest	sick	pure form	2.64
 sided	side	own meaning too	3.94
@@ -4761,7 +4843,9 @@ slaves	slave	pure form	4.19
 slaving	slave	pure form	2.45
 sleeping	sleep	pure form	4.56
 sleeps	sleep	pure form	3.71
+sleepwalking	sleepwalk	own meaning too	2.66
 slept	sleep	pure form	4.18
+slew	slay	pure form	3.34
 sliced	slice	pure form	3.57
 slices	slice	pure form	3.63
 slicing	slice	pure form	3.14
@@ -4858,6 +4942,7 @@ sparer	spare	pure form	1.30
 spares	spare	pure form	3.04
 sparest	spare	pure form	0.00
 sparing	spare	own meaning too	3.01
+spas	spa	pure form	2.84
 spat	spit	own meaning too	3.30
 spats	spat	own meaning too	2.45
 speakers	speaker	pure form	4.24
@@ -4932,6 +5017,7 @@ staffing	staff	pure form	3.53
 staffs	staff	pure form	3.23
 staged	stage	pure form	3.83
 stages	stage	pure form	4.43
+staggers	stagger	own meaning too	2.45
 staging	stage	pure form	3.65
 stained	stain	pure form	3.79
 staining	stain	own meaning too	3.21
@@ -5086,12 +5172,14 @@ stupidest	stupid	pure form	3.17
 styled	style	pure form	3.63
 styles	style	pure form	4.38
 styling	style	pure form	3.48
+stylized	stylize	pure form	3.06
 subjected	subject	pure form	3.86
 subjecting	subject	pure form	2.88
 subjects	subject	pure form	4.38
 submits	submit	pure form	3.02
 submitted	submit	pure form	4.32
 submitting	submit	pure form	3.56
+subs	sub	pure form	3.70
 substances	substance	pure form	3.93
 substituted	substitute	pure form	3.47
 substitutes	substitute	pure form	3.32
@@ -5100,6 +5188,7 @@ succeeded	succeed	pure form	4.14
 succeeding	succeed	pure form	3.63
 succeeds	succeed	pure form	3.47
 successes	success	pure form	3.75
+suckered	sucker	own meaning too	2.36
 suckling	suckle	own meaning too	2.76
 suffered	suffer	pure form	4.52
 suffering	suffer	own meaning too	4.53
@@ -5170,6 +5259,7 @@ suspected	suspect	pure form	4.15
 suspecting	suspect	pure form	2.96
 suspects	suspect	pure form	3.94
 suspended	suspend	own meaning too	4.32
+suspenders	suspender	own meaning too	2.74
 suspending	suspend	pure form	3.15
 suspends	suspend	pure form	2.86
 sustained	sustain	own meaning too	4.19
@@ -5210,6 +5300,7 @@ tackling	tackle	pure form	3.50
 tailed	tail	pure form	3.36
 tailing	tail	pure form	2.69
 tails	tail	pure form	3.68
+tainted	taint	own meaning too	3.38
 taken	take	pure form	5.33
 takes	take	pure form	5.18
 taking	take	own meaning too	5.39
@@ -5309,6 +5400,7 @@ theatres	theatre	pure form	3.54
 themes	theme	pure form	4.19
 theories	theory	pure form	4.22
 therapies	therapy	pure form	3.49
+thickening	thicken	own meaning too	2.83
 thicker	thick	pure form	3.60
 thickest	thick	pure form	2.62
 things	thing	own meaning too	5.74
@@ -5331,6 +5423,7 @@ threats	threat	pure form	4.28
 threw	throw	pure form	4.46
 throats	throat	pure form	3.37
 throbbing	throb	own meaning too	3.12
+throes	throe	pure form	2.79
 throwing	throw	pure form	4.40
 thrown	throw	pure form	4.40
 throws	throw	pure form	4.08
@@ -5342,6 +5435,7 @@ tied	tie	pure form	4.47
 ties	tie	pure form	4.35
 tighter	tight	pure form	3.58
 tightest	tight	pure form	2.61
+tiling	tile	pure form	2.86
 tilled	till	pure form	2.22
 tilling	till	pure form	2.36
 tills	till	pure form	2.46
@@ -5385,6 +5479,7 @@ totaling	total	pure form	3.30
 totalled	total	pure form	2.97
 totalling	total	pure form	3.07
 totals	total	pure form	3.48
+tottering	totter	own meaning too	2.17
 touched	touch	pure form	4.30
 touches	touch	pure form	3.98
 touching	touch	pure form	4.22
@@ -5428,6 +5523,7 @@ transacting	transact	own meaning too	2.26
 transferred	transfer	pure form	4.36
 transferring	transfer	pure form	3.74
 transfers	transfer	pure form	4.02
+transfixed	transfix	pure form	2.52
 transformed	transform	pure form	4.08
 transforming	transform	pure form	3.65
 transforms	transform	pure form	3.45
@@ -5513,6 +5609,7 @@ types	type	pure form	4.85
 typing	type	own meaning too	3.84
 uglier	ugly	pure form	2.85
 ugliest	ugly	pure form	2.98
+unbound	unbind	own meaning too	2.85
 uncertainties	uncertainty	pure form	3.39
 uncles	uncle	pure form	3.34
 underachieving	underachieve	own meaning too	2.19
@@ -5522,6 +5619,7 @@ undergone	undergo	pure form	3.58
 underlain	underlie	pure form	2.02
 underlies	underlie	pure form	2.68
 underlying	underlie	own meaning too	4.17
+underpaid	underpay	pure form	2.85
 underpinning	underpin	own meaning too	2.88
 underrated	underrate	pure form	3.61
 undersigned	undersign	own meaning too	2.46
@@ -5536,8 +5634,10 @@ undertakings	undertaking	pure form	2.89
 undertook	undertake	pure form	3.44
 underwent	undergo	pure form	3.65
 undone	undo	own meaning too	3.37
+undulating	undulate	pure form	2.89
 unfettered	unfetter	own meaning too	2.89
 unfolded	unfold	own meaning too	3.16
+unhinged	unhinge	pure form	3.02
 uniformed	uniform	own meaning too	3.18
 uniforms	uniform	pure form	3.88
 unionized	unionize	own meaning too	2.75
@@ -5577,6 +5677,7 @@ used	use	own meaning too	5.80
 users	user	pure form	4.80
 uses	use	pure form	4.88
 using	use	pure form	5.47
+vagaries	vagary	pure form	2.59
 valleys	valley	pure form	3.64
 valuables	valuable	pure form	3.10
 valued	value	own meaning too	4.07
@@ -5584,6 +5685,7 @@ values	value	pure form	4.67
 valuing	value	pure form	3.08
 vans	van	pure form	3.57
 vapors	vapor	own meaning too	2.77
+vapours	vapour	own meaning too	2.30
 variables	variable	pure form	3.97
 variations	variation	pure form	4.09
 varied	vary	own meaning too	4.03
@@ -5592,6 +5694,7 @@ varieties	variety	pure form	3.95
 varying	vary	pure form	3.97
 vaster	vast	pure form	1.75
 vastest	vast	pure form	0.00
+vaunted	vaunt	pure form	2.53
 vectoring	vector	own meaning too	2.15
 vegetables	vegetable	pure form	4.15
 vehicles	vehicle	pure form	4.62
@@ -5606,6 +5709,7 @@ vessels	vessel	pure form	4.20
 veterans	veteran	pure form	4.34
 vexed	vex	own meaning too	2.81
 vices	vice	pure form	3.01
+vicissitudes	vicissitude	pure form	2.37
 victims	victim	pure form	4.56
 victories	victory	pure form	3.83
 videoed	video	pure form	1.97
@@ -5615,6 +5719,7 @@ viewing	view	pure form	4.08
 views	view	pure form	4.83
 villages	village	pure form	4.17
 viruses	virus	pure form	3.73
+viscera	viscus	pure form	2.35
 visions	vision	pure form	3.76
 visited	visit	pure form	4.50
 visiting	visit	pure form	4.44
@@ -5736,6 +5841,7 @@ wetting	wet	pure form	2.90
 wheeled	wheel	pure form	3.36
 wheeling	wheel	pure form	3.21
 wheels	wheel	pure form	4.25
+wheezing	wheeze	own meaning too	2.87
 whiled	while	pure form	1.55
 whiles	while	pure form	2.19
 whiling	while	pure form	1.67
@@ -5851,6 +5957,7 @@ yesterdays	yesterday	pure form	2.56
 yielded	yield	pure form	3.51
 yielding	yield	own meaning too	3.40
 yields	yield	pure form	3.89
+yips	yip	own meaning too	2.15
 younger	young	pure form	4.69
 youngest	young	pure form	4.05
 youths	youth	pure form	3.61

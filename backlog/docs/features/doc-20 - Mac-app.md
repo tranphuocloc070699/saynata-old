@@ -2,8 +2,8 @@
 id: doc-20
 title: Mac app
 type: guide
-created_date: '2026-10-16 09:43'
-updated_date: '2026-10-25 12:22'
+created_date: 2026-10-16 09:43
+updated_date: '2026-11-03T01:21:00Z'
 ---
 # Mac app
 
@@ -14,7 +14,7 @@ updated_date: '2026-10-25 12:22'
 
 Saynata lives in the Mac menu bar, with no Dock icon. A click on the book icon opens a popover under it (420 × 560 pt). The shortcut ⌥⇧Space opens the same content in a floating panel near the top middle of the screen, like Spotlight. Both put the cursor in the input box. Type a word or a sentence and press Return: the result is the same as on the iPhone, the simple English explanation first, then the words, then the target language, folded.
 
-In any app, select text, then right-click → Services → **Explain with Saynata**: the popover opens and explains it. Settings → Start → **Open at login** starts Saynata with the Mac.
+In any app, select text, then right-click → Services → **Explain with Saynata**: the popover opens and explains it. Or select text and press **⌘⇧E** (the Services item's default shortcut, `NSKeyEquivalent` in Info.plist, 2026-11-03): no ⌘C, the clipboard is not touched, and it works in the sandbox. An app's own ⌘⇧E wins over it; the user can change the keys in System Settings → Keyboard → Keyboard Shortcuts → Services. Settings → Start → **Open at login** starts Saynata with the Mac.
 
 ## Big picture
 
@@ -49,6 +49,10 @@ flowchart LR
 | Login | [MacSettingsSections.swift:52](../../../EnglishTranslation/SaynataMac/MacSettingsSections.swift#L52) | Settings → Start → Open at login: `SMAppService.mainApp.register()` / `unregister()`. If macOS wants approval, the footer says where |
 | Close | [AppDelegate.swift:175](../../../EnglishTranslation/SaynataMac/AppDelegate.swift#L175) | A click outside or Esc closes the popover; speech stops |
 
+## Build and install
+
+`scripts/install-on-mac.sh` (2026-11-03) builds the `SaynataMac` scheme (Release by default, `CONFIG=Debug`), quits the running copy, replaces `~/Applications/SaynataMac.app` (`INSTALL_DIR=/Applications`), registers it with Launch Services, runs `pbs -update` so the Services item and its ⌘⇧E key show at once, and opens it (`NO_OPEN=1` to skip). `AD_HOC=1` signs for this Mac only when Apple ID signing fails. The container (cache, settings) is kept. Safe to run again.
+
 ## Books and other apps without Services
 
 macOS has **no "default translation app" setting**: Apple's `TranslationUIProvider` (what the iPhone's `TranslationExtension` uses) is `@available(macOS, unavailable)` in the SDK, so the Mac's Translate menu item always opens Apple's own translator.
@@ -58,7 +62,7 @@ Apple's Books guide lists no Services item in the right-click menu on a selectio
 1. **Select, ⌘C, ⌥⇧Space.** [CopiedTextWatcher.swift](../../../EnglishTranslation/SaynataMac/CopiedTextWatcher.swift) notes when the clipboard changes (it reads only the change count every half second). On the shortcut, a copy from the last 20 seconds is read once, cleaned by [CopiedText.swift](../../../EnglishTranslation/EnglishTranslation/Translation/CopiedText.swift) (Books adds "Excerpt From … This material may be protected by copyright." and curly quotes), and explained. Saynata's own Copy button is ignored. Settings → Shortcut → **Explain copied text** turns it off.
 2. **Books menu → Services → Explain with Saynata** in the menu bar, when Books offers it for the selection.
 
-Reading the selection with no ⌘C would need Accessibility permission. Sandboxed apps cannot reliably get it (Apple forum reports), so it would mean turning off the sandbox. Not built.
+Reading the selection with no ⌘C would need Accessibility permission. Sandboxed apps cannot reliably get it (Apple forum reports), so it would mean turning off the sandbox. Not built: the app is meant for the Mac App Store (doc-7, 11-03). In apps with Services, ⌘⇧E reads the selection without the clipboard.
 
 ## Sign-in and storage
 

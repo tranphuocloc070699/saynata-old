@@ -12,6 +12,7 @@ import SwiftUI
 /// A header row (the headword with its IPA, or the quoted sentence) with icon buttons on the right:
 /// Listen, Open in Saynata (only when `onOpenApp` is set), Close. Below it the app's own views, as they are:
 /// `WordCardView` for a word, `TranslateResultView` for a sentence, so this sheet picks up their style when they change.
+/// With `onReplace` (text the user is writing, translation extension only), a sentence gets `FixCard` on top first.
 struct SelectedTextResultView: View {
     /// Reads the selected text from the host app. Called once, when the sheet appears.
     let loadText: () async -> String
@@ -20,6 +21,10 @@ struct SelectedTextResultView: View {
     var onOpenApp: ((URL) -> Void)?
     /// Closes the sheet. Nil when the host draws its own close button (the translation extension): the Close button is then hidden.
     var onClose: (() -> Void)?
+    /// Puts the fixed text back in the host app's text box (the translation extension, when the host allows it:
+    /// the user selected text they are writing). When set, a sentence gets the Fix card on top (`FixCard`).
+    /// Nil: no Fix card (the share extension, or text the user is reading).
+    var onReplace: ((String) -> Void)?
 
     @State private var store = TranslationStore()
     /// The extensions have no app around them, so the sheet makes its own player for the speakers (F3).
@@ -68,6 +73,12 @@ struct SelectedTextResultView: View {
                 }
                 WordCardView(entry: entry, targetLanguage: store.targetLanguage, showsHeader: false)
             } else {
+                // Text the user is writing: the fix comes first, the explanation stays below it (option A mockup).
+                if let onReplace, route == .sentence, let fixStatus = FixStatus(state: store.state) {
+                    FixCard(status: fixStatus) { better in
+                        onReplace(FixStatus.replacement(selected: selectedText, better: better))
+                    }
+                }
                 if showsSentenceHeader {
                     // The sentence result draws its own card (the sentence, Listen, Copy): only Open and Close stay here.
                     if onOpenApp != nil || onClose != nil {
@@ -141,7 +152,7 @@ struct SelectedTextResultView: View {
             }
         }
         if case let .loadedWord(entry) = store.state {
-            LikeButton(item: SavedItem(entry: entry))
+            LikeButton(item: SavedItem(entry: entry), style: .circle)
         }
         if let onOpenApp, let url = openURL {
             IconButton(systemImage: "arrow.up.forward.app", label: "Open in Saynata") { onOpenApp(url) }
@@ -198,6 +209,10 @@ struct SelectedTextResultView: View {
 
 #Preview("Word") {
     SelectedTextResultView(loadText: { "depend" }, onOpenApp: { _ in }, onClose: {})
+}
+
+#Preview("Writing (Fix card)") {
+    SelectedTextResultView(loadText: { "I has went to the market yesterday" }, onReplace: { _ in })
 }
 
 #Preview("Too long") {

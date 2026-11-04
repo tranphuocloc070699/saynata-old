@@ -6,7 +6,8 @@
 import SwiftUI
 
 /// The composer card (TASK-97): the text on top; below it the target-language chip on the left,
-/// the character counter (only near the limit) and the round Explain button on the right.
+/// the character counter (only near the limit), the Clear (x) button (only with text, TASK-127) and the round
+/// Explain button on the right.
 struct TranslateInputView: View {
     @Environment(TranslationStore.self) private var store
     /// Owned by the screen, so a tap outside the box can hide the keyboard.
@@ -27,11 +28,19 @@ struct TranslateInputView: View {
                 .focused(isFocused)
 
             HStack(spacing: Theme.Spacing.medium) {
-                languageChip(selection: $store.targetLanguage)
+                LanguageChip()
                 Spacer()
                 if store.inputLength >= Self.counterStart {
                     CharacterCounter(count: store.inputLength, limit: TranslationStore.maxInputLength)
                 }
+                // Always in the row, only hidden when empty: the row never changes size while typing,
+                // so the language menu next to it is not laid out again (it was clipped, "ietnamese").
+                IconButton(systemImage: "xmark", label: "Clear", style: .plain) {
+                    store.inputText = ""
+                }
+                .opacity(store.inputText.isEmpty ? 0 : 1)
+                .disabled(store.inputText.isEmpty)
+                .accessibilityHidden(store.inputText.isEmpty)
                 IconButton(systemImage: "arrow.up", label: "Explain", isProminent: true) {
                     isFocused.wrappedValue = false
                     Task { await store.translate() }
@@ -40,6 +49,9 @@ struct TranslateInputView: View {
                 .opacity(store.canTranslate ? 1 : 0.4)
             }
         }
+        // Full width always: without it the card's width followed the typed text, so the language menu
+        // moved with each key and was drawn clipped ("ietnamese") while it moved.
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(Theme.Spacing.large)
         .background(Theme.Colors.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .overlay {
@@ -48,18 +60,25 @@ struct TranslateInputView: View {
                 .strokeBorder(isFocused.wrappedValue ? Theme.Colors.accent : Theme.Colors.hairline, lineWidth: 1)
         }
     }
+}
 
-    /// The target-language picker, drawn as a small pill (a menu).
-    private func languageChip(selection: Binding<TargetLanguage>) -> some View {
+/// The target-language picker, drawn as a small pill (a menu).
+/// Its own view that reads only `targetLanguage`, so typing in the box does not redraw the menu.
+private struct LanguageChip: View {
+    @Environment(TranslationStore.self) private var store
+
+    var body: some View {
+        @Bindable var store = store
+
         Menu {
-            Picker("Translate into", selection: selection) {
+            Picker("Translate into", selection: $store.targetLanguage) {
                 ForEach(TargetLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }
             }
         } label: {
             HStack(spacing: Theme.Spacing.xSmall) {
-                Text(selection.wrappedValue.title)
+                Text(store.targetLanguage.title)
                 Image(systemName: "chevron.down")
                     .imageScale(.small)
             }
@@ -69,8 +88,13 @@ struct TranslateInputView: View {
             .padding(.vertical, Theme.Spacing.small)
             .background(Theme.Colors.chipFill, in: Capsule())
         }
+        .fixedSize()
+        .layoutPriority(1)
+        // A new menu for each language: iOS's close animation morphs back into the old label's width, so a
+        // longer name ("Simplified Chinese") was drawn clipped until the morph ended (TASK-127 screen recording).
+        .id(store.targetLanguage)
         .accessibilityLabel("Translate into")
-        .accessibilityValue(selection.wrappedValue.title)
+        .accessibilityValue(store.targetLanguage.title)
     }
 }
 
