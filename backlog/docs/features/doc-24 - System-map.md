@@ -3,7 +3,7 @@ id: doc-24
 title: System map
 type: other
 created_date: '2026-10-24 11:30'
-updated_date: '2026-11-04 11:34'
+updated_date: '2026-11-04 11:44'
 ---
 # System map
 
@@ -36,3 +36,10 @@ Sentry org `tran-phuoc-loc` (US region, https://tran-phuoc-loc.sentry.io), team 
 Web (TASK-128.4): `@sentry/nextjs`, shared options and the privacy scrub in `web/src/lib/sentry.ts` (no query strings, bodies or cookies; `/api/words/{word}` becomes `:word`). Extension (TASK-128.5): `@sentry/browser` with its own client and scope in the background worker (`extension/src/shared/sentry.ts`), no `Sentry.init` and no global integrations.
 
 Backend (TASK-128.2): `sentry-spring-boot-4-starter` (Maven), `sentry.*` in `application.properties` (no personal data, no request bodies, 10% traces), `common/SentryScrub` removes the query string and the text in `/api/words/{word}` and `/api/terms/{text}`. Handled `ApiException`s (4xx) are not reported.
+
+## Usage tracking (PostHog, TASK-128)
+
+PostHog Cloud US, project 709641 (https://us.posthog.com/project/709641), products: Product Analytics (Session Replay off: it would record looked-up text). The project API key is a public client key, like a DSN; the SDKs are wired in TASK-128.3 (iOS/Mac), 128.4 (web) and 128.5 (extension).
+
+- Project API key: `phc_xC7WjRcEBkWkZY9dPZtELFRDhA65muKmmSSKMjy8viRM`
+- Host: `https://us.i.posthog.com`
