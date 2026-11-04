@@ -90,6 +90,9 @@ private struct LanguageChip: View {
         }
         .fixedSize()
         .layoutPriority(1)
+        // A new menu for each language: iOS's close animation morphs back into the old label's width, so a
+        // longer name ("Simplified Chinese") was drawn clipped until the morph ended (TASK-127 screen recording).
+        .id(store.targetLanguage)
         .accessibilityLabel("Translate into")
         .accessibilityValue(store.targetLanguage.title)
     }
