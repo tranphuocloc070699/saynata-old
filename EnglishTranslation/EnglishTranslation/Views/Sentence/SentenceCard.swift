@@ -7,7 +7,7 @@ import SwiftUI
 
 /// The sentence result (TASK-124, mockup B of 2026-11-02, simple first): one card with
 /// - one grey line "Original: …" (cut to one line); a tap opens the full sentence with its Listen button;
-/// - the simple summary as the headline (serif, larger) with Listen and Like, and the caption "In simple words";
+/// - the simple summary as the headline (serif, body size, **bold** key words) with Listen and Like, and the caption "In simple words";
 /// - when the text has a real mistake, "Better way to say it", shown open: the fixed text with the changed words in
 ///   bold, its Listen and Copy buttons, and one line that says why (TASK-110);
 /// - the target language, folded and closed (CLAUDE.md "Product rule"), last.
@@ -123,7 +123,7 @@ struct SentenceCard: View {
 
         if isOriginalOpen {
             HStack(alignment: .top, spacing: Theme.Spacing.small) {
-                SentenceTextView(text: sentence, style: .summary, language: language, loadWordEntry: loadWordEntry)
+                SentenceTextView(text: sentence, style: .summary, language: language, loadWordEntry: loadWordEntry, readsMarkup: false)
                     .speechHighlight(isPlaying: speechPlayer.currentID == sentenceSpeechID)
                     .padding(.top, Theme.Spacing.small)
                 listenButton(text: sentence, id: sentenceSpeechID, label: "Listen to the sentence")
@@ -142,8 +142,9 @@ struct SentenceCard: View {
             HStack(alignment: .top, spacing: Theme.Spacing.small) {
                 VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                     // The summary grows word by word while it streams (TASK-73): the text view measures
-                    // its height again each time, so the line count follows the text.
-                    SentenceTextView(text: summary, style: .original, language: language, loadWordEntry: loadWordEntry)
+                    // its height again each time, so the line count follows the text. `.summary` reads its
+                    // Markdown, so **key words** show bold, not with their stars.
+                    SentenceTextView(text: summary, style: .summary, language: language, loadWordEntry: loadWordEntry)
                         .speechHighlight(isPlaying: speechPlayer.currentID == summarySpeechID)
                     Text("In simple words")
                         .font(.caption)

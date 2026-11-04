@@ -21,6 +21,9 @@ struct SentenceTextView: View {
     }
     /// False for the text inside the popup: its words can be tapped, but a new selection does not open another popup.
     var allowsPartPopup = true
+    /// Reads the summary Markdown (bold, bullets). Nil: only `style: .summary` reads it. False for text the user
+    /// typed, which shows exactly as written.
+    var readsMarkup: Bool?
 
     @State private var openedWord: SentenceWordInfo?
     @State private var highlightedRange: NSRange?
@@ -28,7 +31,7 @@ struct SentenceTextView: View {
     @State private var clearSelectionCount = 0
 
     var body: some View {
-        let markup = style == .summary ? SummaryMarkup(text) : SummaryMarkup(plain: text)
+        let markup = (readsMarkup ?? (style == .summary)) ? SummaryMarkup(text) : SummaryMarkup(plain: text)
         SelectableSentenceText(
             text: markup.text,
             style: style,
