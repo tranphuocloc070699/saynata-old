@@ -59,7 +59,7 @@ if [ "${PAID_ACCOUNT:-1}" = "0" ]; then
   signing_override=(CODE_SIGN_ENTITLEMENTS=FreeAccount.entitlements)
   echo "Signing for a free Apple ID (no App Groups, no default translation app, no Sign in with Apple)."
 else
-  echo "Signing with the paid account's entitlements. PAID_ACCOUNT=0 for a free Apple ID."
+  echo "Signing with the paid account (PAID_ACCOUNT=1)."
 fi
 
 echo "Building ($CONFIG)..."
