@@ -13,6 +13,7 @@
 # Safe to run again: every step checks first and continues where it stopped. Old Pixabay rows and files are kept.
 # Settings (env): VPS (ssh host, default vps_sieutoc), MAX_COST (USD cap per pass, default 40), WORKERS (default 4).
 set -euo pipefail
+# Works from the repo root (pipeline/scripts/media-ai-on-vps.sh) or from pipeline/ (scripts/media-ai-on-vps.sh).
 
 VPS="${VPS:-vps_sieutoc}"
 REMOTE_DIR='~/saynata-pipeline/pipeline'
@@ -43,22 +44,30 @@ EOF
     umask 022
     step "Wrote pipeline/.env.steyg"
   fi
-  grep -qE '^export ANTHROPIC_AUTH_TOKEN="sk-[^"]+"' .env.steyg \
-    || die "paste your STEYG token into pipeline/.env.steyg (ANTHROPIC_AUTH_TOKEN=\"sk-steyg-...\"), then run this again"
+  token="$(steyg_value ANTHROPIC_AUTH_TOKEN)"
+  case "$token" in
+    sk-*) ;;
+    "") die "the token is empty: put it in pipeline/.env.steyg as  ANTHROPIC_AUTH_TOKEN=sk-steyg-...  then run this again" ;;
+    *)  die "the token in pipeline/.env.steyg does not start with sk- (check for extra characters), then run this again" ;;
+  esac
 }
 
-# The gateway keys as CLAUDE_* lines (what pipeline/src/pipeline/llm.py reads). STEYG_SCENE_MODEL / STEYG_GUESS_MODEL win.
+# One value from pipeline/.env.steyg, written in any form: KEY=v, KEY="v", KEY='v', export KEY=v (Windows line ends ok).
+steyg_value() {
+  grep -E "^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=" .env.steyg | tail -1 | tr -d '\r' \
+    | sed -E "s/^[^=]*=[[:space:]]*//; s/[[:space:]]+#.*$//; s/^[\"']//; s/[\"'][[:space:]]*$//; s/[[:space:]]+$//" || true
+}
+
+# The gateway keys as CLAUDE_* lines (what pipeline/src/pipeline/llm.py reads). Only the token must be in the file;
+# the rest has defaults here. STEYG_SCENE_MODEL / STEYG_GUESS_MODEL win over the SONNET / HAIKU models.
 gateway_lines() {
   (
-    set +u; set -a
-    # shellcheck disable=SC1091
-    . ./.env.steyg
-    scene="${STEYG_SCENE_MODEL:-${ANTHROPIC_DEFAULT_SONNET_MODEL:-$ANTHROPIC_MODEL}}"
-    guess="${STEYG_GUESS_MODEL:-${ANTHROPIC_DEFAULT_HAIKU_MODEL:-$ANTHROPIC_MODEL}}"
-    [ -n "${ANTHROPIC_BASE_URL:-}" ] || die "ANTHROPIC_BASE_URL is empty in pipeline/.env.steyg"
-    [ -n "$scene" ] && [ -n "$guess" ] || die "set the SONNET and HAIKU models in pipeline/.env.steyg"
+    url="$(steyg_value ANTHROPIC_BASE_URL)"
+    sonnet="$(steyg_value ANTHROPIC_DEFAULT_SONNET_MODEL)"; haiku="$(steyg_value ANTHROPIC_DEFAULT_HAIKU_MODEL)"
+    scene="$(steyg_value STEYG_SCENE_MODEL)"; guess="$(steyg_value STEYG_GUESS_MODEL)"
     printf 'CLAUDE_BASE_URL=%s\nCLAUDE_AUTH_TOKEN=%s\nCLAUDE_SCENE_MODEL=%s\nCLAUDE_GUESS_MODEL=%s\n' \
-      "$ANTHROPIC_BASE_URL" "$ANTHROPIC_AUTH_TOKEN" "$scene" "$guess"
+      "${url:-https://steyg.one/api}" "$(steyg_value ANTHROPIC_AUTH_TOKEN)" \
+      "${scene:-${sonnet:-claude-opus-5-5}}" "${guess:-${haiku:-claude-haiku-4-5}}"
   )
 }
 
