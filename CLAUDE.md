@@ -36,7 +36,7 @@ Full test suites: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` 
 Merge a PR when CI is green: `scripts/merge-when-green.sh <PR>` (no Claude chat needed).
 Install on the developer's real iPhone (build, then install or replace; open it by hand): `scripts/install-on-phone.sh` (signs with the paid account's real entitlements; `PAID_ACCOUNT=0` for a free Apple ID, without App Groups, the default-translation-app capability and Sign in with Apple).
 Install the Mac app on this Mac (build, replace, register the Services item, open it): `scripts/install-on-mac.sh` (`CONFIG=Debug`, `INSTALL_DIR=/Applications`, `AD_HOC=1` when Apple ID signing fails).
-Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
+Deploy the backend to a VPS: `cd /var/www/saynata/backend && ./scripts/deploy.sh` on the server (the repo lives in **`/var/www/saynata`** on `vps_sieutoc`, not `~/saynata`), or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 
 **Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
 `-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.

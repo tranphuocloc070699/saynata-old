@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Nightly backup (TASK-107): dump Postgres, then send the dump and the media folder to Cloudflare R2 with restic.
-# Run on the VPS (a systemd timer does it; guide: doc-11, section 17):  ~/saynata/backend/scripts/backup.sh
+# Run on the VPS (a systemd timer does it; guide: doc-11, section 17):  /var/www/saynata/backend/scripts/backup.sh
 #
 # Steps: 1. pg_dump -Fc from the Docker Postgres into BACKUP_DIR/db, keep the last 3 dumps
 #        2. restic backup of the newest dump + MEDIA_HOST_DIR to the R2 repository
