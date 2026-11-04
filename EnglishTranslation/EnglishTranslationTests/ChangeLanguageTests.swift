@@ -17,7 +17,8 @@ private final class LanguageRecordingTranslator: Translating, @unchecked Sendabl
     }
 }
 
-/// The language menu on the result's language row in the share and translation sheet.
+/// Changing the language: the result's language row in the share and translation sheet, the app's language chip
+/// and the Mac picker.
 @MainActor
 struct ChangeLanguageTests {
     private let preference = TargetLanguagePreference(defaults: TargetLanguagePreference.makeEmptyDefaults())
@@ -39,6 +40,39 @@ struct ChangeLanguageTests {
         #expect(result.isTyped == false)
         #expect(translator.languages.last == .korean)
         #expect(preference.language == .korean)
+    }
+
+    // The app's language chip and the Mac picker use changeLanguage too (the sentence row stayed in the old
+    // language when only `targetLanguage` was set, screen recording 2026-11-04).
+    @Test func aTypedSentenceIsAskedAgainWhenThePickerChanges() async {
+        let translator = LanguageRecordingTranslator()
+        let store = TranslationStore(makeTranslator: { translator }, history: nil, languagePreference: preference)
+        store.inputText = "I was considering just sharing the other thing instead."
+        await store.translate()
+
+        await store.changeLanguage(to: .japanese)
+
+        guard case let .loaded(result) = store.state else {
+            Issue.record("Expected .loaded, got \(store.state)")
+            return
+        }
+        #expect(result.language == .japanese)
+        #expect(result.explanation.translation == "line-\(TargetLanguage.japanese.rawValue)")
+        #expect(translator.languages.last == .japanese)
+    }
+
+    @Test func editedTextWaitsForExplainWhenThePickerChanges() async {
+        let translator = LanguageRecordingTranslator()
+        let store = TranslationStore(makeTranslator: { translator }, history: nil, languagePreference: preference)
+        store.inputText = "I was considering just sharing the other thing instead."
+        await store.translate()
+        let calls = translator.languages.count
+        store.inputText = "A new sentence that was not explained yet."
+
+        await store.changeLanguage(to: .french)
+
+        #expect(translator.languages.count == calls)
+        #expect(store.targetLanguage == .french)
     }
 
     @Test func theSameLanguageAsksNothing() async {
