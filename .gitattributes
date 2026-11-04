@@ -1,0 +1,4 @@
+# Append-only story logs (doc-7 decisions, doc-9 timeline): every task adds rows at the same place, so two branches
+# always "conflict" there. union keeps the lines of both sides instead of stopping the merge. Check the order after.
+backlog/docs/story/doc-7*.md merge=union
+backlog/docs/story/doc-9*.md merge=union
