@@ -9,6 +9,8 @@ import SwiftUI
 /// A guest gets the sign-in sheet. Hidden when the screen has no `LikedStore`.
 struct LikeButton: View {
     let item: SavedItem
+    /// `.plain` in the quiet action row under a sentence summary (TASK-126, mockup A).
+    var style: IconButton.Style = .circle
     @Environment(LikedStore.self) private var liked: LikedStore?
 
     var body: some View {
@@ -17,7 +19,8 @@ struct LikeButton: View {
             IconButton(
                 systemImage: isLiked ? "star.fill" : "star",
                 label: isLiked ? "Unlike" : "Like",
-                style: .circle
+                style: style,
+                isActive: isLiked
             ) {
                 Task { await liked.toggle(item) }
             }

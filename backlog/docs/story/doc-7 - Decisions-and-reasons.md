@@ -3,7 +3,7 @@ id: doc-7
 title: Decisions and reasons
 type: guide
 created_date: 2026-10-11 08:52
-updated_date: '2026-11-03T01:20:00Z'
+updated_date: '2026-11-04T05:49:00Z'
 ---
 # Decisions and reasons
 
@@ -64,6 +64,7 @@ Quotes are the developer's words, with spelling fixed.
 | 10-23 | **Web homepage = direction B**: one reading column, the composer card with a pixel cat on its edge, the result below (TASK-102.1) | The developer asked to build the homepage with GSAP after the brainstorm (artifact P4yQXKHykS8zMhFkFKtHyA), so the recommended direction was taken: it matches the new iOS home (TASK-97), looks like a teacher, not a translator, and the result is the same screen as the future word page. The web cat is our own pixel drawing, because the paid sprite pack would be served to everyone on a public site. | A: two panes like DeepL | Claude, accepted |
 | 10-24 | **The web cat is a Mochi sprite, one per visit, served from the server, never from git** (Dance, Sleeping, Excited, Sick 1 or Box; Box picks one of three) | The developer asked for the purchased Mochi cats on the web, like iOS. The pack has no right to redistribute and the repo is public, and the web build runs in GitHub Actions without a copy, so `scripts/upload-web-cats.sh` puts the 7 PNGs in `/var/lib/saynata/web-cats` and Caddy serves `/cats/`. Without them the site shows its own pixel cat. CSS `steps()` for the loop, so no timer re-renders the page. | PNGs in `web/public` (they would be in git and in every build); keep only the own pixel cat | Developer |
 | 11-02 | **Grammar fix for text the user writes in other apps: option A, the Fix card in the Translate sheet** (mockup `docs/design/mockups/translate-fix-option-a.html`). When the host app allows replacing the selection, the sheet shows the sentence answer's own `better` + `betterWhy` (TASK-110) on top with a Replace button (`context.finish`), the explanation below. Saynata replaces only with corrected English, never with a translation | Reason: not recorded | B: a Saynata keyboard (fewer taps, no paid account, but a new target and little room for the reason); a new `/api/sentence/fix` endpoint with one reason per change (not needed: `better` already exists) | Developer (options by Claude) |
+| 11-04 | **Fewer buttons on result cards: mockup A** (`docs/design/mockups/fewer-buttons.html`): one quiet row of plain icons under the sentence summary (Listen, Like, Copy); Listen moves into the word's IPA chip; tap a sense explanation to hear it (TASK-126) | "too many buttons on UI" | B: one bottom bar with a ⋯ menu; C: Copy moved to long-press | Developer chose A from the mockup |
 
 ## Stack
 

@@ -10,7 +10,8 @@ import SwiftUI
 struct SenseTitleRow: View {
     let number: Int
     let sense: Sense
-    /// When set, a small speaker at the right reads the explanation. The compact card leaves it nil.
+    /// When set, a tap on the explanation reads it aloud (no speaker button, TASK-126 mockup A).
+    /// The compact card leaves it nil.
     var speechID: String?
 
     @Environment(SpeechPlayer.self) private var speechPlayer
@@ -34,25 +35,41 @@ struct SenseTitleRow: View {
                     .foregroundStyle(Theme.Colors.textPrimary)
                     .textSelection(.enabled)
                     .speechHighlight(isPlaying: isPlaying)
+                    .modifier(TapToHear(isOn: speechID != nil, isPlaying: isPlaying, toggle: toggleSpeech))
 
                 LevelChip(text: sense.chipText)
                     .fixedSize()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let speechID {
-                IconButton(
-                    systemImage: isPlaying ? "stop.fill" : "speaker.wave.2",
-                    label: isPlaying ? "Stop" : "Listen to the explanation",
-                    size: .compact
-                ) {
-                    if isPlaying {
-                        speechPlayer.stop()
-                    } else {
-                        speechPlayer.speak(sense.simpleDefinition, id: speechID)
-                    }
-                }
-            }
+        }
+    }
+
+    private func toggleSpeech() {
+        guard let speechID else { return }
+        if isPlaying {
+            speechPlayer.stop()
+        } else {
+            speechPlayer.speak(sense.simpleDefinition, id: speechID)
+        }
+    }
+}
+
+/// Makes a text tap-to-hear: a tap plays or stops it, and VoiceOver reads it as a button.
+private struct TapToHear: ViewModifier {
+    let isOn: Bool
+    let isPlaying: Bool
+    let toggle: () -> Void
+
+    func body(content: Content) -> some View {
+        if isOn {
+            content
+                .contentShape(Rectangle())
+                .onTapGesture(perform: toggle)
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint(isPlaying ? "Stops the sound" : "Plays the sound")
+        } else {
+            content
         }
     }
 }
