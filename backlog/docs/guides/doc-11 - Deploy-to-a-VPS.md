@@ -3,7 +3,7 @@ id: doc-11
 title: Deploy to a VPS
 type: guide
 created_date: 2026-10-11 16:33
-updated_date: '2026-11-04T16:49:00Z'
+updated_date: '2026-11-05T08:26:00Z'
 ---
 # Deploy to a VPS
 
@@ -260,7 +260,7 @@ VITE_API_URL=https://api.saynata.com npm run build     # writes admin/dist
 
 ```caddyfile
 admin.saynata.com {
-    root * /home/youruser/saynata/admin/dist
+    root * /var/www/saynata/admin/dist
     encode gzip
     try_files {path} /index.html
     file_server
@@ -941,7 +941,7 @@ names with sed while you copy:
 
 ```bash
 cd /var/www/saynata/backend/scripts/systemd
-sed -e "s|__USER__|$USER|" -e "s|__BACKEND_DIR__|$HOME/saynata/backend|" saynata-backup.service \
+sed -e "s|__USER__|$USER|" -e "s|__BACKEND_DIR__|/var/www/saynata/backend|" saynata-backup.service \
   | sudo tee /etc/systemd/system/saynata-backup.service >/dev/null
 sudo cp saynata-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -955,7 +955,7 @@ To test the service the same way the timer starts it: `sudo systemctl start sayn
 **Cron instead of systemd** (if you prefer it): `crontab -e` and add one line (UTC if the server clock is UTC):
 
 ```cron
-30 21 * * * $HOME/saynata/backend/scripts/backup.sh >> $HOME/saynata-backup.log 2>&1
+30 21 * * * /var/www/saynata/backend/scripts/backup.sh >> $HOME/saynata-backup.log 2>&1
 ```
 
 **Health check (optional).** Make a free check at [healthchecks.io](https://healthchecks.io): period 1 day, grace time 2 hours,
