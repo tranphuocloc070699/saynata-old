@@ -244,7 +244,8 @@ final class TranslationStore {
     func changeLanguage(to language: TargetLanguage) async {
         guard language != targetLanguage else { return }
         targetLanguage = language
-        if case let .loaded(result) = state, trimmedInput == result.sentence {
+        // A loop, not an if: a pick made while an earlier re-ask is still running is asked once that one ends.
+        while case let .loaded(result) = state, result.language != targetLanguage, trimmedInput == result.sentence {
             await translate()
         }
     }

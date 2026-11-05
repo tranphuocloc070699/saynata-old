@@ -22,6 +22,10 @@ echo "1/4 Checking the inputs"
 [ -f "$p8" ] || fail "$p8 does not exist."
 [ -f .env ] || fail "backend/.env is missing (doc-11)."
 grep -q -- "-----BEGIN PRIVATE KEY-----" "$p8" || fail "$p8 is not a .p8 key (no BEGIN PRIVATE KEY line)."
+# The whole key must parse as EC P-256 (what Apple gives); a broken key would stop the backend from starting.
+openssl pkey -in "$p8" -noout 2>/dev/null || fail "$p8 cannot be read as a private key (cut off or broken?)."
+openssl pkey -in "$p8" -noout -text 2>/dev/null | grep -q -E "prime256v1|P-256" \
+  || fail "$p8 is not an EC P-256 key; Sign in with Apple keys are."
 if [ -z "$key_id" ]; then
   key_id="$(basename "$p8" | sed -n 's/^AuthKey_\([A-Z0-9]*\)\.p8$/\1/p')"
   [ -n "$key_id" ] || fail "cannot read the key ID from the file name; give it as the third argument."
@@ -32,7 +36,7 @@ fi
 # One line, each newline written as \n: the backend turns it back (RemoteAppleTokenApi.parsePrivateKey).
 private_key="$(awk 'NF {printf "%s\\n", $0}' "$p8")"
 
-existing_enc="$(sed -n 's/^APPLE_TOKEN_ENCRYPTION_KEY=//p' .env | tail -1)"
+existing_enc="$(sed -n 's/^APPLE_TOKEN_ENCRYPTION_KEY[[:space:]]*[=:][[:space:]]*//p' .env | tail -1)"
 if [ -n "$existing_enc" ]; then
   enc="$existing_enc"
   echo "    APPLE_TOKEN_ENCRYPTION_KEY is already set; it is kept."
