@@ -2,8 +2,8 @@
 id: doc-7
 title: Decisions and reasons
 type: guide
-created_date: '2026-10-11 08:52'
-updated_date: '2026-11-04 06:54'
+created_date: 2026-10-11 08:52
+updated_date: '2026-11-04T17:14:00Z'
 ---
 # Decisions and reasons
 
@@ -228,6 +228,11 @@ Quotes are the developer's words, with spelling fixed.
 | 11-03 | **Mac: ⌘⇧E explains the selected text** (the Services item's default key); ⌥⇧Space keeps opening the panel | "Okay, so keep. I'll go with option A" (after hearing that an app can only suggest ⌘ shortcuts for Services and that ⌥⇧Space is the panel's key) | B: move the panel to ⌃⇧Space and let the user set ⌥⇧Space for Services in System Settings, with a hint in Saynata's settings | Developer |
 | 11-04 | **Like star: small plain rounded star with a "saved" check animation; Clear (x) in the input** (TASK-127, mockup `docs/design/mockups/like-star-and-clear.html`): the word-header star is a plain icon like the other result icons, drawn as a custom rounded `Shape`; liking pops the star away, draws a check, then shows the filled star (hand-made SwiftUI, no library). The x shows only with text; the iOS counter still appears only near 500 | "Star B, clear A". Reason: not recorded (the developer had said the big round star looked too heavy next to the small icons) | Star A: built-in SF Symbols `.replace` effect (keeps the sharp star, symbol effects only work on SF Symbols); Lottie or Rive (a new package and an animation file for a 1-second effect); clear B: the counter always on, like the web | Developer |
 | 11-04 | **`scripts/install-on-phone.sh` signs with the paid account by default**; `PAID_ACCOUNT=0` is the way back to a free Apple ID | "always add PAID_ACCOUNT". Reason: not recorded (likely: the paid account is set up, and Sign in with Apple and App Groups need it) | Free Apple ID by default, `PAID_ACCOUNT=1` to opt in | Developer |
+| 11-04 | **The word language row asks the LLM for the picked language first, then fills the other 6 in the background** (doc-5, changes TASK-106.7 for `POST /api/translate-lines`): the first open of a row waited for one big all-language call; now one short one-language call answers the row and a background job (`LineFill`, one thread) saves the rest, so the next learner in any language still hits the cache. The sentence path keeps the one all-language call. | The first tap on the German row on saynata.com lagged. "ok I'll go with option A" (after seeing the cause: one AI call for 7 languages, and options A, B, C) | B: start loading the row when the card shows, before the tap (an AI call per card viewed); C: prefill lines for common words in a paid pipeline run (new words still wait) | Claude (options), developer (choice) |
+| 11-04 | **Web header stays as it is for now; the History button becomes a white circle like IconButton** (doc-23): "Get the app" stays in the avatar menu (and the guest download icon stays); the History link gets the IconButton default look (44 px, hairline, soft shadow) | "I think this is still ok, for now. The problem is history button feel to small" (after the Mobbin check: guests usually see a small "Get app" pill, signed-in users find it in the avatar menu) | A: a guest menu; B: a "Get app" text pill (Mindtrip style); C: keep the icon and show "Sign up" on the login page | Developer |
+| 11-04 | **Settings (iOS and Mac): "Privacy policy · Terms of use" as small links under the cards; the Source code row is removed, About Saynata stays as the only row of the About card** (TASK-112.1, mockup C; Apple guideline 5.1.1) | "C, and remove the source code and make about saynata tab". Reason: not recorded | A: a Privacy policy row in the About card (recommended); B: Privacy policy and Terms of use rows in the About card | Developer |
+| 11-04 | **Apple refresh tokens are stored AES-256-GCM encrypted, and a failed revoke on account deletion is tried twice, then logged; the account is deleted anyway** (TASK-112.3, doc-17; App Store rule for Sign in with Apple). A failed code swap at sign-in is logged and the sign-in still works | "ok" (to the plan with both as the recommended options). Claude's reasons: a copy of the database alone cannot use the tokens; a retry table and job is more code for a rare case, and the delete must never wait on Apple | Token in a plain column; a retry table with a scheduled job | Claude (options), developer (choice) |
+| 11-04 | **A guest's language row shows a sign-in prompt instead of Apple Translation when the backend has no cached line** (TASK-129, mockup first) | "C". Reason: not recorded (the Apple "Required downloads" sheet showed for French on "hi" while signed out) | A: keep Apple Translation for guests (free, offline after the download); B: let guests make the LLM call too (cost per new line) | Claude (options), developer (choice) |
 
 ## Questions answered
 
@@ -260,3 +265,5 @@ go here as questions.
 - 10-25: Why replace all Pixabay pictures with AI pictures, and why drop verb clips (TASK-115)? Reason not recorded.
 - 11-02: Why option A (Fix card in the Translate sheet) over B (a Saynata keyboard) for fixing text written in Telegram or Discord? Reason not recorded.
 - 11-04: Why sign phone installs with the paid account by default? Reason not recorded.
+- 11-04: Why small links under the Settings cards (option C) over a Privacy policy row, and why remove the Source code row (TASK-112.1)? Reason not recorded.
+- 11-04: Why a sign-in prompt (C) over Apple Translation or a guest LLM call for the guest language row (TASK-129)? Reason not recorded.

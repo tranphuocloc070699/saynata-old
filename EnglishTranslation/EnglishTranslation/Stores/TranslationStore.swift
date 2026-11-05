@@ -237,6 +237,19 @@ final class TranslationStore {
         return true
     }
 
+    /// The user picked another language: the language chip (iOS), the menu-bar picker (Mac), or the result's
+    /// language row (share and translation sheet). It becomes the picked language everywhere. A word card follows it
+    /// at once; a sentence result is asked again, so its language line comes in the new language (the English part
+    /// and the lines are cache hits). Only when the box still holds that sentence: edited text waits for Explain.
+    func changeLanguage(to language: TargetLanguage) async {
+        guard language != targetLanguage else { return }
+        targetLanguage = language
+        // A loop, not an if: a pick made while an earlier re-ask is still running is asked once that one ends.
+        while case let .loaded(result) = state, result.language != targetLanguage, trimmedInput == result.sentence {
+            await translate()
+        }
+    }
+
     /// The user tapped a "did you mean" word: put it in the input and look it up.
     func lookUp(suggestion word: String) async {
         inputText = word

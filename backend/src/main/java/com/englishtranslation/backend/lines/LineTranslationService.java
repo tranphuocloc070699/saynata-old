@@ -2,6 +2,7 @@ package com.englishtranslation.backend.lines;
 
 import com.englishtranslation.backend.cache.CacheKeys;
 import com.englishtranslation.backend.claude.ClaudeService;
+import com.englishtranslation.backend.claude.WordLineAnswer;
 import com.englishtranslation.backend.claude.WordLinesAnswer;
 import com.englishtranslation.backend.common.ApiException;
 import com.englishtranslation.backend.limits.ClaudeGate;
@@ -28,6 +29,9 @@ import org.springframework.stereotype.Service;
  * Language lines: cache first (table line_translation), then ONE Claude call for all misses of a request.
  * The call goes through {@link ClaudeGate}, so a guest, the rate limit and the daily budget are checked as for
  * every other new Claude call. A cachedOnly request never reaches the gate.
+ * POST /api/translate-lines answers fast: the call asks only the requested language, and the other 6 languages
+ * are filled afterwards in the background ({@link LineFill}), so the next learner in any language hits the cache.
+ * The sentence path ({@link #lineFor}) still asks all languages in one call.
  */
 @Service
 public class LineTranslationService {
@@ -42,30 +46,35 @@ public class LineTranslationService {
     private final ClaudeService claude;
     private final ClaudeGate gate;
     private final Clock clock;
+    private final LineFill fill;
     private final String promptVersion;
     /** The prompt_version of headword rows (TASK-106.8), e.g. "headword-v1"; kept apart from the line version. */
     private final String headwordPromptVersion;
 
     public LineTranslationService(LineTranslationRepository lines, ClaudeService claude, ClaudeGate gate, Clock clock,
-            @Value("${app.claude.line-prompt-version:v1}") String promptVersion,
+            LineFill fill, @Value("${app.claude.line-prompt-version:v1}") String promptVersion,
             @Value("${app.claude.headword-prompt-version:v1}") String headwordPromptVersion) {
         this.headwordPromptVersion = "headword-" + headwordPromptVersion;
         this.lines = lines;
         this.claude = claude;
         this.gate = gate;
         this.clock = clock;
+        this.fill = fill;
         this.promptVersion = promptVersion;
     }
 
+    /** POST /api/translate-lines: the requested language first, the others later in the background. */
     public TranslateLinesResponse translate(TranslateLinesRequest request, boolean cachedOnly) {
-        return translate(request, cachedOnly, false);
+        return translate(request, cachedOnly, false, true);
     }
 
     /**
      * {@code alreadyGated}: this request already passed {@link ClaudeGate#beforeNewCall} for its sentence, so the line
      * call only checks the money budget and does not use up a second allowance of the user's limit.
+     * {@code fastFirst}: ask Claude for the requested language only and fill the rest in the background.
      */
-    private TranslateLinesResponse translate(TranslateLinesRequest request, boolean cachedOnly, boolean alreadyGated) {
+    private TranslateLinesResponse translate(TranslateLinesRequest request, boolean cachedOnly, boolean alreadyGated,
+            boolean fastFirst) {
         TargetLanguage lang = request.targetLang();
         if (lang == null || lang == TargetLanguage.EN) {
             throw bad("invalid_target_lang", "Choose a target language other than English.");
@@ -113,7 +122,12 @@ public class LineTranslationService {
                 .toList();
 
         if (!cachedOnly && !misses.isEmpty()) {
-            askClaude(lang, misses, alreadyGated, found, foundHeadwords);
+            if (fastFirst) {
+                askOneLanguage(lang, misses, alreadyGated, found, foundHeadwords);
+                fillOtherLanguages(lang, misses);
+            } else {
+                askClaude(lang, misses, alreadyGated, found, foundHeadwords, null);
+            }
         }
 
         List<TranslateLinesResponse.Line> answer = new ArrayList<>();
@@ -143,7 +157,7 @@ public class LineTranslationService {
         try {
             if (store) {
                 TranslateLinesResponse.Line line = translate(
-                        new TranslateLinesRequest(lang, List.of(normalizedText)), cachedOnly, alreadyGated).lines().get(0);
+                        new TranslateLinesRequest(lang, List.of(normalizedText)), cachedOnly, alreadyGated, false).lines().get(0);
                 return Optional.ofNullable(line.translation());
             }
             if (cachedOnly) {
@@ -194,12 +208,66 @@ public class LineTranslationService {
     }
 
     /**
+     * One call for every miss, in the requested language only: the fast answer of the language row. Lines and
+     * headwords are saved and put into {@code found} and {@code foundHeadwords}.
+     */
+    private void askOneLanguage(TargetLanguage lang, List<Item> misses, boolean alreadyGated, Map<String, String> found,
+            Map<String, String> foundHeadwords) {
+        checkGate(alreadyGated);
+        List<String> missTexts = misses.stream().map(Item::text).toList();
+        List<WordLineAnswer.Item> translated;
+        if (misses.stream().anyMatch(item -> item.headword != null)) {
+            translated = claude.translateWordLines(lang, missTexts, misses.stream().map(Item::headword).toList());
+        } else {
+            translated = claude.translateLines(lang, missTexts).stream()
+                    .map(line -> new WordLineAnswer.Item(line, null)).toList();
+        }
+        if (translated == null || translated.size() != missTexts.size()) {
+            throw new IllegalStateException("Claude returned " + (translated == null ? 0 : translated.size())
+                    + " lines for " + missTexts.size() + " texts.");
+        }
+        for (int i = 0; i < misses.size(); i++) {
+            Item item = misses.get(i);
+            WordLineAnswer.Item answer = translated.get(i);
+            String line = answer.line() == null ? "" : answer.line().strip();
+            // An empty line is not saved; the app shows its fallback. A saved line is never replaced.
+            if (!line.isEmpty() && found.putIfAbsent(item.lineHash, line) == null) {
+                item.lineWasSaved = false;
+                save(lang, item.lineHash, item.text, promptVersion, line);
+            }
+            String headword = answer.headword() == null ? "" : answer.headword().strip();
+            if (item.headwordHash != null && !headword.isEmpty()
+                    && foundHeadwords.putIfAbsent(item.headwordHash, headword) == null) {
+                save(lang, item.headwordHash, item.headword, headwordPromptVersion, headword);
+            }
+        }
+    }
+
+    /**
+     * After the fast answer: the same misses in all languages, in the background, so the next learner in another
+     * language hits the cache. The requested language is already saved; a saved row is never replaced. Only the
+     * money budget is checked: the learner's own limit was used by the fast call. A failure is only logged.
+     */
+    private void fillOtherLanguages(TargetLanguage lang, List<Item> misses) {
+        fill.run(() -> {
+            try {
+                // Fresh items: the request thread may still read the flags of its own.
+                List<Item> copies = misses.stream().map(item -> new Item(item.text, item.headword)).toList();
+                askClaude(lang, copies, true, new HashMap<>(), new HashMap<>(), lang);
+            } catch (RuntimeException e) {
+                log.info("Background line fill failed ({} texts): {}", misses.size(), e.toString());
+            }
+        });
+    }
+
+    /**
      * One call for every miss, in ALL languages (TASK-106.7): every line is saved, so a later learner in another
      * language hits the cache. With a headword in any miss the call also translates the headwords (TASK-106.8).
      * The lines and headwords of the requested language are put into {@code found} and {@code foundHeadwords}.
+     * {@code alreadySaved}: a language whose rows the fast call already saved (not saved again), or null.
      */
     private void askClaude(TargetLanguage lang, List<Item> misses, boolean alreadyGated, Map<String, String> found,
-            Map<String, String> foundHeadwords) {
+            Map<String, String> foundHeadwords, TargetLanguage alreadySaved) {
         checkGate(alreadyGated);
         List<String> missTexts = misses.stream().map(Item::text).toList();
         List<WordLinesAnswer.Lines> translated;
@@ -219,6 +287,9 @@ public class LineTranslationService {
             WordLinesAnswer.Lines answer = translated.get(i);
             // An empty or missing line is not saved; the app shows its fallback. A saved line is never replaced.
             forEachLine(answer.lines(), (lineLang, text) -> {
+                if (lineLang == alreadySaved) {
+                    return;
+                }
                 if (lineLang == lang && found.putIfAbsent(item.lineHash, text) == null) {
                     item.lineWasSaved = false;
                 }
@@ -226,6 +297,9 @@ public class LineTranslationService {
             });
             if (item.headwordHash != null) {
                 forEachLine(answer.headwords(), (lineLang, text) -> {
+                    if (lineLang == alreadySaved) {
+                        return;
+                    }
                     if (lineLang == lang) {
                         foundHeadwords.putIfAbsent(item.headwordHash, text);
                     }

@@ -2,9 +2,9 @@
 # Restore test (TASK-107): take a restic snapshot from R2, load its database dump into a SCRATCH Postgres
 # (a temporary container, never the live database) and print the row count of every table.
 # Run on the VPS, once a month (doc-11, section 17):
-#   ~/saynata/backend/scripts/restore.sh            # newest snapshot
-#   ~/saynata/backend/scripts/restore.sh 1a2b3c4d   # a snapshot ID from: restic snapshots
-#   KEEP_FILES=1 ~/saynata/backend/scripts/restore.sh   # keep the restored files in the printed folder
+#   /var/www/saynata/backend/scripts/restore.sh            # newest snapshot
+#   /var/www/saynata/backend/scripts/restore.sh 1a2b3c4d   # a snapshot ID from: restic snapshots
+#   KEEP_FILES=1 /var/www/saynata/backend/scripts/restore.sh   # keep the restored files in the printed folder
 set -euo pipefail
 
 cd "$(dirname "$0")/.."    # the backend/ folder, where .env lives

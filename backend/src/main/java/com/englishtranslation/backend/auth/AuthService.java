@@ -39,6 +39,12 @@ public class AuthService {
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Duration KEEP_EXPIRED_TOKENS = Duration.ofDays(7);
+    /**
+     * A refresh token sent again this soon after it was swapped is a lost answer (the backend restarted during the
+     * refresh) or two app processes refreshing at once, not a thief: it gets a new pair. Later, all sessions end.
+     * Before this window every deploy could sign the user out on all devices (server log, 2026-11-05).
+     */
+    static final Duration REUSE_GRACE = Duration.ofSeconds(60);
 
     /** The answer of verify and refresh. */
     public record TokenResponse(String accessToken, String refreshToken, long expiresIn, UserView user) {
@@ -63,11 +69,12 @@ public class AuthService {
     private final AuthKeys keys;
     private final RateLimiter rateLimiter;
     private final LimitProperties limits;
+    private final AppleTokenService appleTokens;
     private final Clock clock;
 
     public AuthService(EmailLoginCodeRepository codes, EmailLoginLinkRepository links,
             RefreshTokenRepository refreshTokens, UserRepository users, EmailSender emailSender,
-            AccessTokenService accessTokens, AuthProperties properties, AuthKeys keys, RateLimiter rateLimiter, LimitProperties limits, Clock clock) {
+            AccessTokenService accessTokens, AuthProperties properties, AuthKeys keys, RateLimiter rateLimiter, LimitProperties limits, AppleTokenService appleTokens, Clock clock) {
         this.codes = codes;
         this.links = links;
         this.refreshTokens = refreshTokens;
@@ -78,6 +85,7 @@ public class AuthService {
         this.keys = keys;
         this.rateLimiter = rateLimiter;
         this.limits = limits;
+        this.appleTokens = appleTokens;
         this.clock = clock;
     }
 
@@ -133,7 +141,15 @@ public class AuthService {
         if (!now.isBefore(saved.getExpiresAt())) {
             throw new InvalidRefreshTokenException();
         }
-        if (refreshTokens.revoke(saved.getId(), now) == 0) {
+        if (refreshTokens.rotate(saved.getId(), now) == 0) {
+            // Read again: another request may have swapped it a moment ago.
+            Instant rotatedAt = refreshTokens.findById(saved.getId()).map(RefreshToken::getRotatedAt).orElse(null);
+            if (rotatedAt != null && !now.isAfter(rotatedAt.plus(REUSE_GRACE))) {
+                log.info("A refresh token swapped {} ms ago was sent again (lost answer or two processes). "
+                        + "New pair for user {}.", Duration.between(rotatedAt, now).toMillis(), saved.getUserId());
+                User user = users.findById(saved.getUserId()).orElseThrow(InvalidRefreshTokenException::new);
+                return issueTokens(user);
+            }
             // This token was already used or signed out. Someone may have copied it, so end all sessions of the user.
             log.warn("A used refresh token was sent again. Revoking all tokens of user {}.", saved.getUserId());
             refreshTokens.revokeAllOf(saved.getUserId(), now);
@@ -153,13 +169,17 @@ public class AuthService {
                 "Sign in again."));
     }
 
-    /** Deletes the account and every token of it (App Store rule). */
+    /**
+     * Deletes the account and every token of it (App Store rule). Sign in with Apple tokens are revoked at Apple
+     * first (TASK-112.3); a failed revoke is logged and the account is still deleted.
+     */
     public void deleteAccount(long userId) {
         User user = currentUser(userId);
         if (user.isAdmin()) {
             throw new ApiException(HttpStatus.FORBIDDEN, "admin_account",
                     "An admin account cannot be deleted here. Ask the developer.");
         }
+        appleTokens.revokeAll(userId);
         refreshTokens.deleteAllOf(userId);
         codes.deleteCode(user.getEmail());
         links.deleteAllFor(user.getEmail());

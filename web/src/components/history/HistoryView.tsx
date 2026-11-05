@@ -121,18 +121,24 @@ function SignInPrompt() {
 
 let clock = 0;
 
+/**
+ * Ticks the clock now and every 10 seconds. It lives at module level so React gets the same function on every
+ * render; an inline one made React re-subscribe on each render, and its first tick looped forever (the /history crash).
+ */
+function subscribeClock(onChange: () => void): () => void {
+  const tick = () => {
+    clock = Date.now();
+    onChange();
+  };
+  tick();
+  const id = setInterval(tick, 10_000);
+  return () => clearInterval(id);
+}
+
 /** The time, refreshed every 10 seconds, for the day groups and "synced N s ago". It is 0 until the browser has it. */
 function useNow(): number {
   return useSyncExternalStore(
-    (onChange) => {
-      const tick = () => {
-        clock = Date.now();
-        onChange();
-      };
-      tick();
-      const id = setInterval(tick, 10_000);
-      return () => clearInterval(id);
-    },
+    subscribeClock,
     () => clock,
     () => 0,
   );

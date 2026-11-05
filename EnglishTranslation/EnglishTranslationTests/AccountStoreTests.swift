@@ -247,9 +247,57 @@ struct AccountStoreTests {
         #expect(secrets.secret(forKey: "session") != nil)
     }
 
-    @Test func deleteAccountDoesNothingForAGuest() async throws {
+    // TASK-112.4: a delete without a working session must not look like it worked.
+
+    @Test func deleteAccountWithoutASessionThrowsSignInRequired() async {
         let store = makeStore()
-        try await store.deleteAccount()
+
+        await #expect(throws: AuthError.signInRequired) {
+            try await store.deleteAccount()
+        }
+
         #expect(server.requests.isEmpty)
+        #expect(store.isSignedIn == false)
+    }
+
+    @Test func deleteAccountWithAnEndedSessionThatCannotBeRefreshedThrowsSignInRequired() async {
+        server.handler = { request in
+            switch request.path {
+            case "/api/me": .empty(401)
+            default: .problem(401, code: "invalid_refresh_token")
+            }
+        }
+        let store = makeStore(saved: signedInJSON)
+
+        await #expect(throws: AuthError.signInRequired) {
+            try await store.deleteAccount()
+        }
+
+        // One try, one refused refresh, no second DELETE: nothing was deleted.
+        #expect(server.requests.map(\.path) == ["/api/me", "/api/auth/refresh"])
+        #expect(store.isSignedIn == false)
+        #expect(secrets.secret(forKey: "session") == nil)
+    }
+
+    @Test func deleteAccountWhenTheRefreshFailsOnTheServerKeepsTheSession() async {
+        server.handler = { request in
+            switch request.path {
+            case "/api/me": .empty(401)
+            default: .empty(503)
+            }
+        }
+        let store = makeStore(saved: signedInJSON)
+
+        // The server is down, not the session: the error is shown and the user stays signed in to try again.
+        await #expect(throws: (any Error).self) {
+            try await store.deleteAccount()
+        }
+
+        #expect(store.isSignedIn)
+    }
+
+    @Test func signInRequiredTellsTheUserToSignInAgain() {
+        #expect(AuthError.signInRequired.localizedDescription
+            == "Your session has ended. Sign in again to delete your account.")
     }
 }

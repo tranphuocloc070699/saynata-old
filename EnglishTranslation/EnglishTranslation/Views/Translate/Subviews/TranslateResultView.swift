@@ -18,6 +18,8 @@ struct TranslateResultView: View {
         guard let entry = word.entry else { throw WordLookupError.notOneWord }
         return entry
     }
+    /// Set in the share and translation sheet: the language row of a result gets a menu to pick another language.
+    var onLanguageChange: ((TargetLanguage) -> Void)?
 
     var body: some View {
         switch state {
@@ -38,9 +40,9 @@ struct TranslateResultView: View {
             SentenceMeaningView(partial: partial, loadWordEntry: loadWordEntry)
         case let .loaded(result):
             // The language comes from the result, not the live picker (TASK-14).
-            SentenceResultView(result: result, loadWordEntry: loadWordEntry)
+            SentenceResultView(result: result, loadWordEntry: loadWordEntry, onLanguageChange: onLanguageChange)
         case let .loadedWord(entry):
-            WordCardView(entry: entry, targetLanguage: targetLanguage)
+            WordCardView(entry: entry, targetLanguage: targetLanguage, onLanguageChange: onLanguageChange)
         case let .failed(message, spelling):
             VStack(alignment: .leading, spacing: Theme.Spacing.medium) {
                 Text(message).foregroundStyle(.red)

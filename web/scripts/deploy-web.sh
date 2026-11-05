@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the small web image from web/dist and restart only the web container, then wait until it is healthy.
 # web/dist is copied to the server by the GitHub "Deploy" workflow (job deploy-web). It is not in git.
-# Run on the server from anywhere: ~/saynata/web/scripts/deploy-web.sh
+# Run on the server from anywhere: /var/www/saynata/web/scripts/deploy-web.sh
 set -euo pipefail
 
 web_dir="$(cd "$(dirname "$0")/.." && pwd)"

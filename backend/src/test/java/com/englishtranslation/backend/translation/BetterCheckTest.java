@@ -13,6 +13,9 @@ class BetterCheckTest {
         assertThat(BetterCheck.keeps("Please open the light, it's too dark.", "Please turn on the light. It's too dark."))
                 .isTrue();
         assertThat(BetterCheck.keeps("She don't like apples.", "She doesn't like apples.")).isTrue();
+        // A typo and a missing word, with "wanna" kept (prompt v15).
+        assertThat(BetterCheck.keeps("Hi everyone, i wanna talk somethig", "Hi everyone, I wanna talk about something."))
+                .isTrue();
     }
 
     @Test

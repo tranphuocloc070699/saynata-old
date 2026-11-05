@@ -139,11 +139,13 @@ class SentenceLanguageLineTest {
 
         service.translate("Hello there", TargetLanguage.VI);
 
-        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey("v14", "Hello there")).orElseThrow();
-        assertThat(row.getPromptVersion()).isEqualTo("v14");
+        // The current version from the config, so a prompt bump does not break this test.
+        String version = properties.sentencePromptVersion();
+        SentenceTranslation row = sentences.findByCacheKey(CacheKeys.sentenceKey(version, "Hello there")).orElseThrow();
+        assertThat(row.getPromptVersion()).isEqualTo(version);
         assertThat(row.getTargetLang()).isEqualTo("en");
         assertThat(row.getTranslation()).isEmpty();
-        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey("v14", "hello there"));
+        assertThat(row.getMatchKey()).isEqualTo(CacheKeys.sentenceMatchKey(version, "hello there"));
     }
 
     @Test
