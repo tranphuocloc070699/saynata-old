@@ -37,6 +37,9 @@ fi
 private_key="$(awk 'NF {printf "%s\\n", $0}' "$p8")"
 
 existing_enc="$(sed -n 's/^APPLE_TOKEN_ENCRYPTION_KEY[[:space:]]*[=:][[:space:]]*//p' .env | tail -1)"
+# Compose drops surrounding quotes, so KEY="" is an empty key: strip them before the check.
+existing_enc="${existing_enc#\"}"; existing_enc="${existing_enc%\"}"
+existing_enc="${existing_enc#\'}"; existing_enc="${existing_enc%\'}"
 if [ -n "$existing_enc" ]; then
   enc="$existing_enc"
   echo "    APPLE_TOKEN_ENCRYPTION_KEY is already set; it is kept."
