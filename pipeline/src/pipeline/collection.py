@@ -1012,10 +1012,13 @@ def plan_push(pg, rows: list[sqlite3.Row], prompt_version: str) -> PushPlan:
 
 
 def needs_review(row: sqlite3.Row) -> bool:
-    """needs_review in word_lookup: the checks were not sure, or a book word that is not on the backend word list
-    (nuxt, vue), so the developer finds it in the admin and fixes it before the backend can answer it. A name-group book word
-    (a tech term like vue that is capitalised in the text) is the same."""
-    return row["status"] == "needs_review" or row["book_group"] in ("not_on_list", "name")
+    """needs_review in word_lookup: the entry has a shape problem (wrong example count or order, empty field...), or
+    a book word that is not on the backend word list (nuxt, vue), so the developer finds it in the admin and fixes it
+    before the backend can answer it. A name-group book word (a tech term like vue that is capitalised in the text)
+    is the same. Hard words alone do not flag a row any more: they were 3,300 of 4,000 flags and nobody fixed them."""
+    if row["book_group"] in BOOK_FLAG_GROUPS:
+        return True
+    return bool(row["entry"]) and bool(shape_problems(Entry.model_validate_json(row["entry"])))
 
 
 def first_cefr(entry: Entry) -> str | None:
@@ -1040,3 +1043,50 @@ def push(connection: sqlite3.Connection, pg, plan: PushPlan, prompt_version: str
     connection.executemany("UPDATE collection SET pushed_at = CURRENT_TIMESTAMP WHERE id = ?", [(i,) for i in done])
     connection.commit()
     return inserted
+
+
+# ---------- clear-hard-word-flags (one-time cleanup of word_lookup.needs_review) ----------
+
+BOOK_FLAG_GROUPS = ("not_on_list", "name")
+KEEP_SHAPE, KEEP_BOOK, KEEP_UNREADABLE = "keep: shape problem", "keep: book word not on list or name", "keep: entry unreadable"
+CLEAR_HARD, CLEAR_NONE = "clear: only hard words", "clear: no problem left"
+
+
+def classify_flagged(entry_json: str, word: str, book_group: str | None, vocabulary: set[str]) -> str:
+    """Why a needs_review row in word_lookup stays flagged (keep: ...) or loses the flag (clear: ...)."""
+    try:
+        entry = Entry.model_validate_json(entry_json)
+    except ValidationError:
+        return KEEP_UNREADABLE
+    if shape_problems(entry):
+        return KEEP_SHAPE
+    if book_group in BOOK_FLAG_GROUPS:
+        return KEEP_BOOK
+    return CLEAR_HARD if simple_word_problems(entry, word, vocabulary) else CLEAR_NONE
+
+
+def clear_hard_word_flags(connection: sqlite3.Connection, pg, apply: bool,
+                          vocabulary: set[str] | None = None) -> tuple[dict[str, list[str]], int]:
+    """Reads the needs_review rows of word_lookup and clears the flag on the ones that are flagged only for hard words
+    (or for nothing now). Returns the words per group and the number of rows changed (0 without `apply`).
+    The book group comes from this pipeline.db (`connection`), matched by text. One UPDATE, one transaction."""
+    vocabulary = vocabulary if vocabulary is not None else simple_vocabulary()
+    groups = {row[0]: row[1] for row in connection.execute(
+        "SELECT text, book_group FROM collection WHERE pushed_at IS NOT NULL AND book_group IS NOT NULL")}
+    with pg.cursor() as cursor:
+        cursor.execute("SELECT id, word, entry_json FROM word_lookup WHERE needs_review")
+        flagged = cursor.fetchall()
+    found: dict[str, list[str]] = {}
+    to_clear: list[int] = []
+    for row_id, word, entry_json in flagged:
+        group = classify_flagged(entry_json, word, groups.get(word), vocabulary)
+        found.setdefault(group, []).append(word)
+        if group.startswith("clear"):
+            to_clear.append(row_id)
+    changed = 0
+    if apply and to_clear:
+        with pg.cursor() as cursor:
+            cursor.execute("UPDATE word_lookup SET needs_review = false WHERE needs_review AND id = ANY(%s)", (to_clear,))
+            changed = cursor.rowcount
+        pg.commit()
+    return found, changed

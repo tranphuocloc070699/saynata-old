@@ -25,8 +25,9 @@ struct SettingsView<MoreSections: View>: View {
     /// Why "Delete account" failed, shown in the profile card.
     @State private var accountError: String?
 
-    /// The project page, opened by "Source code".
-    static var sourceCodeURL: URL { URL(string: "https://github.com/tranphuocloc070699/saynata")! }
+    /// The privacy policy and terms on the website (TASK-102.4), opened by the links under the cards (TASK-112.1).
+    static var privacyPolicyURL: URL { URL(string: "https://saynata.com/privacy")! }
+    static var termsURL: URL { URL(string: "https://saynata.com/terms")! }
 
     private static var avatarSize: CGFloat { 52 }
 
@@ -52,6 +53,11 @@ struct SettingsView<MoreSections: View>: View {
 
                 aboutCard
                     .cardRow()
+
+                legalLinks
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets())
 
                 moreSections()
             }
@@ -133,16 +139,21 @@ extension SettingsView {
             }
             .settingsCard()
         } else {
-            Button { isSignInOpen = true } label: {
+            // A delete that found the session ended (TASK-112.4) leaves its message in the hint line, so the user
+            // sees why they are signed out and can sign in again from the same card.
+            Button {
+                accountError = nil
+                isSignInOpen = true
+            } label: {
                 HStack(spacing: Theme.Spacing.medium) {
                     avatar
                     VStack(alignment: .leading, spacing: Theme.Spacing.xSmall) {
                         Text("Sign in")
                             .font(.body)
                             .foregroundStyle(Theme.Colors.textPrimary)
-                        Text("To explain new sentences")
+                        Text(accountError ?? "To explain new sentences")
                             .font(.footnote)
-                            .foregroundStyle(Theme.Colors.textMuted)
+                            .foregroundStyle(accountError == nil ? Theme.Colors.textMuted : Theme.Colors.error)
                     }
                     Spacer(minLength: 0)
                     chevron
@@ -223,21 +234,39 @@ extension SettingsView {
         .frame(minHeight: Theme.minTapTarget)
     }
 
-    /// "About Saynata" (a page) and "Source code" (the GitHub project).
+    /// "About Saynata" (a page). The Source code row was removed in TASK-112.1 (mockup C, 2026-11-04).
     fileprivate var aboutCard: some View {
-        VStack(spacing: 0) {
-            // A Button plus `navigationDestination`, not a NavigationLink: inside a List a NavigationLink adds its own chevron.
-            Button { isAboutOpen = true } label: {
-                linkRow("About Saynata")
-            }
-            .buttonStyle(.plain)
-            HairlineDivider()
-            Button { openURL(Self.sourceCodeURL) } label: {
-                linkRow("Source code")
-            }
-            .buttonStyle(.plain)
+        // A Button plus `navigationDestination`, not a NavigationLink: inside a List a NavigationLink adds its own chevron.
+        Button { isAboutOpen = true } label: {
+            linkRow("About Saynata")
         }
+        .buttonStyle(.plain)
         .settingsCard()
+    }
+
+    /// "Privacy policy · Terms of use": small muted links under the cards, like the website footer (TASK-112.1,
+    /// mockup C). Each link keeps a 44 pt tall tap area. Apple guideline 5.1.1 needs the privacy link in the app.
+    fileprivate var legalLinks: some View {
+        HStack(spacing: Theme.Spacing.small) {
+            legalLink("Privacy policy", url: Self.privacyPolicyURL)
+            Text(verbatim: "·")
+                .accessibilityHidden(true)
+            legalLink("Terms of use", url: Self.termsURL)
+        }
+        .font(.footnote)
+        .foregroundStyle(Theme.Colors.textMuted)
+        .frame(maxWidth: .infinity)
+    }
+
+    private func legalLink(_ title: String, url: URL) -> some View {
+        Button { openURL(url) } label: {
+            Text(title)
+                .underline()
+                .frame(minHeight: Theme.minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(.isLink)
     }
 
     private func linkRow(_ title: String) -> some View {

@@ -51,6 +51,7 @@ MODEL = "codex-image_gen"
 SCENE_MODEL = "claude-sonnet-5-5"
 GUESS_MODEL = "claude-haiku-5-5"
 STATUS_DONE = "ai_generated"
+EXIT_STOPPED = 3  # media-ai exits with this when the run stopped early (the cap, Codex, the disk, Ctrl-C)
 DEFAULT_MAX_COST = 5.0
 DEFAULT_REPORT = Path("data/out/media-ai.html")
 MAX_TRIES = 3
@@ -65,8 +66,9 @@ STEP_ENVS = {SCENE_MODEL: "CLAUDE_SCENE_MODEL", GUESS_MODEL: "CLAUDE_GUESS_MODEL
 PRICES = llm.PRICES  # US dollars per million tokens (input, output), one table for the whole pipeline
 # What one sense costs in Claude money, for the cap and the dry-run estimate only (the real cost comes from the
 # usage of each answer). One try is about 1,500 tokens in and 1,500 out for the scene (the thinking counts as
-# output) and two small guess calls; a sense needs about 1.3 tries. The first real run shows the true number.
-ESTIMATE_PER_SENSE = 0.03
+# output) and two small guess calls; a sense needs about 1.3 tries. Measured on the VPS run (STEYG gateway,
+# 2026-11-09): $6.29 for 622 senses, $0.0101 each, so 0.012 keeps a small margin (it was 0.03 before).
+ESTIMATE_PER_SENSE = 0.012
 SECONDS_PER_PICTURE = 60  # what the developer saw with Codex; used for the dry-run time estimate
 
 # --- Prompts (from the trial) --------------------------------------------------------------------------
@@ -303,13 +305,24 @@ class CodexDrawer:
     # A plan limit or a broken login stops the whole run: every next sense would fail the same way after a paid scene.
     STOP_WORDS = ("usage limit", "not logged in", "please log in", "codex login", "sign in again", "refresh token",
                   "unauthorized (401)")
+    # What Codex writes for every call and never needs again (TASK-115.4: on 2026-11-06 sessions/ (2.3 GB) and
+    # thread_history_1.sqlite (1.4 GB) filled the VPS disk and crashed production Postgres). Never auth.json or config.
+    LOG_PATHS = ("sessions", "archived_sessions", "generated_images", "shell_snapshots", "log",
+                 "thread_history_*.sqlite*", "logs_*.sqlite*", "history.jsonl")
 
-    def __init__(self, timeout: int = CODEX_TIMEOUT, run: Callable = subprocess.run, home: Path | None = None):
+    def __init__(self, timeout: int = CODEX_TIMEOUT, run: Callable = subprocess.run, home: Path | None = None,
+                 clean: bool = False):
+        """clean=True deletes each call's own session files after the call, and clean_home() can delete every log
+        between batches. Only for a Codex home that belongs to the pipeline (the VPS run), never a person's ~/.codex."""
         if run is subprocess.run and shutil.which("codex") is None:
             raise ProviderStop("codex is not installed (npm i -g @openai/codex), then run: codex login")
         self.timeout, self.run = timeout, run
-        home = home or Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
-        self.images = home / "generated_images"
+        self.home = home or Path(os.environ.get("CODEX_HOME") or Path.home() / ".codex")
+        if clean and self.home.resolve() == (Path.home() / ".codex").resolve():
+            raise ProviderStop("--clean-codex-home deletes Codex history: set CODEX_HOME to the pipeline's own folder, "
+                               "not ~/.codex")
+        self.clean = clean
+        self.images = self.home / "generated_images"
 
     def draw(self, prompt: str) -> Drawn:
         started = time.time()
@@ -323,11 +336,26 @@ class CodexDrawer:
         output = (proc.stdout or "") + (proc.stderr or "")
         session = re.search(r"session id:\s*([0-9a-f-]{36})", output)
         pictures = sorted((self.images / session.group(1)).glob("*.png"), key=lambda p: p.stat().st_mtime) if session else []
-        if not pictures:
+        image = pictures[-1].read_bytes() if pictures else None
+        if session and self.clean:
+            self.forget_session(session.group(1))
+        if image is None:
             if any(word in output.lower() for word in self.STOP_WORDS):
                 raise ProviderStop(f"codex: {output.strip()[-300:]}")
             raise DrawError(f"codex made no picture (exit {proc.returncode}): {output.strip()[-300:]}")
-        return Drawn(pictures[-1].read_bytes(), time.time() - started)
+        return Drawn(image, time.time() - started)
+
+    def forget_session(self, session: str) -> None:
+        """Deletes the pictures and the session log of one finished call (that codex process has ended)."""
+        shutil.rmtree(self.images / session, ignore_errors=True)
+        for rollout in (self.home / "sessions").rglob(f"*{session}*.jsonl"):
+            rollout.unlink(missing_ok=True)
+
+    def clean_home(self) -> None:
+        """Deletes every Codex log (LOG_PATHS). Call it only while no codex process runs: between batches."""
+        for pattern in self.LOG_PATHS:
+            for path in self.home.glob(pattern):
+                shutil.rmtree(path, ignore_errors=True) if path.is_dir() else path.unlink(missing_ok=True)
 
 
 # --- Picture files -------------------------------------------------------------------------------------
@@ -563,6 +591,7 @@ class Store(Protocol):
     def still_wanted(self, sense_id: int) -> bool: ...
     def unlinked_passed(self) -> list[dict]: ...
     def link(self, generation: dict, facts: tuple) -> bool: ...
+    def forget(self, sense_ids: list[int]) -> None: ...
     def failed_tries(self) -> list[dict]: ...
     def save_recheck(self, row: dict, check: dict, passed: bool, usage: "Usage") -> None: ...
 
@@ -593,12 +622,22 @@ def estimate_text(count: int, workers: int, max_cost: float) -> str:
             f"{SECONDS_PER_PICTURE} s a picture, 1.3 tries a sense and {workers} workers that is about {hours:.1f} hours.")
 
 
+def free_disk_bytes() -> int:
+    """Free space on / (the VPS has one disk for Postgres, the pictures and Codex's files)."""
+    return shutil.disk_usage("/").free
+
+
 def run(store: Store, services: Services, *, words: list[str] | None = None, limit: int = 100000, redo: bool = False,
         max_cost: float = DEFAULT_MAX_COST, workers: int = 4, dry_run: bool = False,
+        batch: int = 0, between_batches: Callable[[], None] | None = None,
+        min_free_disk: int = 0, free_disk: Callable[[], int] = free_disk_bytes,
         log: Callable[[str], None] = print) -> RunSummary:
     """Makes a picture for each pending sense. A new sense starts only when the Claude money spent, plus the
     estimate of every sense in flight, plus its own estimate stays within max_cost (the estimate grows to the
-    biggest overrun seen). Ctrl-C once: no new sense starts and the running ones finish; twice: quit now."""
+    biggest overrun seen). Ctrl-C once: no new sense starts and the running ones finish; twice: quit now.
+    batch > 0: after every `batch` senses the run waits until no sense is in flight (so no Codex runs) and calls
+    between_batches (the VPS deletes Codex's logs there). min_free_disk > 0: no new sense starts when free_disk()
+    is below it (TASK-115.4: a full disk crashed production Postgres)."""
     senses = store.pending_senses(words, limit, redo)
     summary = RunSummary(planned=len(senses))
     log(f"{len(senses)} senses to draw, prompt version {PROMPT_VERSION}, {workers} at a time, Claude cap ${max_cost:.2f}")
@@ -620,10 +659,20 @@ def run(store: Store, services: Services, *, words: list[str] | None = None, lim
     in_flight: dict[Future, float] = {}
     worst = 0.0  # the biggest (real cost - estimate) seen, added to every next estimate
     stop_message: str | None = None
+    started_in_batch = 0
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
         while True:
-            while stop_message is None and len(in_flight) < workers:
+            if batch and started_in_batch >= batch and not in_flight and stop_message is None:
+                if between_batches:
+                    between_batches()
+                log(f"-- batch of {started_in_batch} senses done")
+                started_in_batch = 0
+            while stop_message is None and len(in_flight) < workers and not (batch and started_in_batch >= batch):
+                if min_free_disk and (free := free_disk()) < min_free_disk:
+                    stop_message = (f"disk: only {free / 1024 ** 3:.1f} GB free on /, the floor is "
+                                    f"{min_free_disk / 1024 ** 3:.1f} GB (free space, then run again)")
+                    break
                 sense = next(queue, None)
                 if sense is None:
                     break
@@ -636,7 +685,10 @@ def run(store: Store, services: Services, *, words: list[str] | None = None, lim
                     summary.skipped += 1  # taken from the queue but not started
                     break
                 in_flight[pool.submit(make_sense, sense, services)] = estimate
+                started_in_batch += 1
             if not in_flight:
+                if batch and started_in_batch >= batch and stop_message is None:
+                    continue  # the batch is done: clean up at the top of the loop, then start the next one
                 break
             try:
                 finished, _ = wait(in_flight, return_when=FIRST_COMPLETED)
@@ -662,10 +714,12 @@ def run(store: Store, services: Services, *, words: list[str] | None = None, lim
                     f"{result.seconds:.0f}s | ${summary.cost:.4f}")
                 if result.stop:
                     stop_message = result.error
+        if between_batches and batch:
+            between_batches()  # nothing is in flight here: clean up after the last batch too
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
     summary.skipped += sum(1 for _ in queue)
-    if summary.skipped:
+    if summary.skipped or stop_message:  # a stop on the last sense is a stop too: the caller must not go on
         summary.stopped_by = stop_message or "cost"
     summary.remaining = store.count_pending(words, redo)
     return summary
@@ -685,6 +739,8 @@ def print_summary(summary: RunSummary, workers: int, max_cost: float, log: Calla
         eta = summary.remaining * per_sense / max(workers, 1)
         log(f"{summary.remaining} senses are left. At this speed that is about {eta / 3600:.1f} hours with {workers} workers "
             f"and about ${summary.remaining * summary.cost / len(summary.results):.2f} of Claude money.")
+    elif summary.remaining:
+        log(f"{summary.remaining} senses are left (about ${summary.remaining * ESTIMATE_PER_SENSE:.2f} of Claude money).")
     if summary.stopped_by == "cost":
         log(f"Stopped at the Claude cap: {summary.skipped} senses were not started. Run again to go on.")
     elif summary.stopped_by:
@@ -743,6 +799,24 @@ def link_passed(store: Store, media_dir: Path, on_server: Callable[[str], bool],
         log("Each linked sense shows up in the admin's \"Media to review\" again. The app shows the new pictures "
             "after the next export and app build (uv run pipeline export).")
     return summary
+
+
+LOST_VERSION = PROMPT_VERSION + "-lost"  # the tries of a sense whose passed picture file was lost
+
+
+def forget_lost(store: "Store", media_dir: Path, on_server: Callable[[str], bool],
+                log: Callable[[str], None] = print) -> int:
+    """Before a run: a sense whose passed, not yet linked picture is neither in media_dir nor on the server
+    (TASK-115.4: 7 files lost when the VPS disk filled up) is drawn again. Its tries move to LOST_VERSION, so they stay
+    for the record but no longer count as finished. The server check keeps a run on another machine (whose media_dir
+    lacks the VPS pictures) from forgetting good pictures. Returns the number of senses."""
+    lost = [row for row in store.unlinked_passed()
+            if not (media_dir / row["file_name"]).is_file() and not on_server(row["file_name"])]
+    if lost:
+        store.forget([row["sense_id"] for row in lost])
+        log(f"{len(lost)} passed pictures have no file in {media_dir}, so they are drawn again: "
+            + ", ".join(row["file_name"] for row in lost[:8]) + (" ..." if len(lost) > 8 else ""))
+    return len(lost)
 
 
 # --- Recheck failed senses with the meaning check -------------------------------------------------------
@@ -915,6 +989,17 @@ class PostgresStore:
             )
         return True
 
+    def forget(self, sense_ids: list[int]) -> None:
+        self._forget("sense_id", sense_ids)
+
+    def _forget(self, owner: str, sense_ids: list[int]) -> None:
+        """Moves the unlinked PROMPT_VERSION tries of these senses to LOST_VERSION (see forget_lost)."""
+        with self.pg.cursor() as cursor:
+            cursor.execute(f"""UPDATE media_generation SET prompt_version = %s
+                               WHERE {owner} = ANY(%s) AND prompt_version = %s AND media_id IS NULL""",
+                           (LOST_VERSION, list(sense_ids), PROMPT_VERSION))
+        self.pg.commit()
+
     def failed_tries(self) -> list[dict]:
         """Drawn tries of senses that are finished as failed (no passed try, no "none") and not rechecked yet,
         newest try first per sense."""
@@ -1024,6 +1109,9 @@ class BackendStore(PostgresStore):
 
     def unlinked_passed(self) -> list[dict]:
         return self._unlinked("lookup_media_id", self._JOINS, "l.word", "s.sense_position")
+
+    def forget(self, sense_ids: list[int]) -> None:
+        self._forget("lookup_media_id", sense_ids)
 
     def link(self, generation: dict, facts: tuple) -> bool:
         """Like the bundled link, on word_lookup_media: a new media row (source 'ai'), the sense points at it with

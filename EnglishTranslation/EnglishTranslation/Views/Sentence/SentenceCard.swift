@@ -30,6 +30,9 @@ struct SentenceCard: View {
     var better: String?
     /// One line that says why the fix is better.
     var betterWhy: String?
+    /// Set where the user may pick another language from the result (the share and translation sheet):
+    /// the language row's title becomes a menu. Nil: the row only opens and closes.
+    var onLanguageChange: ((TargetLanguage) -> Void)?
     /// Gets the full word card for a tapped word. The real one is `TranslationStore.wordEntry(for:)`.
     var loadWordEntry: (SentenceWordInfo) async throws -> WordEntry = { word in
         guard let entry = word.entry else { throw WordLookupError.notOneWord }
@@ -73,7 +76,10 @@ struct SentenceCard: View {
             // No translation yet (the answer is still streaming): the row appears when the full result arrives.
             // "" means the backend had no line for this language (a guest, offline cache): no row (TASK-106.6).
             if let translation, Self.hasLanguageLine(translation) {
-                FoldedRow(title: language.title, isExpanded: $isTranslationOpen, showsDivider: false) {
+                FoldedRow(
+                    title: language.title, isExpanded: $isTranslationOpen, showsDivider: false,
+                    language: onLanguageChange.map { change in Binding(get: { language }, set: change) }
+                ) {
                     Text(translation)
                         .font(.body)
                         .foregroundStyle(Theme.Colors.textPrimary)

@@ -33,10 +33,11 @@ opens a PR into its feature branch (TASK-31 to 34 are features F1-F4). `.claude/
 force-push and pushes to main in every permission mode.
 
 Full test suites: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` (the Postgres tests need `TEST_DATABASE_URL`, else they are skipped) · `cd admin && npm test` · `cd extension && npm test` · `cd web && npm test` · iOS in Xcode (⌘U). While working, run only the tests of the part you changed (see "Saving time and tokens").
-Merge a PR when CI is green: `scripts/merge-when-green.sh <PR>` (no Claude chat needed).
+Merge a PR when CI is green: `scripts/merge-when-green.sh <PR>` (no Claude chat needed; it then removes the PR's local branch and worktree).
+Clean up merged branches and worktrees: `scripts/clean-branches.sh` (dry run; `--apply` to delete, `--remote` for GitHub branches too).
 Install on the developer's real iPhone (build, then install or replace; open it by hand): `scripts/install-on-phone.sh` (signs with the paid account's real entitlements; `PAID_ACCOUNT=0` for a free Apple ID, without App Groups, the default-translation-app capability and Sign in with Apple).
 Install the Mac app on this Mac (build, replace, register the Services item, open it): `scripts/install-on-mac.sh` (`CONFIG=Debug`, `INSTALL_DIR=/Applications`, `AD_HOC=1` when Apple ID signing fails).
-Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
+Deploy the backend to a VPS: `cd /var/www/saynata/backend && ./scripts/deploy.sh` on the server (the repo lives in **`/var/www/saynata`** on `vps_sieutoc`, not `~/saynata`), or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 
 **Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
 `-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.
@@ -140,8 +141,12 @@ Follow the code that is already there; these are the rules it uses (TASK-12).
   Agents never start paid passes (LLM, large media runs); they write the code and say the command and its cost.
   Test: `cd pipeline && uv run pytest`.
 - **Everywhere**: branches `feature/f<n>-<name>` for features and `f<n>/task-<id>` for their tasks, `fix/<what>` for
-  fixes; merge, never rebase or force-push; every PR has a "Test it" card; only the main chat marks a task Done,
+  fixes; merge, never rebase or force-push (GitHub allows only merge commits and deletes the PR branch on merge); every PR has a "Test it" card; only the main chat marks a task Done,
   after the developer has tested it. Commit messages start with the task ID.
+- **Worktrees** (developer's rule, 2026-11-09): every worktree lives in `.claude/worktrees/<name>` (git-ignored), never in
+  a folder next to the repo or in `/tmp`. One worktree per active task; it goes away when its PR merges. Long-lived
+  branches are only `main`, `feature/local` and active `feature/f<n>-*` branches.
+- **A merge stopped on doc-7 or doc-9** (every task appends rows there): run `scripts/resolve-story-conflict.sh`, which keeps both sides' rows and one frontmatter value per key, then `git commit --no-edit`. Do not just delete the markers: a duplicated `updated_date` line breaks the backlog CLI ("doc-7 not found").
 - **Test branch `feature/local`** (developer's rule, 2026-10-16): finished work is merged into `feature/local` first,
   not into `main`. The developer tests from `feature/local`; only after they say the test succeeded does that work go
   to `main`. New PRs target `feature/local` (or their feature branch, which is then merged into `feature/local`).

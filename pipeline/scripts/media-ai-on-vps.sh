@@ -11,7 +11,8 @@
 #   setup    only the VPS setup and checks             start  only start the run
 #
 # Safe to run again: every step checks first and continues where it stopped. Old Pixabay rows and files are kept.
-# Settings (env): VPS (ssh host, default vps_sieutoc), MAX_COST (USD cap per pass, default 40), WORKERS (default 4).
+# Settings (env): VPS (ssh host, default vps_sieutoc), MAX_COST (USD cap per pass, default 40), WORKERS (default 4),
+#   BATCH (Codex logs are deleted after every BATCH senses, default 100), MIN_FREE_GB (stop below this free disk, default 2).
 set -euo pipefail
 # Works from the repo root (pipeline/scripts/media-ai-on-vps.sh) or from pipeline/ (scripts/media-ai-on-vps.sh).
 
@@ -27,7 +28,7 @@ die()  { printf 'Stopped: %s\n' "$*" >&2; exit 1; }
 # (Safe while a run is going: the run does not read this file again.)
 remote() {
   [ "$1" = setup ] || scp -q scripts/vps-media-ai-remote.sh "$VPS:$REMOTE_DIR/scripts/vps-media-ai-remote.sh"
-  ssh $( [ "$1" = setup ] && [ -t 0 ] && echo -t ) "$VPS" "MAX_COST='${MAX_COST:-40}' WORKERS='${WORKERS:-4}' $REMOTE_DIR/scripts/vps-media-ai-remote.sh $1"
+  ssh $( [ "$1" = setup ] && [ -t 0 ] && echo -t ) "$VPS" "MAX_COST='${MAX_COST:-40}' WORKERS='${WORKERS:-4}' BATCH='${BATCH:-100}' MIN_FREE_GB='${MIN_FREE_GB:-2}' $REMOTE_DIR/scripts/vps-media-ai-remote.sh $1"
 }
 check_ssh() { ssh -o BatchMode=yes -o ConnectTimeout=10 "$VPS" true || die "cannot reach $VPS over ssh"; }
 
@@ -111,5 +112,5 @@ case "${1:-run}" in
     uv run pipeline export
     echo "Next: check a sample in the admin 'Media to review' chip, then build the app (TASK-115.5)."
     ;;
-  *) sed -n '2,14p' "$0"; exit 1 ;;
+  *) sed -n '2,15p' "$0"; exit 1 ;;
 esac

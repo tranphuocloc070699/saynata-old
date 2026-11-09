@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Rebuild the image around backend/dist/app.jar and restart the backend on the VPS, then wait until it is healthy.
-# Run on the server from anywhere: ~/saynata/backend/scripts/deploy.sh
+# Run on the server from anywhere: /var/www/saynata/backend/scripts/deploy.sh
 # The GitHub "Deploy" workflow copies the jar and calls this.
 set -euo pipefail
 

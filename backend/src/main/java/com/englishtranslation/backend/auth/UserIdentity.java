@@ -36,6 +36,14 @@ public class UserIdentity {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /** Apple only: the refresh token, encrypted ({@link AppleTokenCipher}); revoked when the account is deleted. */
+    @Column(name = "apple_refresh_token")
+    private String appleRefreshToken;
+
+    /** Apple only: the bundle ID the token was made for; the revoke call must use the same one. */
+    @Column(name = "apple_client_id", length = 255)
+    private String appleClientId;
+
     protected UserIdentity() {
     }
 
@@ -57,5 +65,19 @@ public class UserIdentity {
 
     public String getSubject() {
         return subject;
+    }
+
+    public String getAppleRefreshToken() {
+        return appleRefreshToken;
+    }
+
+    public String getAppleClientId() {
+        return appleClientId;
+    }
+
+    /** The newest sign-in's token replaces the older one. */
+    public void setAppleRefreshToken(String encryptedToken, String clientId) {
+        this.appleRefreshToken = encryptedToken;
+        this.appleClientId = clientId;
     }
 }

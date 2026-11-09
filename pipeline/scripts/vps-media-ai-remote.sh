@@ -6,6 +6,8 @@
 # Codex draws with the pipeline's own ChatGPT login (~/.codex-pipeline; setup signs in with a device code once).
 # Pictures are drawn into data/media here and copied to /var/lib/saynata/media by "link".
 # Safe to run again: "start" continues where it stopped (progress is in Postgres), "link" links only new pictures.
+# Disk (TASK-115.4): media-ai deletes Codex's session files after each picture and all Codex logs every BATCH senses,
+# and starts no new sense when / has less than MIN_FREE_GB free. A passed picture whose file is gone is drawn again.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."   # ~/saynata-pipeline/pipeline
@@ -20,6 +22,9 @@ BACKEND_ENV="${BACKEND_ENV:-}"   # found by find_backend_env when empty
 APP_UID=10001                                           # the backend container user
 MAX_COST="${MAX_COST:-40}"
 WORKERS="${WORKERS:-4}"
+BATCH="${BATCH:-100}"         # after this many senses the run waits for Codex to finish and deletes Codex's logs
+MIN_FREE_GB="${MIN_FREE_GB:-2}"   # no new sense below this much free disk on / (2026-11-06: Codex logs filled the
+                                  # 16 GB disk and crashed production Postgres)
 LOG=data/out/media-ai-run.log
 PIDFILE=data/out/media-ai-run.pid
 export CODEX_HOME="$CODEX_DIR"
@@ -28,6 +33,11 @@ SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO="sudo"
 step() { printf '\n==> %s\n' "$*"; }
 die()  { printf 'Stopped: %s\n' "$*" >&2; exit 1; }
 running() { [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; }
+free_gb() { df -Pk / | awk 'NR == 2 { printf "%.1f", $4 / 1048576 }'; }
+check_disk() {
+  awk -v free="$(free_gb)" -v floor="$MIN_FREE_GB" 'BEGIN { exit !(free >= floor) }' \
+    || die "only $(free_gb) GB free on / (the floor is $MIN_FREE_GB GB): free space first (du -sh $CODEX_DIR/* /var/lib/docker)"
+}
 env_value() { grep -E "^$1=" "$2" 2>/dev/null | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//'; }
 
 
@@ -190,20 +200,30 @@ PY
 start() {
   running && { echo "Already running (pid $(cat "$PIDFILE")). Use 'status'."; return; }
   [ -f .env ] || die "run setup first"
+  check_disk
   mkdir -p data/out
   step "Starting the run in the background (log: $PWD/$LOG)"
   printf '\n== %s new run started\n' "$(date -u)" >> "$LOG"   # \n first: an old last line may lack one
+  # media-ai deletes each picture's Codex session files, and every Codex log between batches (--clean-codex-home);
+  # it exits 3 when it stopped early (the cap, the Codex plan limit or login, low disk), and then the backend pass
+  # must NOT start: before 2026-11-09 it did, and its '91 senses are left' hid the 2,000+ bundled senses still left.
   nohup setsid bash -c "
     set -u
     export PATH='$HOME/.local/bin':\"\$PATH\" CODEX_HOME='$CODEX_DIR' PYTHONUNBUFFERED=1   # log lines at once, not in 8 KB chunks
-    ( while sleep 1800; do find '$CODEX_DIR/generated_images' -name '*.png' -mmin +60 -delete 2>/dev/null; done ) &
-    echo \"== \$(date -u) bundled words\"
-    if uv run pipeline media-ai --all --workers $WORKERS --max-cost $MAX_COST --report data/out/media-ai.html \\
-       && echo \"== \$(date -u) backend words\" \\
-       && uv run pipeline media-ai --backend --all --workers $WORKERS --max-cost $MAX_COST --report data/out/media-ai-backend.html
-    then echo \"== \$(date -u) FINISHED (or stopped at the cap/plan limit: run start again to continue)\"
-    else echo \"== \$(date -u) STOPPED WITH AN ERROR (see above); fix it, then start again\"
-    fi
+    pass() {   # \$1 = bundled or backend, then extra options
+      local name=\"\$1\"; shift
+      echo \"== \$(date -u) \$name words\"
+      uv run pipeline media-ai --all \"\$@\" --workers $WORKERS --max-cost $MAX_COST --batch $BATCH \\
+        --clean-codex-home --min-free-gb $MIN_FREE_GB
+    }
+    rc=0
+    pass bundled --report data/out/media-ai.html || rc=\$?
+    [ \$rc -eq 0 ] && { pass backend --backend --report data/out/media-ai-backend.html || rc=\$?; }
+    case \$rc in
+      0) echo \"== \$(date -u) FINISHED: bundled and backend words are done\" ;;
+      3) echo \"== \$(date -u) STOPPED EARLY (the Claude cap, the Codex plan limit or login, or low disk; see the 'Stopped:' line above). Fix that or wait, then start again\" ;;
+      *) echo \"== \$(date -u) STOPPED WITH AN ERROR (see above); fix it, then start again\" ;;
+    esac
     kill 0
   " >> "$LOG" 2>&1 < /dev/null &
   echo $! > "$PIDFILE"
@@ -223,6 +243,11 @@ status() {
   done_count="$(awk '/new run started/ { c = 0; next } /^\[[0-9]+\/[0-9]+\]/ { c++ } END { print c + 0 }' "$LOG")"
   passed="$(awk '/new run started/ { c = 0; next } /^\[[0-9]+\/[0-9]+\].*: passed/ { c++ } END { print c + 0 }' "$LOG")"
   echo "--- this run so far: $done_count senses done, $passed passed (from the log)"
+  # The last 'left' line of each pass (the backend pass used to print last and hide the bundled number).
+  awk '/== .* bundled words/ { p = "bundled" } /== .* backend words/ { p = "backend" }
+       /senses are left/ { if (p == "bundled") b = $0; else k = $0 }
+       END { if (b != "") print "--- bundled: " b; if (k != "") print "--- backend: " k }' "$LOG"
+  echo "--- disk: $(free_gb) GB free on / (the run stops below $MIN_FREE_GB GB); Codex files: $(du -sh "$CODEX_DIR" 2>/dev/null | cut -f1)"
   # Live signs that do not wait for the log: picture files written since 'start', Codex calls working right now.
   if [ -f "$PIDFILE" ]; then
     echo "--- live: $(find data/media -type f -newer "$PIDFILE" 2>/dev/null | wc -l) picture files drawn since start," \

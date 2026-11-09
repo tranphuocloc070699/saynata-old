@@ -49,6 +49,7 @@
     uv run pipeline collection compare --claude      # data/out/collection-compare.html: Codex next to Claude (about $0.30)
     uv run pipeline collection push                  # dry run: what would go into the server cache word_lookup
     uv run pipeline collection push --yes            # write it (only after the developer's go-ahead)
+    uv run pipeline collection clear-hard-word-flags # dry run: word_lookup rows flagged only for hard words (--apply writes)
     uv run pipeline lines collect        # TASK-106.5: every definition and sentence x 7 languages into pipeline.db (no LLM)
     uv run pipeline lines write --limit 6 --batch 3  # the trial: Codex writes 6 lines of each language (no API cost)
     uv run pipeline lines write          # the full run, with Codex; safe to stop and run again
@@ -322,14 +323,22 @@ def generate_media_ai(args) -> None:
         pg.close()
         return
     try:
-        drawer = None if args.dry_run else media_ai.CodexDrawer()  # a dry run draws nothing, so it needs no Codex
+        # a dry run draws nothing, so it needs no Codex
+        drawer = None if args.dry_run else media_ai.CodexDrawer(clean=args.clean_codex_home)
     except ProviderStop as error:
         pg.close()
         raise SystemExit(f"media-ai: {error}")
     services = media_ai.Services(media_ai.make_fetch(args.scene_effort), drawer, media_dir)
+    if not args.dry_run:
+        base_url = args.media_base_url or os.environ.get("MEDIA_BASE_URL") or DEFAULT_MEDIA_BASE_URL
+        media_ai.forget_lost(store_, media_dir, is_on_server(base_url))
+        if args.clean_codex_home:
+            drawer.clean_home()  # what an earlier run left (a crash, a kill); no pipeline Codex runs yet
     summary = media_ai.run(
         store_, services, words=words or None, limit=args.limit or 100000, redo=args.redo,
         max_cost=args.max_cost, workers=args.workers, dry_run=args.dry_run,
+        batch=args.batch, between_batches=drawer.clean_home if drawer and args.clean_codex_home else None,
+        min_free_disk=int(args.min_free_gb * 1024 ** 3),
     )
     if not args.dry_run:
         media_ai.print_summary(summary, args.workers, args.max_cost)
@@ -337,6 +346,8 @@ def generate_media_ai(args) -> None:
         count = media_ai.write_report(rows, Path(args.report), media_dir)
         print(f"\nReport with {count} senses: {args.report}")
     pg.close()
+    if summary.stopped_by:  # the cap, a Codex plan limit or login, low disk, Ctrl-C: a script must not go on
+        raise SystemExit(media_ai.EXIT_STOPPED)
 
 
 def topic_words(args) -> None:
@@ -591,6 +602,8 @@ def collection_command(args) -> None:
         _push(db, args)
     elif args.collection_command == "batch":
         _batch(db, args)
+    elif args.collection_command == "clear-hard-word-flags":
+        _clear_hard_word_flags(db, args)
     elif args.collection_command == "revalidate":
         common = None
         if args.common_zipf is not None:
@@ -794,6 +807,21 @@ def _push(db, args) -> None:
     pg.close()
 
 
+def _clear_hard_word_flags(db, args) -> None:
+    from pipeline import collection
+
+    pg = postgres.connect(postgres.database_url(args.database_url), read_only=not args.apply)
+    found, changed = collection.clear_hard_word_flags(db, pg, args.apply)
+    pg.close()
+    for group, words in sorted(found.items()):
+        print(f"{len(words):>6}  {group}   e.g. {', '.join(words[:3])}")
+    to_clear = sum(len(words) for group, words in found.items() if group.startswith("clear"))
+    if args.apply:
+        print(f"Cleared needs_review on {changed} rows.")
+    else:
+        print(f"Dry run: nothing was written. {to_clear} rows would be cleared. Add --apply to write.")
+
+
 def report() -> None:
     db = store.connect()
     for row in db.execute("SELECT status, COUNT(*) AS n, SUM(attempts) AS calls FROM words GROUP BY status"):
@@ -980,6 +1008,12 @@ def main() -> None:
     ai_parser.add_argument("--scene-effort", choices=["low", "medium", "high", "xhigh", "max"],
                            help="thinking effort of the scene call (default: the API default); lower is cheaper")
     ai_parser.add_argument("--media-dir", default="data/media", help="folder for the files (default data/media)")
+    ai_parser.add_argument("--batch", type=int, default=0, help="wait for the running senses after every N senses "
+                           "(with --clean-codex-home: delete Codex's logs then); default 0, no batches")
+    ai_parser.add_argument("--clean-codex-home", action="store_true", help="delete Codex's session logs after each "
+                           "picture and every Codex log between batches; only for the pipeline's own CODEX_HOME (the VPS)")
+    ai_parser.add_argument("--min-free-gb", type=float, default=0, help="start no new sense when free disk on / is "
+                           "below this many GB (the VPS uses 2); default 0, no check")
     ai_parser.add_argument("--media-base-url", help="where the server serves the files (default MEDIA_BASE_URL "
                            "or https://api.saynata.com/media)")
     ai_parser.add_argument("--report", default="data/out/media-ai.html")
@@ -1076,6 +1110,10 @@ def main() -> None:
     c_push.add_argument("--limit", type=int)
     c_push.add_argument("--yes", action="store_true", help="write; without it this is a dry run")
     c_push.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    c_clear = collection_commands.add_parser(
+        "clear-hard-word-flags", help="one-time: drop needs_review on word_lookup rows flagged only for hard words")
+    c_clear.add_argument("--apply", action="store_true", help="write; without it this is a dry run")
+    c_clear.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     c_batch = collection_commands.add_parser("batch", help="Claude Haiku 5.5 through the Batch API (paid, half price; not through a gateway)")
     batch_commands = c_batch.add_subparsers(dest="batch_command", required=True)
     b_submit = batch_commands.add_parser("submit", help="send pending, failed and retry rows")
