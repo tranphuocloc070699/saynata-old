@@ -32,6 +32,10 @@ public class RefreshToken {
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
+    /** When it was swapped for a new pair (refresh). Null when it was signed out or revoked with all others. */
+    @Column(name = "rotated_at")
+    private Instant rotatedAt;
+
     protected RefreshToken() {
     }
 
@@ -52,6 +56,10 @@ public class RefreshToken {
 
     public Instant getExpiresAt() {
         return expiresAt;
+    }
+
+    public Instant getRotatedAt() {
+        return rotatedAt;
     }
 
     public Instant getRevokedAt() {

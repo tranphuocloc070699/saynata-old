@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-11-04T15:23:00Z'
-updated_date: '2026-11-04T16:08:00Z'
+updated_date: '2026-11-04T16:51:00Z'
 labels:
   - app-store
   - backend
@@ -24,7 +24,7 @@ Apple asks apps with Sign in with Apple to revoke the user's Apple tokens on acc
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 iOS sends the Apple authorization code at sign-in; the backend exchanges it and stores the Apple refresh token (encrypted or as a secret column)
+- [x] #1 iOS sends the Apple authorization code at sign-in; the backend exchanges it and stores the Apple refresh token (encrypted or as a secret column)
 - [x] #2 DELETE /api/me calls https://appleid.apple.com/auth/revoke for Apple accounts before deleting
 - [x] #3 A failed revoke is retried or logged, and the account is still deleted
 - [x] #4 Backend tests use a fake Apple endpoint; new env keys (team ID, key ID, private key) are in .env.example and doc-11
@@ -32,7 +32,7 @@ Apple asks apps with Sign in with Apple to revoke the user's Apple tokens on acc
 
 ## Definition of Done
 <!-- DOD:BEGIN -->
-- [ ] #1 Tests pass
+- [x] #1 Tests pass
 - [x] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [x] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
@@ -53,4 +53,6 @@ Apple asks apps with Sign in with Apple to revoke the user's Apple tokens on acc
 
 <!-- SECTION:NOTES:BEGIN -->
 Backend done and tested (AppleTokenRevokeTest, RemoteAppleTokenApiTest, AppleTokenCipherTest, SocialSignInTest, AuthFlowTest, AdminUserTest: 64 tests green). V41 (V40 is taken on the f8 branches). Env keys also in docker-compose.prod.yml. iOS sends credential.authorizationCode (OtherSignInTests); AC #1 stays open until the developer runs the iOS tests in Xcode. Known gap: web Apple sign-in sends no code, so web-only Apple accounts are not revoked (doc-17 known gaps).
+
+2026-11-04: developer tested feature/local (iOS tests and app). Left: release to main, run backend/scripts/set-apple-keys.sh on the server (PR #266), then check a real revoke in the log.
 <!-- SECTION:NOTES:END -->

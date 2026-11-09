@@ -37,7 +37,7 @@ Merge a PR when CI is green: `scripts/merge-when-green.sh <PR>` (no Claude chat 
 Clean up merged branches and worktrees: `scripts/clean-branches.sh` (dry run; `--apply` to delete, `--remote` for GitHub branches too).
 Install on the developer's real iPhone (build, then install or replace; open it by hand): `scripts/install-on-phone.sh` (signs with the paid account's real entitlements; `PAID_ACCOUNT=0` for a free Apple ID, without App Groups, the default-translation-app capability and Sign in with Apple).
 Install the Mac app on this Mac (build, replace, register the Services item, open it): `scripts/install-on-mac.sh` (`CONFIG=Debug`, `INSTALL_DIR=/Applications`, `AD_HOC=1` when Apple ID signing fails).
-Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
+Deploy the backend to a VPS: `cd /var/www/saynata/backend && ./scripts/deploy.sh` on the server (the repo lives in **`/var/www/saynata`** on `vps_sieutoc`, not `~/saynata`), or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 
 **Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
 `-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.
@@ -131,6 +131,7 @@ Follow the code that is already there; these are the rules it uses (TASK-12).
 - **Worktrees** (developer's rule, 2026-11-09): every worktree lives in `.claude/worktrees/<name>` (git-ignored), never in
   a folder next to the repo or in `/tmp`. One worktree per active task; it goes away when its PR merges. Long-lived
   branches are only `main`, `feature/local` and active `feature/f<n>-*` branches.
+- **A merge stopped on doc-7 or doc-9** (every task appends rows there): run `scripts/resolve-story-conflict.sh`, which keeps both sides' rows and one frontmatter value per key, then `git commit --no-edit`. Do not just delete the markers: a duplicated `updated_date` line breaks the backlog CLI ("doc-7 not found").
 - **Test branch `feature/local`** (developer's rule, 2026-10-16): finished work is merged into `feature/local` first,
   not into `main`. The developer tests from `feature/local`; only after they say the test succeeded does that work go
   to `main`. New PRs target `feature/local` (or their feature branch, which is then merged into `feature/local`).

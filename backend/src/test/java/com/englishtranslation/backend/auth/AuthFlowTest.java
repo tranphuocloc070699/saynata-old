@@ -50,6 +50,8 @@ class AuthFlowTest {
     @Autowired
     RefreshTokenRepository refreshTokens;
     @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+    @Autowired
     AuthService authService;
     @Autowired
     RateLimiter rateLimiter;
@@ -250,9 +252,57 @@ class AuthFlowTest {
         assertThat(second.get("user").get("email").asString()).isEqualTo(EMAIL);
         mockMvc.perform(get("/api/me").header("Authorization", "Bearer " + second.get("accessToken").asString()))
                 .andExpect(status().isOk());
-        // The used token is dead.
+        // The used token is dead once the reuse grace is over.
+        swappedLongAgo();
         postJson("/api/auth/refresh", "{\"refreshToken\": \"" + oldRefresh + "\"}")
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("invalid_refresh_token"));
+    }
+
+    /** Moves every swap time back past the reuse grace, as if the swap happened minutes ago. */
+    private void swappedLongAgo() {
+        jdbc.update("update refresh_token set rotated_at = ? where rotated_at is not null",
+                java.sql.Timestamp.from(java.time.Instant.now().minus(AuthService.REUSE_GRACE.multipliedBy(2))));
+    }
+
+    @Test
+    void theSameRefreshTokenSentAgainRightAwayGetsANewPairAndEndsNoSession() throws Exception {
+        // A lost answer (the backend restarted during the refresh) or the app and an extension refreshing at once.
+        String oldRefresh = signIn(EMAIL).get("refreshToken").asString();
+        String first = json.readTree(postJson("/api/auth/refresh", "{\"refreshToken\": \"" + oldRefresh + "\"}")
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .get("refreshToken").asString();
+
+        String again = json.readTree(postJson("/api/auth/refresh", "{\"refreshToken\": \"" + oldRefresh + "\"}")
+                .andExpect(status().isOk()).andReturn().getResponse().getContentAsString())
+                .get("refreshToken").asString();
+
+        assertThat(again).isNotEqualTo(first);
+        postJson("/api/auth/refresh", "{\"refreshToken\": \"" + first + "\"}").andExpect(status().isOk());
+        postJson("/api/auth/refresh", "{\"refreshToken\": \"" + again + "\"}").andExpect(status().isOk());
+    }
+
+    @Test
+    void aSignedOutTokenGetsNoGrace() throws Exception {
+        String refresh = signIn(EMAIL).get("refreshToken").asString();
+        postJson("/api/auth/sign-out", "{\"refreshToken\": \"" + refresh + "\"}");
+
+        postJson("/api/auth/refresh", "{\"refreshToken\": \"" + refresh + "\"}").andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void afterAllSessionsEndedNoOldTokenGetsTheGrace() throws Exception {
+        String t1 = signIn(EMAIL).get("refreshToken").asString();
+        String t2 = json.readTree(postJson("/api/auth/refresh", "{\"refreshToken\": \"" + t1 + "\"}")
+                .andReturn().getResponse().getContentAsString()).get("refreshToken").asString();
+        String t3 = json.readTree(postJson("/api/auth/refresh", "{\"refreshToken\": \"" + t2 + "\"}")
+                .andReturn().getResponse().getContentAsString()).get("refreshToken").asString();
+        swappedLongAgo();
+        // t1 is replayed late: every session ends.
+        postJson("/api/auth/refresh", "{\"refreshToken\": \"" + t1 + "\"}").andExpect(status().isUnauthorized());
+
+        // t2 was swapped recently enough in real time, but the revoke-all cleared its grace.
+        postJson("/api/auth/refresh", "{\"refreshToken\": \"" + t2 + "\"}").andExpect(status().isUnauthorized());
+        postJson("/api/auth/refresh", "{\"refreshToken\": \"" + t3 + "\"}").andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -262,6 +312,7 @@ class AuthFlowTest {
         String newRefresh = json.readTree(postJson("/api/auth/refresh", "{\"refreshToken\": \"" + oldRefresh + "\"}")
                 .andReturn().getResponse().getContentAsString()).get("refreshToken").asString();
 
+        swappedLongAgo();
         postJson("/api/auth/refresh", "{\"refreshToken\": \"" + oldRefresh + "\"}").andExpect(status().isUnauthorized());
 
         // The thief used the old token, so the new one is revoked too: the real user signs in again.

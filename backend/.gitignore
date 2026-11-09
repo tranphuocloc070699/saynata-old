@@ -34,3 +34,5 @@ build/
 
 ### Secrets ###
 .env
+# Backups made by scripts/set-apple-keys.sh: they hold the same secrets.
+.env.bak-*
