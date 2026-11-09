@@ -1,10 +1,10 @@
 ---
 id: TASK-133
 title: Clean up merged branches and worktrees
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-11-09 09:17'
-updated_date: '2026-11-09 09:23'
+updated_date: '2026-11-09 11:02'
 labels:
   - chore
 dependencies: []
@@ -40,3 +40,9 @@ Script, merge hook, CLAUDE.md and doc-7 done. Dry run (2026-11-09): 279 local an
 
 Cleanup ran 2026-11-09 (developer said yes): 6 worktrees removed, 283 local and 221 GitHub branches deleted.
 <!-- SECTION:NOTES:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+GitHub now deletes PR branches on merge and allows merge commits only; fetch.prune is on; scripts/clean-branches.sh removes merged worktrees and branches (dry run by default), and merge-when-green.sh runs it after each merge. One-time cleanup removed 6 worktrees, 283 local and 221 GitHub branches. The developer tested it on 2026-11-09 by merging PR #272: its worktree and local branch were removed.
+<!-- SECTION:FINAL_SUMMARY:END -->
