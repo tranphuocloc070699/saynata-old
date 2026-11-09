@@ -156,24 +156,23 @@ public class WordService {
         // Only a word that is not bundled and not cached gets here. A guest cannot cause a Claude call.
         timing.time("gate", gate::beforeNewCall);
         WordEntry entry = timing.time("llm", () -> claude.describeWord(normalized));
-        boolean needsReview = false;
         List<String> problems = simpleWords.problems(entry, normalized);
         if (!problems.isEmpty()) {
-            // One retry with feedback, never more. If it still fails, we save it and mark it (TASK-16).
+            // One retry with feedback, never more. If it still fails, we save it as it is. Hard words alone no longer
+            // flag the row for review (the admin list was 4,000 rows nobody fixed); the log and timing line keep them.
             WordEntry first = entry;
             List<String> firstProblems = problems;
             entry = timing.time("retry", () -> retryWithFeedback(normalized, first, firstProblems));
             problems = simpleWords.problems(entry, normalized);
-            needsReview = !problems.isEmpty();
-            if (needsReview) {
+            if (!problems.isEmpty()) {
                 timing.needsReview();
-                log.warn("'{}' saved with needsReview, still hard after the retry: {}", normalized, problems);
+                log.warn("'{}' saved (not flagged), still hard after the retry: {}", normalized, problems);
             }
         }
         try {
             WordLookup row = new WordLookup(
                     cacheKey, normalized, jsonMapper.writeValueAsString(entry), properties.model(),
-                    properties.wordPromptVersion(), needsReview);
+                    properties.wordPromptVersion(), false);
             row.setCefr(entry.firstCefr());
             timing.time("save", () -> repository.saveAndFlush(row));
             startMediaJob(row.getId(), normalized, entry);

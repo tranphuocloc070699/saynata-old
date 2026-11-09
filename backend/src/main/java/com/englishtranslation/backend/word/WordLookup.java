@@ -49,7 +49,7 @@ public class WordLookup {
         this(cacheKey, word, entryJson, model, promptVersion, false);
     }
 
-    /** needsReview is true when the entry still had hard words after the retry (TASK-16). */
+    /** needsReview is for rows a person must fix (a book word not on the word list). Hard words alone do not set it. */
     public WordLookup(String cacheKey, String word, String entryJson, String model, String promptVersion,
             boolean needsReview) {
         this.needsReview = needsReview;

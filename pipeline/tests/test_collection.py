@@ -429,7 +429,7 @@ def test_push_adds_new_words_and_never_overwrites(pg, db):
     assert [(w, m, v, r, cefr) for w, m, v, r, cefr, _ in saved] == [
         ("abide", "claude-haiku-5-5", "v7", False, None),  # the Claude row is untouched
         ("elevation", "codex:fake", "v7", False, "B1"),
-        ("giraffe", "codex:fake", "v7", True, "B1")]
+        ("giraffe", "codex:fake", "v7", False, "B1")]  # hard words alone: no flag
     assert json.loads(saved[1][5])["senses"][0]["examples"][0] == {"level": "easy", "text": "I give up."}
     # a bundled word is offered again (the dictionary may drop it later); the rest is marked pushed
     assert [r["text"] for r in c.push_rows(db, ["word"], include_review=True, limit=None)] == ["run"]
@@ -444,3 +444,59 @@ def test_revalidate_marks_entries_done_when_the_word_list_allows_them(db):
     assert c.revalidate(db, VOCAB | {"relinquish"}) == {"retry -> done": 1}
     row = status_of(db, "give up")
     assert row["status"] == "done" and json.loads(row["problems"]) == []
+
+
+# ---------- needs_review flag and the one-time cleanup ----------
+
+SHAPE_BAD = json.dumps({"senses": [{"pos": "noun", "cefr": "B1", "simpleDefinition": "a tall animal",
+                                    "vietnamese": "huou cao co", "examples": [], "usage": []}]})
+
+
+def test_needs_review_flags_shape_problems_but_not_hard_words(db):
+    add(db, "giraffe", "teapot", kind="word")
+    db.execute("UPDATE collection SET entry = ? WHERE text = 'giraffe'", (SHAPE_BAD,))
+    db.execute("UPDATE collection SET entry = ?, status = 'needs_review' WHERE text = 'teapot'",
+               (json.dumps({"senses": [{"pos": "noun", "cefr": "B1", "simpleDefinition": "relinquish it",
+                                        "vietnamese": "am tra", "usage": [], "examples": [
+                                            {"level": "easy", "text": "A."}, {"level": "medium", "text": "B."},
+                                            {"level": "harder", "text": "C."}]}]}),))
+    rows = {r["text"]: r for r in db.execute("SELECT * FROM collection")}
+    assert c.needs_review(rows["giraffe"]) and not c.needs_review(rows["teapot"])
+
+
+def test_classify_flagged_keeps_shape_and_book_flags_and_clears_the_rest():
+    vocab = {"a", "tall", "animal"}
+    good = json.dumps({"senses": [{"pos": "noun", "cefr": "B1", "simpleDefinition": "a tall animal",
+                                   "vietnamese": "x", "usage": [], "examples": [
+                                       {"level": "easy", "text": "A tall animal."},
+                                       {"level": "medium", "text": "A tall animal."},
+                                       {"level": "harder", "text": "A tall animal."}]}]})
+    hard = good.replace("a tall animal", "relinquish ubiquitous quixotic", 1)
+    assert c.classify_flagged("not json", "w", None, vocab) == c.KEEP_UNREADABLE
+    assert c.classify_flagged(SHAPE_BAD, "w", None, vocab) == c.KEEP_SHAPE
+    assert c.classify_flagged(good, "w", "not_on_list", vocab) == c.KEEP_BOOK
+    assert c.classify_flagged(good, "w", "name", vocab) == c.KEEP_BOOK
+    assert c.classify_flagged(hard, "w", "common", vocab) == c.CLEAR_HARD
+    assert c.classify_flagged(good, "w", None, vocab) == c.CLEAR_NONE
+
+
+def test_clear_hard_word_flags_dry_run_changes_nothing_and_apply_clears_only_the_right_rows(pg, db):
+    good = json.dumps({"senses": [{"pos": "noun", "cefr": "B1", "simpleDefinition": "a tall animal",
+                                   "vietnamese": "x", "usage": [], "examples": [
+                                       {"level": "easy", "text": "A tall animal."},
+                                       {"level": "medium", "text": "A tall animal."},
+                                       {"level": "harder", "text": "A tall animal."}]}]})
+    add(db, "vue", kind="word")
+    db.execute("UPDATE collection SET book_group = 'not_on_list', pushed_at = CURRENT_TIMESTAMP WHERE text = 'vue'")
+    with pg.cursor() as cursor:
+        for word, entry in (("vue", good), ("fox", good), ("odd", SHAPE_BAD)):
+            cursor.execute("INSERT INTO word_lookup (cache_key, word, entry_json, model, prompt_version, needs_review, "
+                           "created_at) VALUES (%s, %s, %s, 'm', 'v7', true, now())", (c.cache_key(word, "v7"), word, entry))
+    pg.commit()
+    found, changed = c.clear_hard_word_flags(db, pg, apply=False, vocabulary={"a", "tall", "animal"})
+    assert changed == 0 and found[c.CLEAR_NONE] == ["fox"] and found[c.KEEP_BOOK] == ["vue"]
+    found, changed = c.clear_hard_word_flags(db, pg, apply=True, vocabulary={"a", "tall", "animal"})
+    assert changed == 1
+    with pg.cursor() as cursor:
+        cursor.execute("SELECT word FROM word_lookup WHERE needs_review ORDER BY word")
+        assert [r[0] for r in cursor.fetchall()] == ["odd", "vue"]

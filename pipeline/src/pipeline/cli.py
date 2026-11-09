@@ -49,6 +49,7 @@
     uv run pipeline collection compare --claude      # data/out/collection-compare.html: Codex next to Claude (about $0.30)
     uv run pipeline collection push                  # dry run: what would go into the server cache word_lookup
     uv run pipeline collection push --yes            # write it (only after the developer's go-ahead)
+    uv run pipeline collection clear-hard-word-flags # dry run: word_lookup rows flagged only for hard words (--apply writes)
     uv run pipeline lines collect        # TASK-106.5: every definition and sentence x 7 languages into pipeline.db (no LLM)
     uv run pipeline lines write --limit 6 --batch 3  # the trial: Codex writes 6 lines of each language (no API cost)
     uv run pipeline lines write          # the full run, with Codex; safe to stop and run again
@@ -589,6 +590,8 @@ def collection_command(args) -> None:
         _push(db, args)
     elif args.collection_command == "batch":
         _batch(db, args)
+    elif args.collection_command == "clear-hard-word-flags":
+        _clear_hard_word_flags(db, args)
     elif args.collection_command == "revalidate":
         common = None
         if args.common_zipf is not None:
@@ -790,6 +793,21 @@ def _push(db, args) -> None:
     else:
         print(f"Added {collection.push(db, pg, plan, version)} rows to word_lookup.")
     pg.close()
+
+
+def _clear_hard_word_flags(db, args) -> None:
+    from pipeline import collection
+
+    pg = postgres.connect(postgres.database_url(args.database_url), read_only=not args.apply)
+    found, changed = collection.clear_hard_word_flags(db, pg, args.apply)
+    pg.close()
+    for group, words in sorted(found.items()):
+        print(f"{len(words):>6}  {group}   e.g. {', '.join(words[:3])}")
+    to_clear = sum(len(words) for group, words in found.items() if group.startswith("clear"))
+    if args.apply:
+        print(f"Cleared needs_review on {changed} rows.")
+    else:
+        print(f"Dry run: nothing was written. {to_clear} rows would be cleared. Add --apply to write.")
 
 
 def report() -> None:
@@ -1074,6 +1092,10 @@ def main() -> None:
     c_push.add_argument("--limit", type=int)
     c_push.add_argument("--yes", action="store_true", help="write; without it this is a dry run")
     c_push.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
+    c_clear = collection_commands.add_parser(
+        "clear-hard-word-flags", help="one-time: drop needs_review on word_lookup rows flagged only for hard words")
+    c_clear.add_argument("--apply", action="store_true", help="write; without it this is a dry run")
+    c_clear.add_argument("--database-url", help="default: DATABASE_URL in pipeline/.env")
     c_batch = collection_commands.add_parser("batch", help="Claude Haiku 5.5 through the Batch API (paid, half price; not through a gateway)")
     batch_commands = c_batch.add_subparsers(dest="batch_command", required=True)
     b_submit = batch_commands.add_parser("submit", help="send pending, failed and retry rows")
