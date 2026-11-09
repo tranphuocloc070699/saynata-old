@@ -71,7 +71,9 @@ struct SelectedTextResultView: View {
                         .font(.subheadline)
                         .foregroundStyle(Theme.Colors.textSecondary)
                 }
-                WordCardView(entry: entry, targetLanguage: store.targetLanguage, showsHeader: false)
+                WordCardView(
+                    entry: entry, targetLanguage: store.targetLanguage, showsHeader: false,
+                    onLanguageChange: changeLanguage)
             } else {
                 // Text the user is writing: the fix comes first, the explanation stays below it (option A mockup).
                 if let onReplace, route == .sentence, let fixStatus = FixStatus(state: store.state) {
@@ -95,7 +97,8 @@ struct SelectedTextResultView: View {
                     targetLanguage: store.targetLanguage,
                     onSuggestionTap: { word in Task { await store.lookUp(suggestion: word) } },
                     // Tapped words in the sentence open the word card, as in the app (TASK-89.2).
-                    loadWordEntry: { word in try await store.wordEntry(for: word) })
+                    loadWordEntry: { word in try await store.wordEntry(for: word) },
+                    onLanguageChange: changeLanguage)
                 // The extensions share the app's sign-in through the App Group Keychain, but they have no sign-in
                 // sheet: a signed-out user (or a free-account build, which has no App Group) signs in in the app.
                 if store.textNeedingSignIn != nil || showsLikeSignInNote {
@@ -163,6 +166,11 @@ struct SelectedTextResultView: View {
     }
 
     private let headerSpeechID = "selected-text"
+
+    /// The language menu on the result's language row: the sheet has no picker of its own.
+    private func changeLanguage(_ language: TargetLanguage) {
+        Task { await store.changeLanguage(to: language) }
+    }
 
     /// What the header speaker reads: the word as shown. A sentence result has its own Listen button.
     private var headerText: String? {

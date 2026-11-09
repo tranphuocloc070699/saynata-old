@@ -15,6 +15,8 @@ struct WordCardView: View {
     var targetLanguage: TargetLanguage = .vietnamese
     /// False when the caller draws its own header (the share sheet puts three buttons beside the word).
     var showsHeader = true
+    /// Set in the share and translation sheet: the language row's title becomes a menu to pick another language.
+    var onLanguageChange: ((TargetLanguage) -> Void)?
 
     /// Which folded row is open, for example "0-Vietnamese". Only one at a time per card (design rule 8).
     @State private var openRow = ""
@@ -26,10 +28,14 @@ struct WordCardView: View {
     private let wordSpeechID = "word"
     private var displayedWord: String { entry.matchedForm?.text ?? entry.word }
 
-    init(entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, showsHeader: Bool = true) {
+    init(
+        entry: WordEntry, targetLanguage: TargetLanguage = .vietnamese, showsHeader: Bool = true,
+        onLanguageChange: ((TargetLanguage) -> Void)? = nil
+    ) {
         self.entry = entry
         self.targetLanguage = targetLanguage
         self.showsHeader = showsHeader
+        self.onLanguageChange = onLanguageChange
         let startsOpen = TranslationRowPreference().startsOpen
         _openTargetRows = State(initialValue: startsOpen ? Set(entry.senses.indices) : [])
     }
@@ -95,7 +101,8 @@ struct WordCardView: View {
                                 if isOpen { openTargetRows.insert(index) } else { openTargetRows.remove(index) }
                                 TranslationRowPreference().rowChanged(isOpen: isOpen)
                             }),
-                        showsDivider: false
+                        showsDivider: false,
+                        language: onLanguageChange.map { change in Binding(get: { targetLanguage }, set: change) }
                     ) {
                         TargetLanguageRowContent(
                             sense: sense, language: targetLanguage, headword: entry.word, cardTexts: entry.senseDefinitions)

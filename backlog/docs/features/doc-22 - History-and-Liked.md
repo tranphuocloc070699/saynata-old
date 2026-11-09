@@ -2,8 +2,8 @@
 id: doc-22
 title: History and Liked
 type: other
-created_date: '2026-10-19 13:12'
-updated_date: '2026-11-04 06:23'
+created_date: 2026-10-19 13:12
+updated_date: '2026-11-04T16:07:00Z'
 ---
 # History and Liked
 
@@ -111,7 +111,7 @@ flowchart LR
 | Sign-in | [SyncEngine.swift:108](../../../EnglishTranslation/EnglishTranslation/Sync/SyncEngine.swift#L108) | `signedIn()` queues the whole local History once (flag in the outbox), then syncs. `signedOut()` drops the outbox and the cursor. Turning Sync history back on uploads again. |
 | Merge | [SyncEngine.swift:172](../../../EnglishTranslation/EnglishTranslation/Sync/SyncEngine.swift#L172) | Last write wins by time: a local row newer than the server row (or tombstone) is kept. Server rows go to the plain `HistoryStore`, so they do not come back as ops. `LikedStore.merge` ([LikedStore.swift:152](../../../EnglishTranslation/EnglishTranslation/History/LikedStore.swift#L152)) does the same for Liked and keeps the word label. |
 | Settings | [SettingsSync.swift:12](../../../EnglishTranslation/EnglishTranslation/Sync/SettingsSync.swift#L12) | `GET`/`PUT /api/me/settings`: language, Show translation and Sync history follow the account. A change is saved on the phone first and sent after 1 s; if it fails, a "dirty" mark makes the next launch send it instead of reading. |
-| Switch | [SettingsView.swift:209](../../../EnglishTranslation/EnglishTranslation/Views/Settings/SettingsView.swift#L209) | "Sync history" row at the end of the Translation card, shown for a signed-in user, on by default. Off: the server deletes its History and no history ops are queued. |
+| Switch | [SettingsView.swift:220](../../../EnglishTranslation/EnglishTranslation/Views/Settings/SettingsView.swift#L220) | "Sync history" row at the end of the Translation card, shown for a signed-in user, on by default. Off: the server deletes its History and no history ops are queued. |
 
 Show translation now defaults to **Remember last choice** ([TranslationRowPreference.swift:63](../../../EnglishTranslation/EnglishTranslation/Settings/TranslationRowPreference.swift#L63)). The server values are `collapsed`, `alwaysOpen`, `remember`.
 

@@ -68,10 +68,13 @@ private struct LanguageChip: View {
     @Environment(TranslationStore.self) private var store
 
     var body: some View {
-        @Bindable var store = store
+        // Not a plain binding: a sentence on screen must be asked again in the new language (changeLanguage).
+        let language = Binding(
+            get: { store.targetLanguage },
+            set: { picked in Task { await store.changeLanguage(to: picked) } })
 
         Menu {
-            Picker("Translate into", selection: $store.targetLanguage) {
+            Picker("Translate into", selection: language) {
                 ForEach(TargetLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }

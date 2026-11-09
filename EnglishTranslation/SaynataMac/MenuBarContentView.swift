@@ -81,14 +81,16 @@ struct MenuBarContentView: View {
     }
 
     private var header: some View {
-        @Bindable var store = store
 
         return HStack(spacing: Theme.Spacing.small) {
             Text("Saynata")
                 .font(.headline)
                 .foregroundStyle(Theme.Colors.textPrimary)
             Spacer()
-            Picker("Translate into", selection: $store.targetLanguage) {
+            // Not a plain binding: a sentence on screen is asked again in the new language (changeLanguage).
+            Picker("Translate into", selection: Binding(
+                get: { store.targetLanguage },
+                set: { picked in Task { await store.changeLanguage(to: picked) } })) {
                 ForEach(TargetLanguage.allCases) { language in
                     Text(language.title).tag(language)
                 }

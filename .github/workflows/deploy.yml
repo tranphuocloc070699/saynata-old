@@ -213,6 +213,10 @@ jobs:
       - name: Build
         if: env.VPS_HOST != '' && env.VPS_SSH_KEY != ''
         working-directory: web
+        # Sentry (TASK-128.4): next build puts the DSN into the bundle; the token uploads source maps. Both empty = no Sentry.
+        env:
+          NEXT_PUBLIC_SENTRY_DSN: ${{ vars.SENTRY_DSN_WEB }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           npm ci
           npm run build

@@ -3,11 +3,11 @@ id: doc-23
 title: Web app
 type: other
 created_date: 2026-10-23 10:24
-updated_date: '2026-11-02T17:22:00Z'
+updated_date: '2026-11-04T15:31:00Z'
 ---
 # Web app
 
-> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-10-25 (chip shortcuts, inline completion and ranked suggestions, TASK-116; before that a word the word API cannot answer goes to the sentence API, TASK-114.2; before that Download page, TASK-102.9; before that header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
+> Status: homepage (TASK-102.1) and sign-in (TASK-102) and History and Liked (TASK-102.6) built, privacy and terms pages (TASK-102.4) built; the other MVP pages not started (TASK-102). Last traced from code: 2026-11-04 (privacy and terms pages, footer links, TASK-102.4; before that sign-in guard, no "Sign in" pill on the sign-in pages, /history crash fix in useNow; before that chip shortcuts, inline completion and ranked suggestions, TASK-116; before that a word the word API cannot answer goes to the sentence API, TASK-114.2; before that Download page, TASK-102.9; before that header option B, Account History section and History glass style, TASK-102.8; before that summary markup, language-line reload, sense badge; before that account page, TASK-102.8; before that History and Liked, TASK-102.6; before that the language row shows the translated headword, TASK-106.8).
 > Spec: R1 and R2 in [Vision and spec](../doc-1%20-%20Vision-and-spec.md). Brainstorm and mockups: https://claude.ai/artifact/P4yQXKHykS8zMhFkFKtHyA
 
 ## What it does
@@ -162,17 +162,33 @@ sequenceDiagram
 
 | Part | File | What it does |
 |---|---|---|
-| Form | [SignInForm.tsx:53](../../../web/src/components/auth/SignInForm.tsx#L53) | Apple and Google pills first, then under "or" the email field ("Email me a code"), then the 6-digit code ([sendCode:146](../../../web/src/components/auth/SignInForm.tsx#L146), [verify:165](../../../web/src/components/auth/SignInForm.tsx#L165)). No emailed link: it opens `saynata://`, so it is app-only |
+| Form | [SignInForm.tsx:53](../../../web/src/components/auth/SignInForm.tsx#L53) | Apple and Google pills first, then under "or" the email field ("Email me a code"), then the 6-digit code ([sendCode:146](../../../web/src/components/auth/SignInForm.tsx#L153), [verify:172](../../../web/src/components/auth/SignInForm.tsx#L172)). No emailed link: it opens `saynata://`, so it is app-only. Guard: someone already signed in who opens `/sign-in` or `/sign-up` is sent on to `?next=` (or home) at once ([SignInForm.tsx:71](../../../web/src/components/auth/SignInForm.tsx#L71); the session is in localStorage, so the form can flash for a moment first) |
 | Google | [google:99](../../../web/src/components/auth/SignInForm.tsx#L99) | Redirect to Google with `response_type=id_token`; the state and raw nonce wait in sessionStorage (`saynata.google-sign-in`); back on `/sign-in` the ID token is read from the address hash |
 | Apple | [apple:121](../../../web/src/components/auth/SignInForm.tsx#L121) | AppleID JS in a popup with the Services ID |
 | Client | [auth.ts:52](../../../web/src/lib/auth.ts#L52) | `AuthApi`: email-code, verify, google, apple, refresh, sign-out. Auth errors (`invalid_code` etc.) show the server's text |
 | Session | [auth.ts:121](../../../web/src/lib/auth.ts#L121) | `BrowserTokens`: the session in localStorage (`saynata.session`), refreshed 60 s before it expires, one shared refresh; a 401 on refresh signs out, a network error keeps the session. It is the `TokenSource` of every `SaynataApi` |
-| Header (option B, TASK-102.8) | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx](../../../web/src/components/auth/AccountMenu.tsx) | Logo home. A guest sees only the "Sign in" pill. A signed-in user sees a History icon button (`/history`) and an avatar circle (`bg-accent`, `text-on-accent`, the first letter of the email, [avatarLetter](../../../web/src/lib/account.ts)). The avatar button (aria-label "Account menu", `aria-expanded`) opens a menu: the email (small, muted) on top, then Settings, Account and Sign out. The email is never in the header itself. The menu closes on Escape (focus returns to the avatar), on a click outside and on Tab; ArrowUp/Down, Home and End move between the items; the first item gets focus when it opens |
+| Header (option B, TASK-102.8) | [SiteHeader.tsx](../../../web/src/components/SiteHeader.tsx), [AccountMenu.tsx](../../../web/src/components/auth/AccountMenu.tsx) | Logo home. A guest sees the Download icon (the same white circle as the History button) and the "Sign in" pill; on `/sign-in` and `/sign-up` the pill is hidden, since the form is right there. A signed-in user sees a History button (`/history`; a 44 px white circle with a hairline and soft shadow, the IconButton default look, 2026-11-04) and an avatar circle (`bg-accent`, `text-on-accent`, the first letter of the email, [avatarLetter](../../../web/src/lib/account.ts)). The avatar button (aria-label "Account menu", `aria-expanded`) opens a menu: the email (small, muted) on top, then Settings, Account and Sign out. The email is never in the header itself. The menu closes on Escape (focus returns to the avatar), on a click outside and on Tab; ArrowUp/Down, Home and End move between the items; the first item gets focus when it opens |
 | Account page (TASK-102.8) | [AccountPage.tsx](../../../web/src/components/auth/AccountPage.tsx), [account.ts](../../../web/src/lib/account.ts) | `/account`: profile card (pixel cat, email, "Member since October 2026 · Google" from `GET /api/me`, Sign out icon), three stat tiles (Words looked up, Liked, AI answers today as "7 / 50"), a **History section** (the 5 most recent items from the same sync store as `/history`, in the same glass rows, with a "See all" link to `/history`; a short empty state when there are none) and a Delete account row. A guest is sent to `/sign-in?next=/account`. Delete is two taps: the red trash icon, then it turns into a confirm state (with Cancel); confirm calls `DELETE /api/me`, `browserTokens.signOut()`, then goes home. `AccountApi` sends the Bearer token and retries once after a refresh |
 | After sign-in | [safeNextPath:257](../../../web/src/lib/auth.ts#L257) | Goes to `?next=` only when it is a path on this site, else `/` |
 
 Client IDs: `NEXT_PUBLIC_GOOGLE_CLIENT_ID` (default: the web OAuth client) and `NEXT_PUBLIC_APPLE_SERVICES_ID` (default `com.saynata.web`),
 [auth.ts:266](../../../web/src/lib/auth.ts#L266). The backend must list both in `GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS` (doc-11 section 13, doc-17).
+
+## Privacy and terms (TASK-102.4)
+
+Two plain reading pages for Google brand verification, the App Store (guideline 5.1.1) and Sign in with Apple. Both use
+[LegalPage.tsx](../../../web/src/components/legal/LegalPage.tsx): the header, an h1, "Last updated" (`LEGAL_UPDATED`),
+an intro and `LegalSection`s in a 680 px column, then `LegalFooter`.
+
+| Route | File | What it says |
+|---|---|---|
+| `/privacy` | [privacy/page.tsx](../../../web/src/app/privacy/page.tsx) | What we keep and why (email, Apple/Google account ID, History if sync is on and the latest 1,000, Liked, settings, AI use rows, the shared library not linked to anyone, IP only in memory for rate limits), who gets data (our server, DeepSeek and Gemini, PostHog, Sentry, Resend, Apple and Google), how long (codes 10 min, links 15 min, sessions 60 days, PostHog up to 1 year, Sentry up to 90 days), how to delete the account (app Settings, or web `/account`, or email), rights, children, changes. The PostHog line follows the privacy rule in `docs/analytics/events.md`: never what was looked up, typed, selected or copied |
+| `/terms` | [terms/page.tsx](../../../web/src/app/terms/page.tsx) | What Saynata is, AI answers can be wrong, account, fair use (no scraping, no getting around limits), content, no guarantee, link to the policy, contact |
+
+Links: the homepage footer (`LegalFooter` with the "Simple English first" line, [page.tsx](../../../web/src/app/page.tsx)), the
+footer of both legal pages, and "Terms" and "Privacy Policy" in the note under the sign-in and sign-up form
+([SignInForm.tsx](../../../web/src/components/auth/SignInForm.tsx)). The contact address is `CONTACT_EMAIL` in `LegalPage.tsx`.
+**Change the policy whenever a flow it names changes** (a new service, a new table with personal data, a new lifetime), and bump `LEGAL_UPDATED`.
 
 ## Download (TASK-102.9)
 
@@ -226,6 +242,7 @@ Tests: `web/test/downloads.test.ts` (device detection and order, soon renders no
 | `web/test/auth.test.ts` | Auth calls and errors, the stored session, refresh before expiry, one shared refresh, sign-out on 401, `makeNonce`, `safeNextPath`, `isValidEmail` |
 | `web/test/account.test.ts` | `AccountApi` (Bearer, DELETE, one refresh, no token, errors), `memberLine`, `statTiles`, `avatarLetter`, the guest redirect path |
 | `web/test/settings.test.ts` | Account load and save (Bearer, PUT body, one retry after 401, unknown values), a guest keeps localStorage and sends nothing, a signed-in change applies at once, a failed load keeps the local settings, `translationRowOpen` |
+| `web/test/legal.test.ts` | `/privacy` and `/terms` render with their titles; the policy names our server, DeepSeek, Gemini, PostHog, Sentry and Resend, the no-looked-up-text rule, what we keep, how long and Delete account; the footer links both |
 | `web/test/downloads.test.ts` | Device detection and card order, soon has no link, live opens the store url in a new tab, QR only for a non-iPhone visitor |
 | `web/test/summaryMarkup.test.ts` | Bullets, bold, an unclosed `**` while streaming, `plainSummary` |
 | `web/test/explain.test.ts` | `startState`, word result, meaning growing piece by piece, sign-in message, nothing after a cancel |

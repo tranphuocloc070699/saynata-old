@@ -31,7 +31,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
-/** POST /api/translate-lines with sign-in required: hit, miss, cachedOnly, guest, bad input. Claude is a mock. */
+/**
+ * POST /api/translate-lines with sign-in required: hit, miss, cachedOnly, guest, bad input. Claude is a mock.
+ * A miss asks the requested language first ({@code translateLines}), then the background fill asks all languages
+ * ({@code translateLinesAllLanguages}); in tests the fill runs at once (app.lines.fill-in-background=false).
+ */
 @SpringBootTest(properties = { "app.claude.api-key=test-key", "app.auth.require-sign-in=true" })
 @AutoConfigureMockMvc
 class TranslateLinesApiTest {
@@ -59,6 +63,11 @@ class TranslateLinesApiTest {
         token = accessTokens.createToken(id);
     }
 
+    /** The fast one-language answer: these lines, in order. */
+    private void fast(String... lines) {
+        when(claude.translateLines(any(), anyList())).thenReturn(List.of(lines));
+    }
+
     private ResultActions send(String query, String body, boolean signedIn) throws Exception {
         var request = post("/api/translate-lines" + query).contentType(MediaType.APPLICATION_JSON).content(body);
         if (signedIn) {
@@ -76,7 +85,8 @@ class TranslateLinesApiTest {
     }
 
     @Test
-    void aMissAsksClaudeOnceForAllMissesAndKeepsTheOrder() throws Exception {
+    void aMissAsksTheRequestedLanguageFirstThenFillsAllLanguages() throws Exception {
+        fast("moi", "hai");
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi", "hai"));
 
         send("", body("ko", "one", "two"), true).andExpect(status().isOk())
@@ -87,12 +97,14 @@ class TranslateLinesApiTest {
                 .andExpect(jsonPath("$.lines[0].cached").value(false))
                 .andExpect(jsonPath("$.lines[1].translation").value("hai"));
 
+        verify(claude, times(1)).translateLines(TargetLanguage.KO, List.of("one", "two"));
         verify(claude, times(1)).translateLinesAllLanguages(List.of("one", "two"));
         assertThat(lines.findAll()).hasSize(14).allMatch(line -> line.getSource().equals("llm"));
     }
 
     @Test
     void theSecondRequestComesFromTheCacheWithoutAnLlmCall() throws Exception {
+        fast("moi");
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
         send("", body("ko", "one"), true).andExpect(status().isOk());
 
@@ -101,11 +113,12 @@ class TranslateLinesApiTest {
                 .andExpect(jsonPath("$.lines[0].translation").value("moi"))
                 .andExpect(jsonPath("$.lines[0].cached").value(true));
 
+        verify(claude, times(1)).translateLines(any(), anyList());
         verify(claude, times(1)).translateLinesAllLanguages(anyList());
     }
 
     @Test
-    void oneCallSavesEveryLanguageAndAnotherLanguageIsCached() throws Exception {
+    void theFillSavesEveryLanguageAndAnotherLanguageIsCached() throws Exception {
         var item = new java.util.EnumMap<TargetLanguage, String>(TargetLanguage.class);
         item.put(TargetLanguage.VI, "vi line");
         item.put(TargetLanguage.JA, "ja line");
@@ -114,6 +127,7 @@ class TranslateLinesApiTest {
         item.put(TargetLanguage.FR, "fr line");
         item.put(TargetLanguage.ES, "es line");
         item.put(TargetLanguage.DE, "de line");
+        fast("ko line");
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(List.of(item));
 
         send("", body("ko", "one"), true).andExpect(status().isOk())
@@ -122,7 +136,29 @@ class TranslateLinesApiTest {
 
         send("", body("ja", "one"), true).andExpect(jsonPath("$.lines[0].translation").value("ja line"))
                 .andExpect(jsonPath("$.lines[0].cached").value(true));
+        verify(claude, times(1)).translateLines(any(), anyList());
         verify(claude, times(1)).translateLinesAllLanguages(anyList());
+    }
+
+    @Test
+    void theFillDoesNotSaveTheRequestedLanguageAgain() throws Exception {
+        fast("fast ko");
+        when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("fill"));
+
+        send("", body("ko", "one"), true).andExpect(jsonPath("$.lines[0].translation").value("fast ko"));
+        send("", body("ko", "one"), true).andExpect(jsonPath("$.lines[0].translation").value("fast ko"))
+                .andExpect(jsonPath("$.lines[0].cached").value(true));
+        assertThat(lines.findAll()).hasSize(7);
+    }
+
+    @Test
+    void aFailedFillStillAnswersTheRow() throws Exception {
+        fast("ko line");
+        when(claude.translateLinesAllLanguages(anyList())).thenThrow(new IllegalStateException("model down"));
+
+        send("", body("ko", "one"), true).andExpect(status().isOk())
+                .andExpect(jsonPath("$.lines[0].translation").value("ko line"));
+        assertThat(lines.findAll()).hasSize(1);
     }
 
     @Test
@@ -130,6 +166,7 @@ class TranslateLinesApiTest {
         var item = new java.util.EnumMap<TargetLanguage, String>(TargetLanguage.class);
         item.put(TargetLanguage.KO, "ko line");
         item.put(TargetLanguage.JA, "  ");
+        fast("  ");
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(List.of(item));
 
         send("", body("ja", "one"), true).andExpect(status().isOk())
@@ -139,6 +176,7 @@ class TranslateLinesApiTest {
 
     @Test
     void onlyTheMissesGoToClaude() throws Exception {
+        when(claude.translateLines(any(), anyList())).thenReturn(List.of("moi"), List.of("hai"));
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"), every("hai"));
         send("", body("vi", "one"), true).andExpect(status().isOk());
 
@@ -147,11 +185,13 @@ class TranslateLinesApiTest {
                 .andExpect(jsonPath("$.lines[1].cached").value(false))
                 .andExpect(jsonPath("$.lines[1].translation").value("hai"));
 
+        verify(claude).translateLines(TargetLanguage.VI, List.of("two"));
         verify(claude).translateLinesAllLanguages(List.of("two"));
     }
 
     @Test
     void cachedOnlyNeverCallsClaudeAndMissesAreNull() throws Exception {
+        fast("moi");
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
         send("", body("vi", "one"), true).andExpect(status().isOk());
 
@@ -170,11 +210,13 @@ class TranslateLinesApiTest {
         send("", body("vi", "one"), false).andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("sign_in_required"));
 
+        verify(claude, never()).translateLines(any(), anyList());
         verify(claude, never()).translateLinesAllLanguages(anyList());
     }
 
     @Test
     void aGuestHitNeedsNoSignIn() throws Exception {
+        fast("moi");
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
         send("", body("vi", "one"), true).andExpect(status().isOk());
 
@@ -213,6 +255,11 @@ class TranslateLinesApiTest {
             texts[i] = "text " + i;
             answers.add(LinesFixtures.item("line " + i));
         }
+        List<String> fastLines = new ArrayList<>();
+        for (int i = 0; i < 20; i++) {
+            fastLines.add("line " + i);
+        }
+        when(claude.translateLines(any(), anyList())).thenReturn(fastLines);
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(answers);
 
         send("", body("vi", texts), true).andExpect(status().isOk())
@@ -222,12 +269,14 @@ class TranslateLinesApiTest {
 
     @Test
     void theSameTextTwiceInOneRequestIsAskedOnce() throws Exception {
+        fast("moi");
         when(claude.translateLinesAllLanguages(anyList())).thenReturn(every("moi"));
 
         send("", body("vi", "one", "one"), true).andExpect(status().isOk())
                 .andExpect(jsonPath("$.lines[0].translation").value("moi"))
                 .andExpect(jsonPath("$.lines[1].translation").value("moi"));
 
+        verify(claude).translateLines(TargetLanguage.VI, List.of("one"));
         verify(claude).translateLinesAllLanguages(List.of("one"));
     }
 

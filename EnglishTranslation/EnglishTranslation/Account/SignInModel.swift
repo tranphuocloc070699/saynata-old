@@ -147,9 +147,10 @@ final class SignInModel {
         return SignInSecrets.sha256Hex(nonce)
     }
 
-    /// Apple answered. `idToken` is the credential's identity token; `error` is set when Apple failed or the user
-    /// closed the sheet (`isCancel` true: nothing is shown).
-    func finishApple(idToken: String?, error: Error?, isCancel: Bool) async {
+    /// Apple answered. `idToken` is the credential's identity token; `authorizationCode` its one-time code (sent
+    /// so the backend can revoke Sign in with Apple when the account is deleted); `error` is set when Apple failed
+    /// or the user closed the sheet (`isCancel` true: nothing is shown).
+    func finishApple(idToken: String?, authorizationCode: String? = nil, error: Error?, isCancel: Bool) async {
         guard !isBusy else { return }
         if isCancel { return }
         guard error == nil, let idToken, let nonce = appleNonce else {
@@ -160,7 +161,8 @@ final class SignInModel {
         errorMessage = nil
         noticeMessage = nil
         do {
-            try await account.signIn(with: .apple, idToken: idToken, nonce: nonce)
+            try await account.signIn(with: .apple, idToken: idToken, nonce: nonce,
+                                     authorizationCode: authorizationCode)
             appleNonce = nil
             finish()
         } catch {

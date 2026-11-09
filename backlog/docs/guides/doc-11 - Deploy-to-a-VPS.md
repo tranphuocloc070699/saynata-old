@@ -2,10 +2,12 @@
 id: doc-11
 title: Deploy to a VPS
 type: guide
-created_date: '2026-10-11 16:33'
-updated_date: '2026-10-26 10:44'
+created_date: 2026-10-11 16:33
+updated_date: '2026-11-05T08:26:00Z'
 ---
 # Deploy to a VPS
+
+> **On the live server (`vps_sieutoc`) the repo lives in `/var/www/saynata`** (not `~/saynata`; `VPS_APP_DIR` secret). Every server command below uses that path.
 
 How to run the Saynata backend on a small server (about 10 USD per month) so the iPhone app works anywhere.
 You do each step yourself. No secrets are in git.
@@ -38,11 +40,11 @@ The backend has a health check on `/actuator/health` (it shows only `UP` or `DOW
 The simplest way is to clone the repo on the server:
 
 ```bash
-git clone https://github.com/tranphuocloc070699/saynata.git ~/saynata
-cd ~/saynata/backend
+git clone https://github.com/tranphuocloc070699/saynata.git /var/www/saynata
+cd /var/www/saynata/backend
 ```
 
-Or copy only the `backend/` folder: `rsync -av --exclude target backend/ user@SERVER:~/saynata/`.
+Or copy only the `backend/` folder: `rsync -av --exclude target backend/ user@SERVER:/var/www/saynata/`.
 
 ## 2. Set the .env file
 
@@ -80,6 +82,9 @@ nano .env
 | `PUBLIC_BASE_URL` | Optional. The public HTTPS address of the backend, default `https://api.saynata.com`. The sign-in link email points to `PUBLIC_BASE_URL/auth/link?token=...`. **Change it when the domain moves** (section 13). |
 | `APP_URL_SCHEME` | Optional. The app's URL scheme the link page opens, default `saynata` (`saynata://sign-in?token=...`). |
 | `APPLE_APP_IDS` | Optional, paid Apple account only. `TEAMID.com.luke.EnglishTranslation`. Set = `/.well-known/apple-app-site-association` is served, so iOS opens the emailed link in the app directly (section 13). |
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY` | Paid Apple account. The team ID, and the ID and `.p8` text of a "Sign in with Apple" key (section 13, "Revoke on delete"). With `APPLE_TOKEN_ENCRYPTION_KEY` they make the backend keep each Apple account's refresh token and revoke it when the account is deleted (App Store rule, TASK-112.3). `APPLE_PRIVATE_KEY` may be on one line with `\n` written for each newline. Any of the four empty = Apple sign-in still works, but nothing is revoked (a warning is logged at start). |
+| `APPLE_TOKEN_ENCRYPTION_KEY` | 32 random bytes, base64: `openssl rand -base64 32`. Encrypts the stored Apple refresh tokens (AES-256-GCM). **Set it once and keep it**: with a new key the old tokens cannot be read, so those accounts are deleted without a revoke (logged as an error). |
+| `APPLE_AUTH_BASE_URL` | Optional. Default `https://appleid.apple.com`. Only tests change it. |
 | `REQUIRE_SIGN_IN` | Optional. `true` (default): a guest cannot cause a new Claude call (401). **Set `REQUIRE_SIGN_IN=false` until the app with sign-in is released**, because the current app sends no token. Rate limits and the daily budget cap still apply to guests' Claude calls while it is false (a guest IP may cause 30 new calls per hour, `LIMIT_CLAUDE_GUEST_IP_MAX`). Remove the line, or set `true`, when the new app is out. |
 | `LLM_DAILY_BUDGET_USD` | Optional. The most the language models may cost per day in US dollars (UTC day). Default `1.00`. At the cap, new explanations stop until midnight UTC; cached words still work. Prices are in `application.properties` (`app.claude.pricing.*`). |
 | `PREFILL_CRON` | Optional. When the prefill job runs by itself (TASK-83.1, feature page "Prefill"): a six-field Spring cron (`second minute hour day month weekday`) in **UTC**. Empty (default) = it never runs by itself. A night run in Vietnam: `PREFILL_CRON=0 0 20 * * *` (20:00 UTC = 03:00). You can always start a run by hand with `POST /api/admin/prefill/run`. |
@@ -179,7 +184,7 @@ The Claude key stays on the server. The app never sends one.
 
 After CI passes on `main`, [.github/workflows/deploy.yml](../../../.github/workflows/deploy.yml) runs four jobs:
 
-1. `prepare` logs in to the VPS over SSH and moves `~/saynata` to the commit CI tested (`git merge --ff-only`), once. It also
+1. `prepare` logs in to the VPS over SSH and moves `/var/www/saynata` to the commit CI tested (`git merge --ff-only`), once. It also
    finds which parts changed (`git diff HEAD^1 HEAD`): backend, admin, web. A change in `.github/workflows/` counts for all
    parts, and a manual run deploys all parts.
 2. `deploy` (backend), `deploy-admin` and `deploy-web` wait only for `prepare`, so they **run at the same time**, and a
@@ -228,11 +233,11 @@ One-time setup (steps 1-3 above must be done first; the repo can live in `~/sayn
 | `VPS_PORT` | Optional. Default 22. |
 | `VPS_SSH_KEY` | The whole private key: `cat ~/.ssh/saynata_deploy` |
 | `VPS_KNOWN_HOSTS` | The `ssh-keyscan` output from step 3 |
-| `VPS_APP_DIR` | Optional. Repo folder on the server: an absolute path such as `/var/www/saynata`, or a path relative to the user's home. Default `saynata` (`~/saynata`). |
+| `VPS_APP_DIR` | Optional. Repo folder on the server: an absolute path such as `/var/www/saynata`, or a path relative to the user's home. Default `saynata` (`/var/www/saynata`). |
 
 5. Test: Actions tab, **Deploy**, **Run workflow**. Then `curl https://<your domain>/actuator/health`.
 
-Rules: never edit files inside `~/saynata` on the server (except `backend/.env`, which git ignores), or the
+Rules: never edit files inside `/var/www/saynata` on the server (except `backend/.env`, which git ignores), or the
 fast-forward fails. The private key lives only in GitHub secrets and on your Mac, never in git or in a chat.
 The deploy user must be able to run `docker` (`sudo usermod -aG docker <user>`).
 
@@ -245,7 +250,7 @@ at `api.saynata.com` stays the same (its `/api/admin/**` login and CORS for `htt
 2. Build. The Deploy workflow does this for you after every push to main (section 7). By hand, on the server or on your Mac (then copy `admin/dist`), with Node 20 or newer:
 
 ```bash
-cd ~/saynata/admin
+cd /var/www/saynata/admin
 npm ci
 VITE_API_URL=https://api.saynata.com npm run build     # writes admin/dist
 ```
@@ -255,7 +260,7 @@ VITE_API_URL=https://api.saynata.com npm run build     # writes admin/dist
 
 ```caddyfile
 admin.saynata.com {
-    root * /home/youruser/saynata/admin/dist
+    root * /var/www/saynata/admin/dist
     encode gzip
     try_files {path} /index.html
     file_server
@@ -265,7 +270,7 @@ admin.saynata.com {
 4. Run `sudo systemctl reload caddy`, then open `https://admin.saynata.com` and sign in.
 
 Updates are automatic: the `deploy-admin` job replaces `admin/dist` after each push to main, and Caddy reads the new files at once, no restart. By hand, run step 2 again.
-The Caddy user must be able to read the folder (`chmod -R o+rX ~/saynata/admin/dist`, and `chmod o+x` on each parent folder).
+The Caddy user must be able to read the folder (`chmod -R o+rX /var/www/saynata/admin/dist`, and `chmod o+x` on each parent folder).
 CI builds and tests the admin app on every pull request (`admin` job in `.github/workflows/ci.yml`).
 
 ## 9. Dictionary pipeline: Postgres and media (TASK-49.3)
@@ -634,7 +639,7 @@ The admin web app can draw an AI picture for one sense: Sparkles button, edit th
    scp ~/.codex/auth.json vps_sieutoc:~/auth.json
    ssh vps_sieutoc 'sudo mv ~/auth.json /var/lib/saynata/codex/auth.json && sudo chown 10001:10001 /var/lib/saynata/codex/auth.json && sudo chmod 600 /var/lib/saynata/codex/auth.json'
    ```
-4. In `~/saynata/backend/.env` on the server set `AI_PICTURES_ENABLED=true`. Then deploy again (`./scripts/deploy.sh`, or push to main). The first build downloads Codex from GitHub.
+4. In `/var/www/saynata/backend/.env` on the server set `AI_PICTURES_ENABLED=true`. Then deploy again (`./scripts/deploy.sh`, or push to main). The first build downloads Codex from GitHub.
 5. Test that Codex is signed in inside the container, then draw one picture from the admin:
    ```bash
    docker compose -f docker-compose.prod.yml exec backend codex login status    # Logged in using ChatGPT
@@ -670,7 +675,14 @@ The app can sign in four ways: the email code (sections 10 and 11), an emailed *
 
 1. developer.apple.com, Certificates, Identifiers & Profiles, Identifiers, `com.luke.EnglishTranslation`: turn on **Sign in with Apple**. The app's `EnglishTranslation.entitlements` already asks for it.
 2. Install with `PAID_ACCOUNT=1 scripts/install-on-phone.sh`. A free Apple ID cannot sign this capability, so on a free build the Apple button shows "Sign in with Apple did not work".
-3. Nothing on the server: `APPLE_CLIENT_IDS` already has the bundle IDs.
+3. Nothing more is needed for sign-in: `APPLE_CLIENT_IDS` already has the bundle IDs.
+
+**Revoke on delete (TASK-112.3, App Store rule):** Apple asks that deleting the account also revokes the user's Sign in with Apple tokens. The app sends Apple's one-time authorization code at sign-in; the backend swaps it for a refresh token (stored encrypted) and calls `https://appleid.apple.com/auth/revoke` when the account is deleted. It needs a key:
+
+1. developer.apple.com, Certificates, Identifiers & Profiles, **Keys**, +: name it "Saynata Sign in with Apple", tick **Sign in with Apple**, Configure, primary App ID `com.luke.EnglishTranslation`, Save, Continue, Register.
+2. **Download** the `.p8` file (only once possible) and note the **Key ID**. The **Team ID** is at the top right of the developer page (Membership details).
+3. Server: copy the `.p8` there (`scp AuthKey_XXXXXXXXXX.p8 vps_sieutoc:~/`), then run `/var/www/saynata/backend/scripts/set-apple-keys.sh ~/AuthKey_XXXXXXXXXX.p8 <TEAM_ID>`. It checks the inputs, backs up `backend/.env`, writes `APPLE_TEAM_ID`, `APPLE_KEY_ID` (from the file name), `APPLE_PRIVATE_KEY` (one line, newlines as `\n`) and a new `APPLE_TOKEN_ENCRYPTION_KEY` (kept if already set), and offers to run `./scripts/deploy.sh`. Safe to run again. Then delete the `.p8` from the server.
+4. Check: the start log no longer says "Apple token keys are not set". Sign in with Apple once on the phone, delete the account in Settings, and the log says "Revoked the Apple token of user ...". Accounts that signed in with Apple before this have no stored token; their delete logs "nothing to revoke".
 
 **Web (saynata.com, TASK-102):** the website's `/sign-in` and `/sign-up` pages offer Apple, Google and the email code (no emailed link: it opens the app). Google and Apple need their own web clients:
 
@@ -892,7 +904,7 @@ If `restic version` shows a very old release (apt can be behind), run `sudo rest
 **4. Fill `backend/.env` on the VPS.** The new keys are in `.env.example`:
 
 ```bash
-cd ~/saynata/backend
+cd /var/www/saynata/backend
 nano .env
 #   RESTIC_REPOSITORY=s3:https://<account id>.r2.cloudflarestorage.com/saynata-backup
 #   RESTIC_PASSWORD=<a long random password: openssl rand -base64 32>
@@ -908,7 +920,7 @@ The R2 key has its own names (`R2_*`) because `AWS_ACCESS_KEY_ID` in the same fi
 **5. Create the restic repository (once).**
 
 ```bash
-cd ~/saynata/backend
+cd /var/www/saynata/backend
 export RESTIC_REPOSITORY='s3:https://<account id>.r2.cloudflarestorage.com/saynata-backup'
 export RESTIC_PASSWORD='<the RESTIC_PASSWORD from .env>'
 export AWS_ACCESS_KEY_ID='<R2 Access Key ID>' AWS_SECRET_ACCESS_KEY='<R2 Secret Access Key>' AWS_DEFAULT_REGION=auto
@@ -920,7 +932,7 @@ restic init
 
 ```bash
 sudo mkdir -p /var/backups/saynata && sudo chown "$USER": /var/backups/saynata
-~/saynata/backend/scripts/backup.sh
+/var/www/saynata/backend/scripts/backup.sh
 # [...] Dumping Postgres ... restic backup ... snapshot abc123 saved ... Backup finished.
 ```
 
@@ -928,8 +940,8 @@ sudo mkdir -p /var/backups/saynata && sudo chown "$USER": /var/backups/saynata
 names with sed while you copy:
 
 ```bash
-cd ~/saynata/backend/scripts/systemd
-sed -e "s|__USER__|$USER|" -e "s|__BACKEND_DIR__|$HOME/saynata/backend|" saynata-backup.service \
+cd /var/www/saynata/backend/scripts/systemd
+sed -e "s|__USER__|$USER|" -e "s|__BACKEND_DIR__|/var/www/saynata/backend|" saynata-backup.service \
   | sudo tee /etc/systemd/system/saynata-backup.service >/dev/null
 sudo cp saynata-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -943,7 +955,7 @@ To test the service the same way the timer starts it: `sudo systemctl start sayn
 **Cron instead of systemd** (if you prefer it): `crontab -e` and add one line (UTC if the server clock is UTC):
 
 ```cron
-30 21 * * * $HOME/saynata/backend/scripts/backup.sh >> $HOME/saynata-backup.log 2>&1
+30 21 * * * /var/www/saynata/backend/scripts/backup.sh >> $HOME/saynata-backup.log 2>&1
 ```
 
 **Health check (optional).** Make a free check at [healthchecks.io](https://healthchecks.io): period 1 day, grace time 2 hours,
@@ -956,8 +968,8 @@ A backup you never restored is only a hope. This command takes the newest snapsh
 **temporary Postgres container** (not the live database), prints the number of rows in each table, and removes the container:
 
 ```bash
-~/saynata/backend/scripts/restore.sh            # newest snapshot
-~/saynata/backend/scripts/restore.sh 1a2b3c4d   # a chosen snapshot (IDs: restic snapshots, after the exports in step 5)
+/var/www/saynata/backend/scripts/restore.sh            # newest snapshot
+/var/www/saynata/backend/scripts/restore.sh 1a2b3c4d   # a chosen snapshot (IDs: restic snapshots, after the exports in step 5)
 ```
 
 Expected: the table list (`dictionary_word`, `word_lookup`, `users`, `liked_item`, ...) with row counts close to the live
@@ -1012,7 +1024,7 @@ Put a monthly reminder in your calendar; the script is safe to run again.
 | Backend stays "unhealthy" | Read `logs backend`. Often a wrong `DB_PASSWORD` (the volume keeps the old one) or too little RAM. |
 | Admin page is blank after a reload | The Caddy block is missing `try_files {path} /index.html`. |
 | App cannot connect | Test the URL with `curl` from your laptop. Check DNS, the firewall, and that the URL starts with `https://`. |
-| Deploy fails with `Not possible to fast-forward` | Someone changed files in `~/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
+| Deploy fails with `Not possible to fast-forward` | Someone changed files in `/var/www/saynata` on the server. Run `git status` there, then `git checkout -- .` to drop the changes. |
 | Deploy fails with `Host key verification failed` | `VPS_KNOWN_HOSTS` is wrong or the server was rebuilt. Run `ssh-keyscan` again and update the secret. |
 | Pipeline cannot connect to `DATABASE_URL` | Is the SSH tunnel open? Does the port in the URL match `-L`? Is the compose file the new one (`docker compose -f docker-compose.prod.yml up -d` recreates Postgres with the loopback port; the data stays in the volume)? |
 | Sign-in works but no email arrives | `RESEND_API_KEY` or `EMAIL_FROM` is empty (the code is only in the log), the Resend domain is not Verified, or the key is wrong. See section 10, "How to test". With SES: sandbox or unverified address, see section 11. |
@@ -1102,7 +1114,7 @@ folder (`/var/lib/saynata/media`), 1 GB of build cache, the backups and up to 10
 The backend now calls **DeepSeek** (main, thinking off) and **Gemini** (fallback), and **Codex** writes the AI picture scene. The old `CLAUDE_*` keys are gone. The deploy workflow never writes `backend/.env`, so you switch the keys yourself, in this order. The order matters: the new backend does not start without `DEEPSEEK_API_KEY`.
 
 1. **On the VPS, add the new keys** (the old ones stay, so the running backend keeps working):
-   `cd ~/saynata/backend && scripts/migrate-env.sh`
+   `cd /var/www/saynata/backend && scripts/migrate-env.sh`
    It saves a copy (`.env.bak-<time>`, mode 600), asks for `DEEPSEEK_API_KEY` and `GEMINI_API_KEY` (hidden input) and copies `CLAUDE_DAILY_BUDGET_USD` to `LLM_DAILY_BUDGET_USD`. It prints key names only, never values, and you can run it again.
 2. **Merge `feature/local` into `main`** (the release PR). The deploy workflow rebuilds and restarts the backend (section 7).
 3. **Check it works:** `curl -s https://api.saynata.com/actuator/health` says `UP`; explain a sentence in the app; draw a scene with the wand in the admin (needs `AI_PICTURES_ENABLED=true`, section 12).

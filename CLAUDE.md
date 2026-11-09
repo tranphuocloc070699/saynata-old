@@ -36,7 +36,7 @@ Full test suites: `cd backend && ./mvnw test` · `cd pipeline && uv run pytest` 
 Merge a PR when CI is green: `scripts/merge-when-green.sh <PR>` (no Claude chat needed).
 Install on the developer's real iPhone (build, then install or replace; open it by hand): `scripts/install-on-phone.sh` (signs with the paid account's real entitlements; `PAID_ACCOUNT=0` for a free Apple ID, without App Groups, the default-translation-app capability and Sign in with Apple).
 Install the Mac app on this Mac (build, replace, register the Services item, open it): `scripts/install-on-mac.sh` (`CONFIG=Debug`, `INSTALL_DIR=/Applications`, `AD_HOC=1` when Apple ID signing fails).
-Deploy the backend to a VPS: `cd backend && ./scripts/deploy.sh` on the server, or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
+Deploy the backend to a VPS: `cd /var/www/saynata/backend && ./scripts/deploy.sh` on the server (the repo lives in **`/var/www/saynata`** on `vps_sieutoc`, not `~/saynata`), or automatically: `.github/workflows/deploy.yml` runs it over SSH after CI passes on main, then builds the admin web app and copies `admin/dist` to the server (guide and secrets: `backlog/docs/guides/doc-11 - Deploy-to-a-VPS.md`).
 
 **Simulator: always iPhone 16 Pro (iOS 18.5)** for iOS tests, builds and screenshots, by agents and in Test it cards:
 `-destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5'`. It is the developer's device, so results match what they see.
@@ -142,6 +142,7 @@ Follow the code that is already there; these are the rules it uses (TASK-12).
 - **Everywhere**: branches `feature/f<n>-<name>` for features and `f<n>/task-<id>` for their tasks, `fix/<what>` for
   fixes; merge, never rebase or force-push; every PR has a "Test it" card; only the main chat marks a task Done,
   after the developer has tested it. Commit messages start with the task ID.
+- **A merge stopped on doc-7 or doc-9** (every task appends rows there): run `scripts/resolve-story-conflict.sh`, which keeps both sides' rows and one frontmatter value per key, then `git commit --no-edit`. Do not just delete the markers: a duplicated `updated_date` line breaks the backlog CLI ("doc-7 not found").
 - **Test branch `feature/local`** (developer's rule, 2026-10-16): finished work is merged into `feature/local` first,
   not into `main`. The developer tests from `feature/local`; only after they say the test succeeded does that work go
   to `main`. New PRs target `feature/local` (or their feature branch, which is then merged into `feature/local`).

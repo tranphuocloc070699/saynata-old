@@ -39,6 +39,7 @@ services:
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/anthropic}
       # Fallback LLM (Gemini). Empty key = no fallback.
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
       GEMINI_BASE_URL: ${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai}
       LLM_TEMPERATURE: ${LLM_TEMPERATURE:-}
@@ -69,6 +70,11 @@ services:
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://api.saynata.com}
       APP_URL_SCHEME: ${APP_URL_SCHEME:-saynata}
       APPLE_APP_IDS: ${APPLE_APP_IDS:-}
+      # Revoke Sign in with Apple tokens on account deletion (TASK-112.3, doc-11 section 13). Any empty = off.
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      APPLE_TOKEN_ENCRYPTION_KEY: ${APPLE_TOKEN_ENCRYPTION_KEY:-}
       # true = guests cannot cause new model calls. Set false until the app with sign-in is released.
       REQUIRE_SIGN_IN: ${REQUIRE_SIGN_IN:-true}
       LLM_DAILY_BUDGET_USD: ${LLM_DAILY_BUDGET_USD:-1.00}

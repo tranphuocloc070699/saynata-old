@@ -14,6 +14,12 @@ import {
   type RuntimeResponse,
   type TabMessage,
 } from "../shared/messages";
+import { startSentry } from "../shared/sentry";
+
+// The worker's global scope belongs only to the extension, so listening for its uncaught errors is safe here.
+const report = startSentry(undefined, `saynata-extension@${chrome.runtime.getManifest().version}`);
+self.addEventListener("error", (event) => report(event.error));
+self.addEventListener("unhandledrejection", (event) => report(event.reason));
 
 const MENU_ID = "saynata-explain";
 const COMMAND = "explain-selection";
@@ -78,6 +84,7 @@ async function handle(request: RuntimeRequest): Promise<RuntimeResponse> {
   } catch (error) {
     if (error instanceof ApiError) return { ok: false, kind: error.kind, message: error.message };
     if (error instanceof AuthError) return { ok: false, kind: error.kind, message: error.message };
+    report(error);
     return { ok: false, kind: "server", message: "Something went wrong. Try again." };
   }
 }

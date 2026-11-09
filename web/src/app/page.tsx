@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Home } from "@/components/home/Home";
+import { LegalFooter } from "@/components/legal/LegalPage";
 import { SiteHeader } from "@/components/SiteHeader";
 
 /**
@@ -15,9 +16,7 @@ export default function Page() {
           <Home />
         </Suspense>
       </main>
-      <footer className="mx-auto w-full max-w-[1224px] px-4 pb-8 text-center text-xs text-muted sm:px-6">
-        Simple English first. Your language last.
-      </footer>
+      <LegalFooter note="Simple English first. Your language last." />
     </>
   );
 }
