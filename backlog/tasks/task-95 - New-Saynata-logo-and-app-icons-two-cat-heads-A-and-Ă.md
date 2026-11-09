@@ -5,7 +5,7 @@ status: In Progress
 assignee:
   - '@claude'
 created_date: '2026-10-23 07:47'
-updated_date: '2026-10-23 08:15'
+updated_date: '2026-11-09 09:16'
 labels:
   - design
   - ios
@@ -57,4 +57,6 @@ Built in worktree branch design/task-95-logo.
 - scripts/logo/build_logo.py makes every file; fonts DM Serif Display + Noto Serif JP (OFL) are passed as arguments, not committed.
 - Checks: SaynataMac and EnglishTranslation (iPhone 16 Pro, iOS 18.5) build OK; the Mac app now has AppIcon.icns and MenuBarIcon in Assets.car; extension npm run build OK, npm test 118 passed; check_docs 0 problems.
 - Not checked: the menu-bar icon and the new icons on a real device, and the Google consent logo (needs the developer to upload it in Google Cloud).
+
+PR: https://github.com/tranphuocloc070699/saynata/pull/146 (into feature/local)
 <!-- SECTION:NOTES:END -->

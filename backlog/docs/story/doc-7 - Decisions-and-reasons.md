@@ -5,7 +5,7 @@ type: guide
 created_date: '2026-10-11 08:52'
 updated_date: '2026-11-04 06:54'
 created_date: 2026-10-11 08:52
-updated_date: '2026-11-04T16:08:00Z'
+updated_date: '2026-11-09T10:00:00Z'
 ---
 # Decisions and reasons
 
@@ -234,6 +234,7 @@ Quotes are the developer's words, with spelling fixed.
 | 11-04 | **Web header stays as it is for now; the History button becomes a white circle like IconButton** (doc-23): "Get the app" stays in the avatar menu (and the guest download icon stays); the History link gets the IconButton default look (44 px, hairline, soft shadow) | "I think this is still ok, for now. The problem is history button feel to small" (after the Mobbin check: guests usually see a small "Get app" pill, signed-in users find it in the avatar menu) | A: a guest menu; B: a "Get app" text pill (Mindtrip style); C: keep the icon and show "Sign up" on the login page | Developer |
 | 11-04 | **Settings (iOS and Mac): "Privacy policy · Terms of use" as small links under the cards; the Source code row is removed, About Saynata stays as the only row of the About card** (TASK-112.1, mockup C; Apple guideline 5.1.1) | "C, and remove the source code and make about saynata tab". Reason: not recorded | A: a Privacy policy row in the About card (recommended); B: Privacy policy and Terms of use rows in the About card | Developer |
 | 11-04 | **Apple refresh tokens are stored AES-256-GCM encrypted, and a failed revoke on account deletion is tried twice, then logged; the account is deleted anyway** (TASK-112.3, doc-17; App Store rule for Sign in with Apple). A failed code swap at sign-in is logged and the sign-in still works | "ok" (to the plan with both as the recommended options). Claude's reasons: a copy of the database alone cannot use the tokens; a retry table and job is more code for a rare case, and the delete must never wait on Apple | Token in a plain column; a retry table with a scheduled job | Claude (options), developer (choice) |
+| 11-09 | **Branch and worktree hygiene: GitHub deletes a PR branch on merge; merge commits only (squash and rebase off); `fetch.prune` on; worktrees live only in `.claude/worktrees/`; `scripts/clean-branches.sh` removes merged branches and worktrees, and `merge-when-green.sh` runs it for each PR it merges** | "right now, there are a lot of worktree and branches, I want to refactor all of them" (294 local and 236 remote branches, about 90% already merged; 9 worktrees in 4 places), then "Yes, all 5" to the 5 rules | Clean up by hand once and keep the old habits; allow squash merges (they hide merged branches from git) | Claude |
 
 ## Questions answered
 
