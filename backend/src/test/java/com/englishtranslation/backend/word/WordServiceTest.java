@@ -221,7 +221,7 @@ class WordServiceTest {
     }
 
     @Test
-    void secondFailureIsSavedAndFlaggedWithoutAThirdCall() {
+    void secondFailureIsSavedWithoutAFlagAndWithoutAThirdCall() {
         WordEntry hard = entryWith("unwilling and hesitant", "She was reluctant to leave.");
         when(claude.describeWord("reluctant")).thenReturn(hard);
         when(claude.describeWordAgain(anyString(), anyString())).thenReturn(hard);
@@ -231,11 +231,11 @@ class WordServiceTest {
         verify(claude, times(1)).describeWord("reluctant");
         verify(claude, times(1)).describeWordAgain(anyString(), anyString());
         assertThat(response.entry()).isEqualTo(WordEntryView.of(hard, Map.of()));
-        assertThat(savedNeedsReview("reluctant")).isTrue();
+        assertThat(savedNeedsReview("reluctant")).isFalse();
     }
 
     @Test
-    void failedRetryKeepsTheFirstEntryAndFlagsIt() {
+    void failedRetryKeepsTheFirstEntryWithoutAFlag() {
         WordEntry hard = entryWith("unwilling and hesitant", "She was reluctant to leave.");
         when(claude.describeWord("reluctant")).thenReturn(hard);
         when(claude.describeWordAgain(anyString(), anyString())).thenThrow(new IllegalStateException("down"));
@@ -243,7 +243,7 @@ class WordServiceTest {
         WordResponse response = service.lookUp("reluctant");
 
         assertThat(response.entry()).isEqualTo(WordEntryView.of(hard, Map.of()));
-        assertThat(savedNeedsReview("reluctant")).isTrue();
+        assertThat(savedNeedsReview("reluctant")).isFalse();
     }
 
     @Test
