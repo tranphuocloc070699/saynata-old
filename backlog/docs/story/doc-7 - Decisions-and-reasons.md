@@ -2,8 +2,8 @@
 id: doc-7
 title: Decisions and reasons
 type: guide
-created_date: '2026-10-11 08:52'
-updated_date: '2026-11-09 07:51'
+created_date: 2026-10-11 08:52
+updated_date: '2026-11-09T10:00:00Z'
 ---
 # Decisions and reasons
 
@@ -236,6 +236,7 @@ Quotes are the developer's words, with spelling fixed.
 | 11-04 | **Apple refresh tokens are stored AES-256-GCM encrypted, and a failed revoke on account deletion is tried twice, then logged; the account is deleted anyway** (TASK-112.3, doc-17; App Store rule for Sign in with Apple). A failed code swap at sign-in is logged and the sign-in still works | "ok" (to the plan with both as the recommended options). Claude's reasons: a copy of the database alone cannot use the tokens; a retry table and job is more code for a rare case, and the delete must never wait on Apple | Token in a plain column; a retry table with a scheduled job | Claude (options), developer (choice) |
 | 11-04 | **A guest's language row shows a sign-in prompt instead of Apple Translation when the backend has no cached line** (TASK-129, mockup first) | "C". Reason: not recorded (the Apple "Required downloads" sheet showed for French on "hi" while signed out) | A: keep Apple Translation for guests (free, offline after the download); B: let guests make the LLM call too (cost per new line) | Claude (options), developer (choice) |
 | 11-09 | **AI pictures are drawn with the Flux API instead of the Codex CLI** (TASK-115.7; scene and blind guess stay on the STEYG gateway) | "Flux has an API." Context: Codex on the ChatGPT plan stopped the VPS run at the plan limit (11-05, 11-06) and its logs filled the 16 GB disk and crashed production Postgres (11-06). | Keep Codex (free per picture, but plan limits and local logs) | Developer |
+| 11-09 | **Branch and worktree hygiene: GitHub deletes a PR branch on merge; merge commits only (squash and rebase off); `fetch.prune` on; worktrees live only in `.claude/worktrees/`; `scripts/clean-branches.sh` removes merged branches and worktrees, and `merge-when-green.sh` runs it for each PR it merges** | "right now, there are a lot of worktree and branches, I want to refactor all of them" (294 local and 236 remote branches, about 90% already merged; 9 worktrees in 4 places), then "Yes, all 5" to the 5 rules | Clean up by hand once and keep the old habits; allow squash merges (they hide merged branches from git) | Claude |
 
 ## Questions answered
 

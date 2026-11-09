@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Waits for a PR's CI checks, then merges it with a merge commit (never squash or rebase).
-# Saves a long Claude chat that only waits for CI.
+# Saves a long Claude chat that only waits for CI. After the merge, scripts/clean-branches.sh removes the PR's
+# local branch and its worktree (GitHub deletes the remote branch itself).
 #
 #   scripts/merge-when-green.sh 163            # one PR
 #   scripts/merge-when-green.sh 163 165        # several, one after the other
@@ -16,6 +17,7 @@ fi
 for pr in "$@"; do
   base=$(gh pr view "$pr" --json baseRefName --jq .baseRefName)
   title=$(gh pr view "$pr" --json title --jq .title)
+  head=$(gh pr view "$pr" --json headRefName --jq .headRefName)
   if [ "$base" = "main" ]; then
     echo "PR #$pr goes into main: merge it yourself on GitHub. Skipped." >&2
     continue
@@ -32,4 +34,5 @@ for pr in "$@"; do
 
   gh pr merge "$pr" --merge
   echo "PR #$pr merged into $base."
+  "$(dirname "$0")/clean-branches.sh" --apply "$head" || echo "PR #$pr: cleanup of $head failed; run scripts/clean-branches.sh to see why." >&2
 done
