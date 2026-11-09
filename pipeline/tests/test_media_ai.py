@@ -877,3 +877,179 @@ def test_cli_media_ai_through_a_gateway_needs_no_anthropic_key(monkeypatch):
     monkeypatch.delenv("CLAUDE_BASE_URL")
     with pytest.raises(SystemExit, match="ANTHROPIC_API_KEY"):
         cli.generate_media_ai(args)
+
+
+# --- TASK-115.4: Codex logs, disk floor, stops, lost files ---------------------------------------------
+
+def codex_home_with_logs(home):
+    """What Codex left on the VPS on 2026-11-06, in small: session logs, thread history, pictures."""
+    (home / "sessions" / "2026" / "11" / "06").mkdir(parents=True)
+    (home / "sessions" / "2026" / "11" / "06" / "rollout-2026-11-06T10-00-00-other.jsonl").write_text("{}")
+    (home / "generated_images" / "other").mkdir(parents=True)
+    (home / "generated_images" / "other" / "x.png").write_bytes(b"png")
+    for name in ("thread_history_1.sqlite", "thread_history_1.sqlite-wal", "logs_2.sqlite", "auth.json",
+                 "config.toml", "state_5.sqlite"):
+        (home / name).write_text("x")
+    (home / "log").mkdir()
+    (home / "log" / "codex-tui.log").write_text("x")
+
+
+def test_with_clean_a_draw_deletes_its_own_session_log_and_pictures_only(tmp_path):
+    codex_home_with_logs(tmp_path)
+    mine = tmp_path / "sessions" / "2026" / "11" / "06" / f"rollout-2026-11-06T10-01-00-{SESSION}.jsonl"
+    mine.write_text("{}")
+    drawer, _ = fake_codex(tmp_path)
+    drawer.clean = True
+    drawn = drawer.draw("p")
+    assert Image.open(io.BytesIO(drawn.image)).size == (20, 20)       # read before the folder went
+    assert not mine.exists() and not (tmp_path / "generated_images" / SESSION).exists()
+    assert (tmp_path / "generated_images" / "other" / "x.png").exists()  # another worker's call is left alone
+    assert len(list((tmp_path / "sessions").rglob("*.jsonl"))) == 1
+
+
+def test_without_clean_a_draw_deletes_nothing(tmp_path):
+    drawer, _ = fake_codex(tmp_path)
+    drawer.draw("p")
+    assert (tmp_path / "generated_images" / SESSION / "b.png").exists()
+
+
+def test_clean_home_deletes_every_codex_log_but_keeps_the_login_and_config(tmp_path):
+    codex_home_with_logs(tmp_path)
+    drawer, _ = fake_codex(tmp_path)
+    drawer.clean_home()
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["auth.json", "config.toml", "state_5.sqlite"]
+
+
+def test_clean_refuses_a_persons_own_codex_home(tmp_path, monkeypatch):
+    monkeypatch.setattr(media_ai.Path, "home", lambda: tmp_path)
+    with pytest.raises(ProviderStop, match="CODEX_HOME"):
+        CodexDrawer(run=lambda *a, **k: None, home=tmp_path / ".codex", clean=True)
+    CodexDrawer(run=lambda *a, **k: None, home=tmp_path / ".codex-pipeline", clean=True)  # the pipeline's own: fine
+
+
+def test_batches_wait_until_nothing_is_in_flight_then_clean_up(media_dir):
+    store = FakeStore(several(5))
+    drawer = FakeDrawer()
+    seen: list[int] = []  # pictures drawn when each cleanup ran: always a whole batch, never half of one
+    summary, lines = run_it(store, media_dir, drawer=drawer, workers=2, batch=2,
+                            between_batches=lambda: seen.append(len(drawer.prompts)))
+    assert len(summary.results) == 5 and summary.stopped_by is None
+    assert seen == [2, 4, 5]  # after senses 2 and 4, and after the last one
+    assert sum("batch of 2 senses done" in line for line in lines) == 2
+
+
+def test_no_new_sense_starts_below_the_disk_floor(media_dir):
+    store = FakeStore(several(4))
+    free = iter([5 * 2 ** 30, 5 * 2 ** 30, 1 * 2 ** 30])  # the third check finds 1 GB
+    summary, _ = run_it(store, media_dir, workers=1, min_free_disk=2 * 2 ** 30, free_disk=lambda: next(free))
+    assert len(summary.results) == 2 and summary.skipped == 2
+    assert summary.stopped_by.startswith("disk: only 1.0 GB free")
+    lines: list[str] = []
+    media_ai.print_summary(summary, 1, 5.0, lines.append)
+    assert any("Stopped: disk" in line for line in lines)
+
+
+def test_the_disk_is_not_checked_by_default(media_dir):
+    summary, _ = run_it(FakeStore(several(2)), media_dir, workers=1, free_disk=lambda: 0)
+    assert len(summary.results) == 2
+
+
+def test_a_stop_on_the_last_sense_is_still_a_stop(media_dir):
+    """2026-11-05: the bundled pass stopped at the Codex plan limit, the backend pass ran anyway and its
+    '91 senses are left' was the last line, hiding about 2,900 bundled senses still left."""
+    store = FakeStore(several(1))
+    summary, _ = run_it(store, media_dir, drawer=FakeDrawer(fail=ProviderStop("codex: usage limit")), workers=1)
+    assert summary.skipped == 0 and summary.stopped_by == "codex: usage limit"
+
+
+def test_the_summary_always_says_how_many_senses_are_left(media_dir):
+    summary = media_ai.RunSummary(remaining=2148, stopped_by="codex: usage limit")
+    lines: list[str] = []
+    media_ai.print_summary(summary, 4, 40.0, lines.append)
+    assert any(line.startswith("2148 senses are left") for line in lines)
+
+
+class LostStore(FakeStore):
+    def __init__(self, rows):
+        super().__init__([])
+        self.rows, self.forgotten = rows, []
+
+    def unlinked_passed(self):
+        return self.rows
+
+    def forget(self, sense_ids):
+        self.forgotten += sense_ids
+
+    def report_rows(self):
+        return []
+
+
+def test_a_passed_picture_whose_file_is_gone_is_drawn_again(media_dir):
+    rows = [{"id": 1, "sense_id": 10, "file_name": "right_1_ai_073a92ee.webp", "lemma": "right", "position": 0},
+            {"id": 2, "sense_id": 11, "file_name": "bank_1_ai_aaaaaaaa.webp", "lemma": "bank", "position": 0},
+            {"id": 3, "sense_id": 12, "file_name": "old_1_ai_bbbbbbbb.webp", "lemma": "old", "position": 0}]
+    (media_dir / "bank_1_ai_aaaaaaaa.webp").write_bytes(b"webp")      # here: fine
+    store = LostStore(rows)
+    lines: list[str] = []
+    count = media_ai.forget_lost(store, media_dir, on_server=lambda name: name.startswith("old"), log=lines.append)
+    assert count == 1 and store.forgotten == [10]                      # old_ is on the server: not lost
+    assert "right_1_ai_073a92ee.webp" in lines[0]
+
+
+def test_nothing_is_forgotten_when_every_file_is_there(media_dir):
+    store = LostStore([{"id": 1, "sense_id": 10, "file_name": "a.webp", "lemma": "a", "position": 0}])
+    (media_dir / "a.webp").write_bytes(b"x")
+    assert media_ai.forget_lost(store, media_dir, on_server=lambda name: False, log=lambda line: None) == 0
+    assert store.forgotten == []
+
+
+def test_pg_forget_makes_a_passed_sense_pending_again_and_keeps_its_tries_under_the_lost_version(pg):
+    seed_pg(pg)
+    store = media_ai.PostgresStore(pg)
+    item = pg_sense(store, "bank", 0)
+    store.save_result(finished(item, passed=True, name="bank_1_ai_aaaaaaaa.webp"))
+    assert store.count_pending(["bank"], False) == 2
+    store.forget([item["id"]])
+    assert store.count_pending(["bank"], False) == 3 and store.unlinked_passed() == []
+    with pg.cursor() as cursor:
+        cursor.execute("SELECT prompt_version FROM media_generation WHERE sense_id = %s", (item["id"],))
+        assert [row[0] for row in cursor.fetchall()] == [media_ai.LOST_VERSION]
+
+
+def test_cli_wires_batches_cleanup_disk_floor_and_exits_3_when_the_run_stopped(monkeypatch, tmp_path):
+    """The VPS script stops before the backend pass only when media-ai exits 3 (TASK-115.4)."""
+    import sys
+    from pipeline import cli, postgres, media_generate
+
+    class Pg:
+        def close(self):
+            pass
+
+    calls: dict = {}
+
+    class Drawer:
+        def __init__(self, clean=False):
+            calls["clean"] = clean
+
+        def clean_home(self):
+            calls["cleaned"] = calls.get("cleaned", 0) + 1
+
+    def fake_run(store, services, **kwargs):
+        calls.update(kwargs)
+        return media_ai.RunSummary(remaining=5, stopped_by="codex: usage limit")
+
+    monkeypatch.setattr(postgres, "connect", lambda *a, **k: Pg())
+    monkeypatch.setattr(postgres, "database_url", lambda given=None: "postgresql://test")
+    monkeypatch.setattr(media_ai, "PostgresStore", lambda pg: LostStore([]))
+    monkeypatch.setattr(media_ai, "CodexDrawer", Drawer)
+    monkeypatch.setattr(media_ai, "run", fake_run)
+    monkeypatch.setattr(media_ai, "write_report", lambda *a, **k: 0)
+    monkeypatch.setattr(media_generate, "is_on_server", lambda base_url: lambda name: False)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setattr(sys, "argv", ["pipeline", "media-ai", "--all", "--batch", "100", "--clean-codex-home",
+                                      "--min-free-gb", "2", "--media-dir", str(tmp_path), "--report", str(tmp_path / "r.html")])
+    with pytest.raises(SystemExit) as stopped:
+        cli.main()
+    assert stopped.value.code == media_ai.EXIT_STOPPED == 3
+    assert calls["clean"] is True and calls["batch"] == 100 and calls["min_free_disk"] == 2 * 1024 ** 3
+    assert calls["between_batches"] is not None and calls["cleaned"] == 1  # once before the run (the fake run adds none)

@@ -322,14 +322,22 @@ def generate_media_ai(args) -> None:
         pg.close()
         return
     try:
-        drawer = None if args.dry_run else media_ai.CodexDrawer()  # a dry run draws nothing, so it needs no Codex
+        # a dry run draws nothing, so it needs no Codex
+        drawer = None if args.dry_run else media_ai.CodexDrawer(clean=args.clean_codex_home)
     except ProviderStop as error:
         pg.close()
         raise SystemExit(f"media-ai: {error}")
     services = media_ai.Services(media_ai.make_fetch(args.scene_effort), drawer, media_dir)
+    if not args.dry_run:
+        base_url = args.media_base_url or os.environ.get("MEDIA_BASE_URL") or DEFAULT_MEDIA_BASE_URL
+        media_ai.forget_lost(store_, media_dir, is_on_server(base_url))
+        if args.clean_codex_home:
+            drawer.clean_home()  # what an earlier run left (a crash, a kill); no pipeline Codex runs yet
     summary = media_ai.run(
         store_, services, words=words or None, limit=args.limit or 100000, redo=args.redo,
         max_cost=args.max_cost, workers=args.workers, dry_run=args.dry_run,
+        batch=args.batch, between_batches=drawer.clean_home if drawer and args.clean_codex_home else None,
+        min_free_disk=int(args.min_free_gb * 1024 ** 3),
     )
     if not args.dry_run:
         media_ai.print_summary(summary, args.workers, args.max_cost)
@@ -337,6 +345,8 @@ def generate_media_ai(args) -> None:
         count = media_ai.write_report(rows, Path(args.report), media_dir)
         print(f"\nReport with {count} senses: {args.report}")
     pg.close()
+    if summary.stopped_by:  # the cap, a Codex plan limit or login, low disk, Ctrl-C: a script must not go on
+        raise SystemExit(media_ai.EXIT_STOPPED)
 
 
 def topic_words(args) -> None:
@@ -980,6 +990,12 @@ def main() -> None:
     ai_parser.add_argument("--scene-effort", choices=["low", "medium", "high", "xhigh", "max"],
                            help="thinking effort of the scene call (default: the API default); lower is cheaper")
     ai_parser.add_argument("--media-dir", default="data/media", help="folder for the files (default data/media)")
+    ai_parser.add_argument("--batch", type=int, default=0, help="wait for the running senses after every N senses "
+                           "(with --clean-codex-home: delete Codex's logs then); default 0, no batches")
+    ai_parser.add_argument("--clean-codex-home", action="store_true", help="delete Codex's session logs after each "
+                           "picture and every Codex log between batches; only for the pipeline's own CODEX_HOME (the VPS)")
+    ai_parser.add_argument("--min-free-gb", type=float, default=0, help="start no new sense when free disk on / is "
+                           "below this many GB (the VPS uses 2); default 0, no check")
     ai_parser.add_argument("--media-base-url", help="where the server serves the files (default MEDIA_BASE_URL "
                            "or https://api.saynata.com/media)")
     ai_parser.add_argument("--report", default="data/out/media-ai.html")
