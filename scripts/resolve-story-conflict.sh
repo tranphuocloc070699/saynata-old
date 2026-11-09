@@ -9,7 +9,9 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 echo "1/3 Finding conflicted files"
-mapfile -t conflicted < <(git diff --name-only --diff-filter=U)
+# A read loop, not mapfile: macOS ships bash 3.2, which has no mapfile.
+conflicted=()
+while IFS= read -r f; do conflicted+=("$f"); done < <(git diff --name-only --diff-filter=U)
 [ "${#conflicted[@]}" -gt 0 ] || { echo "No conflicted files. Nothing to do."; exit 0; }
 story=()
 for f in "${conflicted[@]}"; do

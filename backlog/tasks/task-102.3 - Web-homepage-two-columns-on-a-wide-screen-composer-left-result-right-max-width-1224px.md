@@ -6,6 +6,7 @@ title: >-
 status: To Do
 assignee: []
 created_date: '2026-10-24 16:58'
+updated_date: '2026-11-09 09:16'
 labels:
   - web
 dependencies: []
@@ -21,9 +22,9 @@ On a PC the result pushed the page below the fold. With a result, a wide screen 
 
 ## Acceptance Criteria
 <!-- AC:BEGIN -->
-- [ ] #1 At lg and up, a word or sentence result sits right of a sticky composer
-- [ ] #2 Idle page keeps the composer centred at 680px
-- [ ] #3 Phone width keeps one column with no horizontal scroll
+- [x] #1 At lg and up, a word or sentence result sits right of a sticky composer
+- [x] #2 Idle page keeps the composer centred at 680px
+- [x] #3 Phone width keeps one column with no horizontal scroll
 <!-- AC:END -->
 
 ## Definition of Done
@@ -32,3 +33,9 @@ On a PC the result pushed the page below the fold. With a result, a wide screen 
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+Merged into feature/local in PR #188 (2f52ac1). The developer tested it on 2026-10-25. Goes to main with the next release.
+<!-- SECTION:NOTES:END -->
