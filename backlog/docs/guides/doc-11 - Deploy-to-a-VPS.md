@@ -2,8 +2,8 @@
 id: doc-11
 title: Deploy to a VPS
 type: guide
-created_date: 2026-10-11 16:33
-updated_date: '2026-11-05T08:26:00Z'
+created_date: '2026-10-11 16:33'
+updated_date: '2026-11-11 08:30'
 ---
 # Deploy to a VPS
 
@@ -1121,3 +1121,45 @@ The backend now calls **DeepSeek** (main, thinking off) and **Gemini** (fallback
 4. **Remove the old keys:** `scripts/migrate-env.sh --cleanup`. It removes `CLAUDE_API_KEY`, `CLAUDE_BASE_URL`, `CLAUDE_AUTH_TOKEN`, `CLAUDE_MODEL`, `CLAUDE_SCENE_MODEL`, `CLAUDE_EFFORT`, `CLAUDE_TEMPERATURE`, `CLAUDE_WARM_UP` and `AI_SCENE_DAILY_USD`, and renames `CLAUDE_DAILY_BUDGET_USD` to `LLM_DAILY_BUDGET_USD`. Delete the `.env.bak-*` copy when you are happy: it holds the old secrets.
 
 To test the fallback: put a wrong `DEEPSEEK_API_KEY` in a local `.env`, explain a sentence, and the log says `DeepSeek failed ... answering with Gemini`. The usage rows (`GET /api/admin/usage`) then show the Gemini model.
+
+## 20. Run the whole stack on your Mac (no VPS)
+
+Added 2026-11-11, when the VPS was about to expire. Two scripts do it all.
+
+**1. Copy the server data to the Mac** (needs SSH to `vps_sieutoc`; Docker running: `colima start`):
+
+```bash
+backend/scripts/pull-from-vps.sh
+```
+
+It dumps the VPS Postgres, loads it into the local Postgres (`backend/compose.yaml`, port **5433**, Docker volume
+**`saynata-pgdata`**), copies the media folder and the server `.env` into `backend/local-data/` (git-ignored), and prints
+the row count of every table on both sides. The volume keeps the data across restarts and `docker compose down`
+(only `docker volume rm saynata-pgdata` deletes it). A second run stops if the local database has data; `FORCE=1`
+replaces it. When the VPS is gone, the last dump stays in `backend/local-data/dumps/`.
+
+**2. Start everything:**
+
+```bash
+scripts/run-local.sh
+```
+
+| Part | Address | Notes |
+|---|---|---|
+| Postgres | `127.0.0.1:5433` | user `app`, password `secret`, db `english_translation` |
+| Media | `http://localhost:8090/media/` | `python3 -m http.server` on `backend/local-data/media` (Caddy's job on the VPS) |
+| Backend | `http://localhost:8081` | `./mvnw spring-boot:run`, secrets from `backend/.env`; the script sets only `MEDIA_DIR`, `MEDIA_BASE_URL`, `PUBLIC_BASE_URL`, `SERVER_ADDRESS` |
+| Admin | `http://localhost:5173` | `VITE_API_URL=http://localhost:8081` |
+| Web | `http://localhost:3000` | `SAYNATA_API_ORIGIN=http://localhost:8081` |
+
+`scripts/run-local.sh status` checks each part; `scripts/run-local.sh stop` stops them (the data stays). Logs are in
+`backend/local-data/logs/`. Everything listens on localhost only.
+
+**The iPhone app.** The app reads its server from `BackendBaseURL` in `Info.plist` (`https://api.saynata.com`). To use
+the Mac: start with `LAN=1 scripts/run-local.sh` (backend and media open to the Wi-Fi), and set `BackendBaseURL` to
+`http://<the Mac's Wi-Fi address>:8081` (the script prints it). The simulator can use `http://localhost:8081`. Plain
+`http` needs an App Transport Security exception for that address in a debug build.
+
+**Secrets.** `backend/local-data/vps.env` holds the server's keys (Apple, R2, JWT secrets). Copy a key into
+`backend/.env` only when you need it locally; for example the server `USER_JWT_SECRET` keeps the phone's sign-in
+valid against the local backend.

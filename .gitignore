@@ -18,3 +18,6 @@ EnglishTranslation/PaidAssets/
 
 # Cloudflare API token for scripts/dns.sh (local only)
 scripts/.env
+
+# Local copy of the VPS data (backend/scripts/pull-from-vps.sh): dumps, media, server .env
+backend/local-data/

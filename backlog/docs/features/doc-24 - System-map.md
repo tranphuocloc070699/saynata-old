@@ -3,7 +3,7 @@ id: doc-24
 title: System map
 type: other
 created_date: '2026-10-24 11:30'
-updated_date: '2026-11-09 06:49'
+updated_date: '2026-11-11 08:35'
 ---
 # System map
 
@@ -21,6 +21,10 @@ When a change adds a part, changes the stack or a model, or changes a command, u
 | `web/` | Next.js 16 (App Router), TypeScript, Tailwind 4, GSAP, Vitest | The website for learners (TASK-102, doc-23). The homepage (TASK-102.1), **`/download`** (TASK-102.9: iPhone, Mac and extension cards from one config file `lib/downloads.ts`, a QR code made with the `qrcode` package; doc-23) and **sign-in** (TASK-102, doc-17): `/sign-in` and `/sign-up` are one form, the Apple and Google pills, then the 6-digit email code (no emailed link, it is app-only); the account menu sits in the header; the session is in localStorage (`lib/auth.ts`, one shared refresh); a signed-in user gets new Claude calls; a cat room from the same paid pack sits left of the form, hidden under 760px. The homepage is one composer card with a Mochi cat on its edge (one paid sprite sheet per visit, served by Caddy at `/cats/` from `/var/lib/saynata/web-cats`, uploaded with `scripts/upload-web-cats.sh`, never in git; our own pixel cat when missing), suggestions from `GET /api/suggest` (the user's own matching recent words first, numbered chips opened with Alt+1..9, arrow keys and Enter on the chips, a grey inline completion accepted with Tab; TASK-116), and the word or sentence result below; the query is in the address (`/?q=`). The API client is a copy of `extension/src/shared/`. `/api` is same-origin (a rewrite in `next.config.ts` to `SAYNATA_API_ORIGIN`, default `https://api.saynata.com`), because the backend has no CORS setup. GSAP runs only with `prefers-reduced-motion: no-preference` (`lib/motion.ts`). Run: `cd web && npm run dev`. Tests: `cd web && npm test`; build: `npm run build`. **Deploy (TASK-102.2, doc-23, doc-11 section 14):** `output: "standalone"`; the `deploy-web` job in `deploy.yml` builds on GitHub, copies the server to `web/dist` on the VPS and `web/scripts/deploy-web.sh` runs it as the `web` service (`node:22-alpine`, `127.0.0.1:3001`) in `docker-compose.prod.yml`; Caddy sends `saynata.com/api/*` to the backend and the rest to it (Caddy block and DNS by hand). **Domain (TASK-104, doc-11 section 15):** the product domain is `saynata.com` (`scripts/dns.sh` sets the Cloudflare DNS, token in git-ignored `scripts/.env`); `loffy.me` stays as an alias in Caddy, in the admin CORS origins and in the extension `host_permissions` for one release, and `EMAIL_FROM` stays on it until saynata.com is verified in Resend. |
 
 Last updated: 2026-10-24 (moved here from CLAUDE.md, so the detail is read only when needed).
+
+## Run everything locally (no VPS)
+
+`backend/scripts/pull-from-vps.sh` copies the VPS Postgres into the local Docker volume `saynata-pgdata` (`backend/compose.yaml`, port 5433) and the media folder and server `.env` into `backend/local-data/` (git-ignored). `scripts/run-local.sh [start|status|stop]` starts Postgres, a media file server (:8090), the backend (:8081), admin (:5173) and web (:3000) on localhost; `LAN=1` opens backend and media to the Wi-Fi for the phone. Guide: doc-11, section 20.
 
 ## Error reporting (Sentry, TASK-128)
 

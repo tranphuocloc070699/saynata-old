@@ -1,3 +1,7 @@
+# Local Postgres for development. `./mvnw spring-boot:run` starts it by itself (spring-boot-docker-compose).
+# The data lives in the Docker volume "saynata-pgdata", so it survives restarts and `docker compose down`.
+# A copy of the VPS data is loaded into it with: backend/scripts/pull-from-vps.sh (guide: doc-11, section 20).
+# Port 5433 on this Mac only: 5432 is often an SSH tunnel to the server.
 services:
   postgres:
     image: 'postgres:17'
@@ -5,5 +9,11 @@ services:
       - 'POSTGRES_DB=english_translation'
       - 'POSTGRES_PASSWORD=secret'
       - 'POSTGRES_USER=app'
+    volumes:
+      - 'pgdata:/var/lib/postgresql/data'
     ports:
-      - '5432'
+      - '127.0.0.1:5433:5432'
+
+volumes:
+  pgdata:
+    name: saynata-pgdata
