@@ -5,3 +5,4 @@ data/*
 !data/common_sentences.tsv
 .env.*
 !.env.example
+gateway.env
