@@ -96,6 +96,21 @@ Do not edit Backlog task, draft, document, decision, or milestone markdown files
   with `set -euo pipefail`, a header comment (what it does, where to run it, that it is safe to run again), a short
   progress line per step, and a check that stops before anything is changed when an input looks wrong. Commit it in
   the same change. Example: `backend/scripts/deploy.sh`. Up to 3 commands may still be given one per block.
+- **One job = one command, the script writes its own config** (developer's rule, 2026-11-04: "I'm lazy").
+  - A job with several scripts or steps (setup, check, start) gets **one** entry command that runs them in order.
+    Extra subcommands (`status`, `stop`) are fine, but the normal path is one command.
+  - The script writes any config or `.env` file it needs, with every non-secret value filled in (URLs, models,
+    paths). Secrets are left as empty keys, and the script stops with "fill X in <file>, then run this again".
+    The file is git-ignored and `chmod 600`.
+  - The script never asks for anything the repo or the server already knows (for example the DB password in
+    `backend/.env`).
+  - Before a paid or long step, the script runs every check first, shows the estimate, and waits a few seconds
+    (Ctrl+C to cancel). A failed check stops it before anything paid starts.
+  - Test the script before handing it over, with fakes for what this container cannot reach (ssh, gateway, CLI).
+    Say what was tested and what was not.
+  - **Before asking the developer to run anything**, give the branch it is on and the exact commands, starting with
+    `git fetch origin && git switch <branch> && git pull`. Never give a path that only exists on another branch.
+  - Example: `pipeline/scripts/media-ai-on-vps.sh`.
 - **Feature status with every "please test".** When you ask the developer to test, start with a short status
   table of all features (F1-F4 and other user-facing tasks): done and merged, ready to test now, in progress,
   not started. Say exactly which ones this build contains, so they do not test something that is not built.

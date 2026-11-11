@@ -48,6 +48,8 @@ const chips: Chip[] = [
   { id: "needs-review", label: "Needs review", description: "The text check found a problem.", field: "needs_review", value: true, group: "Status" },
   { id: "has-media", label: "Has media", description: "At least one sense has a picture or a clip.", field: "media", value: "with", group: "Media" },
   { id: "no-media", label: "No media", description: "No sense has a picture or a clip yet.", field: "media", value: "without", group: "Media" },
+  { id: "media-to-review", label: "Media to review", description: "A picture changed and nobody checked it yet.", field: "media", value: "review", group: "Media" },
+  { id: "wrong-media", label: "Wrong media", description: "A picture is marked wrong and waits for a new one.", field: "media", value: "wrong", group: "Media" },
 ];
 
 // Why a word needs review: the lines from the backend, or a hint when the entry is fine now.

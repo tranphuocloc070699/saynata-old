@@ -138,6 +138,8 @@ describe("words page", () => {
       "Needs review",
       "Has media",
       "No media",
+      "Media to review",
+      "Wrong media",
     ]);
   });
 

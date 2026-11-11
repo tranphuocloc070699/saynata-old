@@ -3,7 +3,8 @@ id: TASK-115.5
 title: 'Ship the AI pictures: rsync, link, review failed, export, new app build'
 status: To Do
 assignee: []
-created_date: '2026-10-25 15:11'
+created_date: 2026-10-25 15:11
+updated_date: '2026-11-04T08:01:00Z'
 labels:
   - media
   - pipeline
@@ -34,3 +35,9 @@ Putting the pictures on production. Linking is data only (no backend deploy). Ol
 - [ ] #2 Feature doc (backlog/docs/features/) updated if a flow changed
 - [ ] #3 CLAUDE.md overview updated if the stack, folders, or commands changed
 <!-- DOD:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+2026-11-04: 'pipeline/scripts/replace-pixabay-pictures.sh ship' does rsync + chown, media-ai --link (bundled and --backend), and pipeline export. Then review a sample in the admin and build the app.
+<!-- SECTION:NOTES:END -->
